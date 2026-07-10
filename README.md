@@ -169,5 +169,3 @@ Feel free to open an issue or submit a pull request.
 This project is licensed under the MIT License.
 
 ---
-
-> *"The deeper you descend, the stronger—or stranger—you become."*
