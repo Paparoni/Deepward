@@ -27,6 +27,7 @@ Deepward is a classic text-based dungeon crawler focused on meaningful character
 
 ## Planned Features
 
+- Saving
 - Additional classes
 - More skill trees
 - Crafting and enchanting
@@ -148,7 +149,6 @@ Feel free to open an issue or submit a pull request.
 - [ ] Boss fights
 - [ ] Crafting
 - [ ] Endgame content
-- [ ] Modding API
 
 ---
 
