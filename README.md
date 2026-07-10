@@ -5,7 +5,7 @@
 Deepward is a classic text-based dungeon crawler focused on meaningful character progression, strategic combat, randomized loot, and expandable game systems. Inspired by old-school RPGs and roguelikes, every expedition into the depths offers new enemies, equipment, and opportunities to create unique builds.
 
 **About the Project**
-Deepward is a fun little passion project created out of a love for classic dungeon crawlers, roguelikes, and old-school RPGs. Built entirely with HTML, CSS, and vanilla JavaScript, it's both a creative hobby and a place to experiment with game design. The project is actively developed in my spare time and will continue to grow with new content and features over time.
+- Deepward is a fun little passion project created out of a love for classic dungeon crawlers, roguelikes, and old-school RPGs. Built entirely with HTML, CSS, and vanilla JavaScript, it's both a creative hobby and a place to experiment with game design. The project is actively developed in my spare time and will continue to grow with new content and features over time.
 
 ---
 ## ✨ Features
