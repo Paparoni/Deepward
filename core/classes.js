@@ -4,15 +4,34 @@
 const A = (name, manaCost, action, desc, extra={}) => ({name, kind:'active', manaCost, action, desc, ...extra});
 const P = (name, effect, desc) => ({name, kind:'passive', effect, desc});
 
+// Every discipline continues beyond its signature skill into a mastery arc. The
+// arc inherits its route's damage type and combat style, keeping the late tree
+// coherent without duplicating a separate set of definitions for every class.
+function advancedNodes(route){
+  const elementalSkill = [...route.nodes].reverse().find(node=>node.forcedElement);
+  const element = elementalSkill?.forcedElement || 'physical';
+  const magic = route.nodes.some(node=>node.magic);
+  const primaryStat = magic ? 'matk' : 'atk';
+  const damageStat = `${element}Dmg`;
+  const damageLabel = element==='physical' ? 'physical' : element;
+  return [
+    P(`${route.name} Mastery`, {type:'statBonus', stat:primaryStat, value:7}, `+7 ${primaryStat.toUpperCase()} permanently.`),
+    A(`${route.name} Counterstroke`, 15, 'nuke', `A perfected 150% ${damageLabel} attack.`, {power:1.5, magic, forcedElement:element}),
+    P(`${route.name} Attunement`, {type:'statBonus', stat:damageStat, value:12}, `+12% ${damageLabel} damage.`),
+    A(`${route.name} Ascendance`, 23, 'aoe', `Unleash 135% ${damageLabel} damage against every enemy.`, {power:1.35, magic, forcedElement:element}),
+    P(`${route.name} Paragon`, {type:'bonusDamagePct', value:15}, '+15% damage dealt.'),
+  ];
+}
+
 function makeClass(id, name, icon, desc, statMods, routes){
   const choiceGroup = `${id}-discipline`;
   return {
     id, name, icon, desc, statMods,
-    skillTree: routes.flatMap(route => route.nodes.map((node, index) => ({
+    skillTree: routes.flatMap(route => [...route.nodes, ...advancedNodes(route)].map((node, index) => ({
       ...node,
       id: `${id}_${route.id}_${index + 1}`,
       tier: index + 1,
-      cost: index === 4 ? 2 : 1,
+      cost: index >= 8 ? 3 : index >= 4 ? 2 : 1,
       branch: route.name,
       requires: index ? `${id}_${route.id}_${index}` : null,
       choiceGroup: index === 0 ? choiceGroup : null,
