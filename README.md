@@ -10,22 +10,22 @@ Deepward is a fun little passion project created out of a love for classic dunge
 The project is actively developed in my spare time and will continue to grow with new content, features, and gameplay systems over time.
 
 ---
-## ✨ Features
+##  Features
 
-- ⚔️ Turn-based text combat
-- 🛡️ Multiple playable classes with unique abilities
-- 🌳 Expandable skill tree system
-- 🎒 Inventory and equipment management
-- 💎 Randomized loot with rarity tiers
-- 🏹 Weapons, armor, and accessories
-- 📈 Experience, leveling, and stat progression
-- 🏰 Procedurally generated dungeon encounters
-- 💰 Shops and merchants
-- 💀 Boss encounters
-- 🎲 RNG-driven gameplay with high replayability
-- 🧩 Modular architecture for adding new content
-- 🌐 Runs entirely in the browser—no installation required
-- 🔨 Crafting *(Work in Progress)*
+- Turn-based text combat
+- Multiple playable classes with unique abilities
+- Expandable skill tree system
+- Inventory and equipment management
+- Randomized loot with rarity tiers
+- Weapons, armor, and accessories
+- Experience, leveling, and stat progression
+- Procedurally generated dungeon encounters
+- Shops and merchants
+- Boss encounters
+- RNG-driven gameplay with high replayability
+- Modular architecture for adding new content
+- Runs entirely in the browser—no installation required
+- Crafting *(Work in Progress)*
 
 ---
 
