@@ -5,7 +5,7 @@ let STATE = null;
 let PENDING_CLASS = CLASSES[0].id;
 
 function newGame(name, classId){
-  const player = {name, classId, level:1, xp:0, gold:40, hp:1, mp:1, skillPoints:1, unlockedSkills:[]};
+  const player = {name, classId, level:1, xp:0, gold:40, hp:1, mp:1, skillPoints:1, unlockedSkills:[], recipes:[], materials:{}};
   const equipment = {
     weapon: Generators.generateItem(1, {forcedSlot:'weapon', forcedTier:'common'}),
     helmet:null, chest: Generators.generateItem(1, {forcedSlot:'chest', forcedTier:'common'}),
@@ -13,7 +13,7 @@ function newGame(name, classId){
   };
   const state = {
     screen:'town', player, equipment, inventory:[], dungeon:null, mode:'explore',
-    combat:null, log:[], ui:{choices:null, invOpen:false, skillsOpen:false, merchantStock:null, pendingItem:null},
+    combat:null, log:[], ui:{choices:null, invOpen:false, skillsOpen:false, craftOpen:false, merchantStock:null, pendingItem:null},
   };
   Engine.refreshDerived(state);
   state.player.hp = state.derived.maxHp;

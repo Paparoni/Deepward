@@ -32,3 +32,18 @@ const MYTHIC_TRAITS = [
   {id:'undying',      name:'Undying Will',      type:'damageCapPct',     base:35, perLvl:0.3, desc:v=>`Incoming hits can never deal more than ${v}% of your max HP at once.`},
   {id:'godslayer',    name:"Godslayer's Mark",  type:'bonusDamagePct',   base:20, perLvl:0.5, desc:v=>`+${v}% damage dealt to all enemies.`},
 ];
+
+// These traits belong only to Soulforge creations. They never enter the random
+// mythic pool, so each recipe produces a reliable build-defining reward.
+const CRAFTED_MYTHIC_TRAITS = [
+  {id:'soulforge_fury', name:'Soulforge Fury', type:'comboDamage', base:9, perLvl:.25, desc:v=>`Each consecutive hit gains ${v}% damage.`},
+  {id:'dawnward', name:'Dawnward Aegis', type:'damageImmuneChance', base:10, perLvl:.18, desc:v=>`${v}% chance to take no damage.`},
+  {id:'tempest_step', name:'Tempest Step', type:'extraTurnChance', base:16, perLvl:.18, desc:v=>`${v}% chance to immediately act again.`},
+  {id:'grave_pact', name:'Grave Pact', type:'lifesteal', base:12, perLvl:.22, desc:v=>`Heal for ${v}% of damage dealt.`},
+  {id:'plague_crown', name:'Plague Crown', type:'stunChance', base:13, perLvl:.2, desc:v=>`${v}% chance to stun on hit.`},
+  {id:'phoenix_ward', name:'Phoenix Ward', type:'reviveOncePerFight', base:38, perLvl:.18, desc:v=>`Once per battle, survive a killing blow with ${v}% HP.`},
+  {id:'riftsong', name:'Riftsong', type:'echoStrike', base:48, perLvl:.3, desc:v=>`${v}% chance to echo an attack for 40% damage.`},
+  {id:'titan_oath', name:'Titan Oath', type:'damageCapPct', base:22, perLvl:.16, desc:v=>`Incoming hits cannot exceed ${v}% max HP.`},
+  {id:'void_hunger', name:'Void Hunger', type:'bonusDamagePct', base:24, perLvl:.35, desc:v=>`+${v}% damage dealt.`},
+  {id:'reaper_seal', name:'Reaper Seal', type:'executeThreshold', base:18, perLvl:.2, desc:v=>`Instantly finish enemies below ${v}% HP.`},
+];

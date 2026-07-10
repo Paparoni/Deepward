@@ -95,6 +95,11 @@ const Generators = {
     };
   },
 
+  rollCraftingMaterial(isBoss=false){
+    if(Math.random() > (isBoss ? 0.85 : 0.28)) return null;
+    return U.pick(CRAFTING_MATERIALS);
+  },
+
   monsterFromTemplate(tpl, dungeonLevel, mult=1, isBoss=false){
     // convex (level^exponent) growth keeps late dungeons scaling up faster than early
     // ones, so late game doesn't trivialize once players stack compounding gear tiers.

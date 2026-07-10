@@ -7,6 +7,7 @@ function startFromTitle(){
   newGame(val || 'Wanderer', PENDING_CLASS);
 }
 function toggleInventory(){ STATE.ui.invOpen = !STATE.ui.invOpen; render(); }
+function toggleCrafting(){ STATE.ui.craftOpen = !STATE.ui.craftOpen; render(); }
 function toggleSkills(){ STATE.ui.skillsOpen = !STATE.ui.skillsOpen; render(); }
 function onUnlockSkill(skillId){ Engine.unlockSkill(STATE, skillId); render(); }
 function onUseSkill(skillId){ Engine.useSkill(STATE, skillId); render(); }
@@ -22,6 +23,10 @@ function onEquipItem(uid){
 function onSellItem(uid){
   const item = STATE.inventory.find(i=>i.uid===uid);
   if(item) Engine.sell(STATE, item);
+  render();
+}
+function onCraftItem(recipeId){
+  Crafting.craft(STATE, recipeId);
   render();
 }
 function onChoiceClick(i){

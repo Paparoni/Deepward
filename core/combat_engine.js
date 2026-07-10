@@ -104,6 +104,10 @@ const Engine = {
 
   grantItem(state, item){ state.inventory.push(item); },
 
+  grantMaterial(state, materialId, amount=1){
+    state.player.materials[materialId] = (state.player.materials[materialId]||0) + amount;
+  },
+
   equip(state, item){
     let slotId = item.slot;
     if(slotId==='accessory1' || slotId==='accessory2'){
@@ -325,6 +329,22 @@ const Engine = {
       this.log(state, `Victory! You gain <b>${gold} gold</b> and <b>${xp} XP</b>.`, 'good');
       this.checkLevelUp(state);
       const isBoss = c.isBoss;
+      const materialDrops = [];
+      for(const monster of c.monsters){
+        const material = Generators.rollCraftingMaterial(isBoss);
+        if(!material) continue;
+        this.grantMaterial(state, material.id);
+        materialDrops.push(material.name);
+      }
+      if(materialDrops.length) this.log(state, `You recover crafting material: <b>${materialDrops.join(', ')}</b>.`, 'good');
+      if(isBoss && Math.random()<0.22){
+        const unknownRecipes = MYTHIC_RECIPES.filter(recipe=>!state.player.recipes.includes(recipe.id));
+        if(unknownRecipes.length){
+          const recipe = U.pick(unknownRecipes);
+          state.player.recipes.push(recipe.id);
+          this.log(state, `<b style="color:var(--t-mythic1)">Rare recipe discovered:</b> ${recipe.name}. Visit the Soulforge in town.`, 'good');
+        }
+      }
       let drop=null;
       const dropChance = isBoss ? 1.0 : 0.4;
       if(Math.random()<dropChance){

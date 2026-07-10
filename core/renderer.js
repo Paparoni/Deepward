@@ -86,7 +86,7 @@ function renderSlots(s){
       ${item ? `<div class="slot-item" style="color:${t.color}">${item.name}</div>` : `<div class="slot-empty">— empty —</div>`}
     </div>`;
   }).join('');
-  return `<div class="panel"><div class="panel-title">Equipment<span><span class="small" style="cursor:pointer;color:var(--ember);margin-right:10px;" onclick="toggleSkills()">Skills (${s.player.skillPoints})</span><span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleInventory()">Inventory (${s.inventory.length})</span></span></div><div class="slots">${html}</div></div>`;
+  return `<div class="panel"><div class="panel-title">Equipment<span><span class="small" style="cursor:pointer;color:var(--ember);margin-right:10px;" onclick="toggleSkills()">Skills (${s.player.skillPoints})</span><span class="small" style="cursor:pointer;color:var(--ember);margin-right:10px;" onclick="toggleCrafting()">Soulforge (${s.player.recipes.length}/${MYTHIC_RECIPES.length})</span><span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleInventory()">Inventory (${s.inventory.length})</span></span></div><div class="slots">${html}</div></div>`;
 }
 
 function renderDepthTrack(s){
@@ -200,6 +200,43 @@ function renderInventoryOverlay(s){
   </div>`;
 }
 
+function renderCraftingOverlay(s){
+  if(!s.ui.craftOpen) return '';
+  const materials = CRAFTING_MATERIALS.map(material=>{
+    const count = s.player.materials[material.id]||0;
+    return `<span class="trait-tag" style="opacity:${count?1:.45}">${material.name} ×${count}</span>`;
+  }).join('');
+  const known = MYTHIC_RECIPES.filter(recipe=>s.player.recipes.includes(recipe.id));
+  const cards = known.map(recipe=>{
+    const canCraft = Crafting.canCraft(s,recipe);
+    const requirements = Object.entries(recipe.requirements).map(([id,count])=>{
+      const owned = s.player.materials[id]||0;
+      return `<span style="color:${owned>=count?'var(--good)':'var(--bad)'}">${MATERIAL_BY_ID[id].name} ${owned}/${count}</span>`;
+    }).join('<br>');
+    const trait = CRAFTED_MYTHIC_TRAITS.find(entry=>entry.id===recipe.mythicTrait);
+    return `<div class="item-card mythic-border" style="--glow:var(--t-mythic1);border-color:var(--t-mythic1)">
+      <div class="item-name" style="color:var(--t-mythic1)">${recipe.name}</div>
+      <div class="item-meta">MYTHIC ${SLOTS.find(slot=>slot.id===recipe.slot).label.toUpperCase()} · SOULFORGE ONLY</div>
+      <div class="item-stats">${requirements}</div>
+      <div class="item-trait mythictrait">★ ${trait.name} — ${trait.desc(trait.base)}</div>
+      <div class="item-actions"><button class="btn btn-primary" onclick="onCraftItem('${recipe.id}')" ${canCraft?'':'disabled'}>Forge Mythic</button></div>
+    </div>`;
+  }).join('');
+  const unknownCount = MYTHIC_RECIPES.length-known.length;
+  return `<div class="overlay" onclick="if(event.target===this) toggleCrafting()">
+    <div class="panel overlay-panel">
+      <div class="panel-title">Soulforge <span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleCrafting()">Close ×</span></div>
+      <div class="overlay-body">
+        <div class="small" style="margin-bottom:10px;">Bosses rarely yield new mythic recipes. Materials are collected automatically from defeated enemies. Each recipe has its own exact requirements.</div>
+        <div style="margin-bottom:14px;line-height:2">${materials}</div>
+        <div class="panel-title" style="border:none;padding:4px 0;">Known Recipes (${known.length}/${MYTHIC_RECIPES.length})</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${cards || '<div class="empty-note">No mythic recipes known. Defeat dungeon bosses to uncover one.</div>'}</div>
+        ${unknownCount? `<div class="small" style="margin-top:10px;color:var(--ink-dim);">${unknownCount} undiscovered recipe${unknownCount===1?'':'s'} remain.</div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderTitle(){
   const classCards = CLASSES.map(c=>{
     const selected = c.id===PENDING_CLASS;
@@ -270,6 +307,7 @@ function render(){
       <div class="panel"><div class="panel-title">Character</div>${renderStatBlock(s.derived, weaponElement)}</div>
     </div>
     ${renderInventoryOverlay(s)}
+    ${renderCraftingOverlay(s)}
     ${renderSkillsOverlay(s)}
   `;
 }
