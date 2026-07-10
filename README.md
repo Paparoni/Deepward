@@ -1,9 +1,9 @@
 # Deepward
 
 > **A modular, open-source, browser-based text RPG built with HTML, CSS, and JavaScript.**
-
 Deepward is a classic text-based dungeon crawler focused on meaningful character progression, strategic combat, randomized loot, and expandable game systems. Inspired by old-school RPGs and roguelikes, every expedition into the depths offers new enemies, equipment, and opportunities to create unique builds.
 
+This is a fun little passion project created out of a love for classic dungeon crawlers, roguelikes, and old-school RPGs.
 ---
 
 ## ✨ Features
@@ -21,7 +21,7 @@ Deepward is a classic text-based dungeon crawler focused on meaningful character
 - 🎲 RNG-driven gameplay with high replayability
 - 🧩 Modular architecture for adding new content
 - 🌐 Runs entirely in the browser—no installation required
-- Crafting [WIP]
+- 🔨 Crafting *(Work in Progress)*
 
 ---
 
@@ -30,7 +30,7 @@ Deepward is a classic text-based dungeon crawler focused on meaningful character
 - Saving
 - Additional classes
 - More skill trees
-- Crafting and enchanting
+- Advanced crafting and enchanting
 - Pets and companions
 - Prestige system
 - Dynamic events
@@ -42,15 +42,22 @@ Deepward is a classic text-based dungeon crawler focused on meaningful character
 - Multiplayer-inspired asynchronous features
 
 ---
+## Play Now
 
+The latest playable development build of **Deepward** is available below.
+
+**Play here:** https://paparoni.github.io/Deepward/
+
+> **Note:** This is the latest development version and may contain unfinished features, balance changes, or bugs as new content is actively being added.
+---
 ## Tech Stack
 
 - HTML5
 - CSS3
 - Vanilla JavaScript (ES6+)
 
-No frameworks.
-No build tools.
+No frameworks.  
+No build tools.  
 No dependencies.
 
 Simply clone the repository and open `index.html`.
@@ -75,6 +82,8 @@ Or host it with any static web server.
 
 ---
 
+
+
 ## Character Progression
 
 Players can:
@@ -90,7 +99,7 @@ Players can:
 
 ## Loot System
 
-Deepward features randomized equipment with rarity tiers such as:
+Deepward features randomized equipment with rarity tiers:
 
 - Common
 - Uncommon
@@ -99,7 +108,7 @@ Deepward features randomized equipment with rarity tiers such as:
 - Legendary
 - Mythic
 
-Equipment may include:
+Equipment includes:
 
 - Weapons
 - Shields
@@ -157,4 +166,4 @@ This project is licensed under the MIT License.
 
 ---
 
-# Deepward
+> *"The deeper you descend, the stronger—or stranger—you become."*
