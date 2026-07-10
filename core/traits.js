@@ -34,7 +34,6 @@ const MYTHIC_TRAITS = [
 ];
 
 // These traits belong only to Soulforge creations. They never enter the random
-// mythic pool, so each recipe produces a reliable build-defining reward.
 const CRAFTED_MYTHIC_TRAITS = [
   {id:'soulforge_fury', name:'Soulforge Fury', type:'comboDamage', base:9, perLvl:.25, desc:v=>`Each consecutive hit gains ${v}% damage.`},
   {id:'dawnward', name:'Dawnward Aegis', type:'damageImmuneChance', base:10, perLvl:.18, desc:v=>`${v}% chance to take no damage.`},

@@ -1,5 +1,5 @@
 /* ============================================================
-   [6] RENDERING (vanilla DOM strings — re-render on every action)
+  RENDERING (vanilla DOM strings — re-render on every action)
    ============================================================ */
 function esc(s){ return String(s); }
 

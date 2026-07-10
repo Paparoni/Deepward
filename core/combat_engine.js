@@ -1,5 +1,5 @@
 /* ============================================================
-   [4] COMBAT ENGINE
+   COMBAT ENGINE
    ============================================================ */
 const EFFECT_HANDLERS = {
   lifesteal:(ctx,v)=>{ ctx.attacker.hp = Math.min(ctx.maxHp, ctx.attacker.hp + Math.round(ctx.damage*v/100)); },

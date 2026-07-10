@@ -1,5 +1,5 @@
 /* ============================================================
-   [3] EVENT HANDLERS (room content registry)
+   EVENT HANDLERS (room content registry)
    Each handler returns { text:[string], choices:[{label, act}] }
    `act(state)` mutates state and returns nothing; UI re-renders after.
    ============================================================ */
