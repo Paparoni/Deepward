@@ -223,17 +223,23 @@ function renderTitle(){
 function renderSkillsOverlay(s){
   if(!s.ui.skillsOpen) return '';
   const cls = CLASS_BY_ID[s.player.classId];
-  const byTier = [1,2,3].map(tier=>cls.skillTree.filter(sk=>sk.tier===tier));
+  const maxTier = Math.max(...cls.skillTree.map(sk=>sk.tier));
+  const byTier = Array.from({length:maxTier}, (_,i)=>cls.skillTree.filter(sk=>sk.tier===i+1));
   const tierHtml = byTier.map((skills,i)=>{
     const cards = skills.map(sk=>{
       const unlocked = s.player.unlockedSkills.includes(sk.id);
       const can = Engine.canUnlock(s, sk);
-      const lockedNote = sk.requires && !s.player.unlockedSkills.includes(sk.requires) ? `<div class="small">Requires: ${cls.skillTree.find(x=>x.id===sk.requires).name}</div>` : '';
+      const prerequisite = sk.requires && !s.player.unlockedSkills.includes(sk.requires)
+        ? `<div class="small">Requires: ${cls.skillTree.find(x=>x.id===sk.requires).name}</div>` : '';
+      const chosenRoot = sk.choiceGroup && cls.skillTree.find(x=>x.choiceGroup===sk.choiceGroup && s.player.unlockedSkills.includes(x.id));
+      const routeLock = chosenRoot && chosenRoot.id!==sk.id
+        ? `<div class="small" style="color:var(--bad);">Committed to ${chosenRoot.branch}</div>` : '';
       return `<div class="item-card" style="${unlocked?'border-color:var(--good);':''}">
         <div class="item-name" style="font-size:13px;color:${sk.kind==='active'?'var(--ember)':'var(--ink)'}">${sk.kind==='active'?'⚡':'◆'} ${sk.name}</div>
         <div class="item-meta">${sk.kind.toUpperCase()}${sk.kind==='active'?' · '+sk.manaCost+' MP':''} · cost ${sk.cost} pt</div>
         <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${sk.desc}</div>
-        ${lockedNote}
+        <div class="small" style="color:var(--gold);">${sk.branch}</div>
+        ${prerequisite}${routeLock}
         <div class="item-actions">${unlocked? '<span class="small" style="color:var(--good);">Learned</span>' : `<button class="btn" onclick="onUnlockSkill('${sk.id}')" ${can?'':'disabled'}>Unlock</button>`}</div>
       </div>`;
     }).join('');

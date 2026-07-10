@@ -388,6 +388,13 @@ const Engine = {
     if(state.player.unlockedSkills.includes(skill.id)) return false;
     if(state.player.skillPoints < skill.cost) return false;
     if(skill.requires && !state.player.unlockedSkills.includes(skill.requires)) return false;
+    if(skill.choiceGroup){
+      const cls = CLASS_BY_ID[state.player.classId];
+      const chosenRoot = cls.skillTree.find(candidate =>
+        candidate.choiceGroup===skill.choiceGroup && state.player.unlockedSkills.includes(candidate.id)
+      );
+      if(chosenRoot) return false;
+    }
     return true;
   },
 
