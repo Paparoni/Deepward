@@ -38,7 +38,6 @@ Deepward is a classic text-based dungeon crawler focused on meaningful character
 - Seasonal content
 - Achievements
 - Story campaigns
-- Mod support
 - Localization
 - Multiplayer-inspired asynchronous features
 
@@ -137,7 +136,7 @@ Feel free to open an issue or submit a pull request.
 ## Roadmap
 
 - [ ] Core combat system
-- [ ] Inventory
+- [x] Inventory
 - [ ] Equipment
 - [ ] Classes
 - [ ] Skill trees
