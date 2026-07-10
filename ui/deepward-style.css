@@ -86,6 +86,17 @@ body{
 @media (max-width:880px){.layout{grid-template-columns:1fr;}}
 
 /* ---------- equipment paperdoll ---------- */
+.panel-tabs{
+  display:flex;flex-wrap:wrap;gap:6px;
+  padding:8px 10px;border-bottom:1px solid var(--stone);
+}
+.panel-tab{
+  font-family:var(--font-mono);font-size:10.5px;color:var(--ember);
+  cursor:pointer;padding:4px 8px;border:1px solid var(--stone-lite);border-radius:4px;
+  background:var(--bg-raised);white-space:nowrap;transition:border-color .15s,background .15s;
+}
+.panel-tab:hover{border-color:var(--ember);background:#2a2115;}
+.panel-tab .tab-count{color:var(--ink-dim);}
 .slots{padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .slot{
   background:var(--bg-raised);border:1px solid var(--stone);border-radius:5px;

@@ -13,7 +13,7 @@ function newGame(name, classId){
   };
   const state = {
     screen:'town', player, equipment, inventory:[], dungeon:null, mode:'explore',
-    combat:null, log:[], ui:{choices:null, invOpen:false, skillsOpen:false, craftOpen:false, merchantStock:null, pendingItem:null},
+    combat:null, log:[], ui:{choices:null, invOpen:false, skillsOpen:false, craftOpen:false, merchantStock:null, pendingItem:null, slotOverlay:null},
   };
   Engine.refreshDerived(state);
   state.player.hp = state.derived.maxHp;

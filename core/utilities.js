@@ -11,5 +11,6 @@ const U = {
     for(let i=0;i<list.length;i++){ r-=w[i]; if(r<=0) return list[i]; }
     return list[list.length-1];
   },
-  fmtSigned(n){ return (n>0?'+':'') + n; }
+  fmtSigned(n){ return (n>0?'+':'') + n; },
+  escapeHtml(str){ return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 };

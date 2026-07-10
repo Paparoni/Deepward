@@ -77,16 +77,44 @@ function renderHud(s){
   </div>`;
 }
 
+function slotTooltip(slot, item){
+  if(!item) return `${slot.label} — empty. Click to equip something.`;
+  const t = TIER_BY_ID[item.tier];
+  const coreEntries = Object.entries(item.stats).filter(([k])=>!k.endsWith('Dmg'));
+  const elemEntries = Object.entries(item.stats).filter(([k])=>k.endsWith('Dmg'));
+  const statLines = coreEntries.map(([k,v])=>`${STAT_BY_ID[k].short} ${U.fmtSigned(v)}`).join(', ');
+  const bonusLines = elemEntries.map(([k,v])=>`${STAT_BY_ID[k].short} +${v}%`).join(', ');
+  const traitLines = item.uniqueTraits.map(t2=>`${t2.name}: ${t2.desc}`).join(' | ');
+  const mythicLine = item.mythicTrait ? `${item.mythicTrait.name}: ${item.mythicTrait.desc}` : '';
+  return [
+    `${item.name} (${t.name})`,
+    statLines,
+    bonusLines,
+    traitLines,
+    mythicLine,
+    'Click to view, remove, or change.',
+  ].filter(Boolean).join('\n');
+}
+
 function renderSlots(s){
   const html = SLOTS.map(slot=>{
     const item = s.equipment[slot.id];
     const t = item ? TIER_BY_ID[item.tier] : null;
-    return `<div class="slot" onclick="onSlotClick('${slot.id}')">
+    return `<div class="slot" onclick="onSlotClick('${slot.id}')" title="${U.escapeHtml(slotTooltip(slot, item))}">
       <div class="slot-label">${slot.label}</div>
       ${item ? `<div class="slot-item" style="color:${t.color}">${item.name}</div>` : `<div class="slot-empty">— empty —</div>`}
     </div>`;
   }).join('');
-  return `<div class="panel"><div class="panel-title">Equipment<span><span class="small" style="cursor:pointer;color:var(--ember);margin-right:10px;" onclick="toggleSkills()">Skills (${s.player.skillPoints})</span><span class="small" style="cursor:pointer;color:var(--ember);margin-right:10px;" onclick="toggleCrafting()">Soulforge (${s.player.recipes.length}/${MYTHIC_RECIPES.length})</span><span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleInventory()">Inventory (${s.inventory.length})</span></span></div><div class="slots">${html}</div></div>`;
+  const tabs = `<div class="panel-tabs">
+      <span class="panel-tab" onclick="toggleSkills()">Skills <span class="tab-count">${s.player.skillPoints}</span></span>
+      <span class="panel-tab" onclick="toggleCrafting()">Soulforge <span class="tab-count">${s.player.recipes.length}/${MYTHIC_RECIPES.length}</span></span>
+      <span class="panel-tab" onclick="toggleInventory()">Inventory <span class="tab-count">${s.inventory.length}</span></span>
+    </div>`;
+  return `<div class="panel">
+      <div class="panel-title">Equipment</div>
+      ${tabs}
+      <div class="slots">${html}</div>
+    </div>`;
 }
 
 function renderDepthTrack(s){
@@ -200,6 +228,43 @@ function renderInventoryOverlay(s){
   </div>`;
 }
 
+function renderSlotOverlay(s){
+  const so = s.ui.slotOverlay;
+  if(!so) return '';
+  const slot = SLOTS.find(sl=>sl.id===so.slotId);
+  const equipped = s.equipment[so.slotId];
+  let body;
+  if(so.mode==='change'){
+    const matches = s.inventory.filter(item=>
+      slot.group==='accessory' ? (item.slot==='accessory1'||item.slot==='accessory2') : item.slot===slot.id
+    );
+    const cards = matches.map(item=>renderItemCard(item,
+      `<button class="btn btn-primary" onclick="onEquipToSlot('${item.uid}','${slot.id}')">Equip</button>`
+    )).join('');
+    body = `
+      <div class="small" style="margin-bottom:10px;">Choose a ${slot.label.toLowerCase()} from your pack to equip here.</div>
+      ${cards || `<div class="empty-note">No ${slot.label.toLowerCase()} items in your pack. Explore the dungeon or visit a merchant.</div>`}
+      <div class="btn-row" style="margin-top:12px;"><button class="btn" onclick="onBackToSlotView()">← Back</button></div>`;
+  } else {
+    body = equipped
+      ? `${renderItemCard(equipped,'')}
+         <div class="btn-row" style="margin-top:10px;">
+           <button class="btn btn-primary" onclick="onChangeEquipClick()">Change Equip</button>
+           <button class="btn btn-danger" onclick="onRemoveEquip('${slot.id}')">Remove Equip</button>
+         </div>`
+      : `<div class="empty-note">Nothing equipped in this slot.</div>
+         <div class="btn-row" style="margin-top:10px;">
+           <button class="btn btn-primary" onclick="onChangeEquipClick()">Equip Item</button>
+         </div>`;
+  }
+  return `<div class="overlay" onclick="if(event.target===this) closeSlotOverlay()">
+    <div class="panel overlay-panel">
+      <div class="panel-title">${slot.label}<span class="small" style="cursor:pointer;color:var(--ember)" onclick="closeSlotOverlay()">Close ✕</span></div>
+      <div class="overlay-body">${body}</div>
+    </div>
+  </div>`;
+}
+
 function renderCraftingOverlay(s){
   if(!s.ui.craftOpen) return '';
   const materials = CRAFTING_MATERIALS.map(material=>{
@@ -309,5 +374,6 @@ function render(){
     ${renderInventoryOverlay(s)}
     ${renderCraftingOverlay(s)}
     ${renderSkillsOverlay(s)}
+    ${renderSlotOverlay(s)}
   `;
 }

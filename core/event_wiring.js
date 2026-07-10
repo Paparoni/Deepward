@@ -12,8 +12,28 @@ function toggleSkills(){ STATE.ui.skillsOpen = !STATE.ui.skillsOpen; render(); }
 function onUnlockSkill(skillId){ Engine.unlockSkill(STATE, skillId); render(); }
 function onUseSkill(skillId){ Engine.useSkill(STATE, skillId); render(); }
 function onSlotClick(slotId){
-  if(STATE.equipment[slotId]){ Engine.unequip(STATE, slotId); render(); }
-  else { STATE.ui.invOpen=true; render(); }
+  STATE.ui.slotOverlay = {slotId, mode:'view'};
+  render();
+}
+function closeSlotOverlay(){ STATE.ui.slotOverlay = null; render(); }
+function onChangeEquipClick(){
+  if(STATE.ui.slotOverlay) STATE.ui.slotOverlay.mode = 'change';
+  render();
+}
+function onBackToSlotView(){
+  if(STATE.ui.slotOverlay) STATE.ui.slotOverlay.mode = 'view';
+  render();
+}
+function onRemoveEquip(slotId){
+  Engine.unequip(STATE, slotId);
+  STATE.ui.slotOverlay = null;
+  render();
+}
+function onEquipToSlot(uid, slotId){
+  const item = STATE.inventory.find(i=>i.uid===uid);
+  if(item) Engine.equipToSlot(STATE, item, slotId);
+  STATE.ui.slotOverlay = null;
+  render();
 }
 function onEquipItem(uid){
   const item = STATE.inventory.find(i=>i.uid===uid);

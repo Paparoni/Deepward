@@ -120,6 +120,14 @@ const Engine = {
     this.refreshDerived(state);
   },
 
+  equipToSlot(state, item, slotId){
+    const prev = state.equipment[slotId];
+    state.equipment[slotId] = item;
+    state.inventory = state.inventory.filter(i=>i.uid!==item.uid);
+    if(prev) state.inventory.push(prev);
+    this.refreshDerived(state);
+  },
+
   unequip(state, slotId){
     const item = state.equipment[slotId];
     if(!item) return;
