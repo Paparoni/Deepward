@@ -10,6 +10,8 @@ const CRAFTING_MATERIALS = [
   ['leviathan_ink','Leviathan Ink'], ['phoenix_feather','Phoenix Feather'], ['runic_circuit','Runic Circuit'], ['echo_crystal','Echo Crystal'],
   ['ashglass','Ashglass'], ['shadow_thread','Shadow Thread'], ['gilded_fang','Gilded Fang'], ['celestial_ore','Celestial Ore'],
   ['black_lotus','Black Lotus'], ['ancient_bark','Ancient Bark'], ['rift_splinter','Rift Splinter'], ['king_sap','Kingsap Resin'],
+  ['rusted_core','Rusted Core'], ['plague_ichor','Plague Ichor'], ['ashen_relic','Ashen Reliquary Dust'], ['drowned_pearl','Drowned Pearl'],
+  ['nightloom_silk','Nightloom Silk'], ['reliquary_gold','Reliquary Gold'], ['starglass','Starglass Shard'], ['boneknit_thread','Boneknit Thread'],
 ].map(([id,name])=>({id,name}));
 const MATERIAL_BY_ID = Object.fromEntries(CRAFTING_MATERIALS.map(m=>[m.id,m]));
 
@@ -24,6 +26,10 @@ const MYTHIC_RECIPES = [
   {id:'colossus', name:'Colossus Armguards', slot:'arms', element:'physical', mythicTrait:'titan_oath', uniqueTraits:['thorns','second_wind'], requirements:{titan_bone:5,obsidian:5,king_sap:3}, stats:{def:22,mdef:14,atk:16,hitRes:11,physicalDmg:11}},
   {id:'abyssal', name:'Abyssal Reliquary', slot:'artifact', element:'dark', mythicTrait:'void_hunger', uniqueTraits:['xp_bonus','gold_find'], requirements:{leviathan_ink:4,void_amber:5,echo_crystal:3}, stats:{matk:25,atk:18,darkDmg:20,hitEff:9,hitRes:9}},
   {id:'reaper', name:'Reaper\'s Compass', slot:'accessory1', element:'poison', mythicTrait:'reaper_seal', uniqueTraits:['crit_dmg','giant_slayer'], requirements:{gilded_fang:4,black_lotus:5,grave_ash:4}, stats:{atk:21,matk:21,poisonDmg:17,hitEff:10,spd:8}},
+  {id:'voidwrought', name:'Voidwrought Sabatons', slot:'boots', element:'lightning', mythicTrait:'voidwrought_haste', uniqueTraits:['dodge','double_hit'], requirements:{rusted_core:5,runic_circuit:4,starglass:3}, stats:{spd:17,hitEff:11,lightningDmg:13,def:9,atk:8}},
+  {id:'ember_hearth', name:'Ember Hearth Buckler', slot:'offhand', element:'fire', mythicTrait:'ember_communion', uniqueTraits:['regen','thorns'], requirements:{ember_heart:5,ashen_relic:4,phoenix_feather:3}, stats:{def:20,mdef:13,fireDmg:12,hitRes:9,atk:7}},
+  {id:'frostbite', name:'Frostbite Greatplate', slot:'chest', element:'ice', mythicTrait:'frostbite_ward', uniqueTraits:['piercing','crit_chance'], requirements:{frost_bloom:6,drowned_pearl:4,obsidian:3}, stats:{def:21,mdef:14,iceDmg:15,spd:6,hitRes:8}},
+  {id:'stormcaller', name:"Stormcaller's Circlet", slot:'helmet', element:'lightning', mythicTrait:'stormcaller_pact', uniqueTraits:['mana_eff','xp_bonus'], requirements:{storm_core:6,reliquary_gold:3,nightloom_silk:4}, stats:{matk:23,mdef:12,lightningDmg:16,hitEff:9,spd:6}},
 ];
 const RECIPE_BY_ID = Object.fromEntries(MYTHIC_RECIPES.map(recipe=>[recipe.id,recipe]));
 

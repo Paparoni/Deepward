@@ -15,6 +15,19 @@ const MONSTER_TEMPLATES = [
   {id:'bog_witch',    name:'Bog Witch',            element:'poison',    icon:'🧙', atk:0.6, def:0.6, matk:1.3, mdef:0.9, spd:0.9, flavor:'muttering curses into the reeking mist'},
   {id:'iron_wraith',  name:'Iron Wraith',          element:'dark',      icon:'⚙️', atk:1.2, def:1.1, matk:0.5, mdef:0.8, spd:0.9, flavor:'a suit of armor that walks alone now'},
   {id:'sand_reaper',  name:'Sand Reaper',          element:'physical',  icon:'🏜️', atk:1.3, def:0.7, matk:0.2, mdef:0.5, spd:1.3, flavor:'a scythe-limbed thing that swims through dust'},
+  {id:'gravemoth_swarm',name:'Gravemoth Swarm',     element:'dark',      icon:'🦋', atk:0.8, def:0.5, matk:0.9, mdef:0.6, spd:1.3, flavor:'wings of ash-dust that smother torchlight as they pass'},
+  {id:'rust_automaton',name:'Rusted Automaton',     element:'lightning', icon:'🤖', atk:1.1, def:1.3, matk:0.6, mdef:0.9, spd:0.6, flavor:'clockwork limbs sparking where the plating has split'},
+  {id:'coal_wretch',  name:'Coal Wretch',           element:'fire',      icon:'🔥', atk:1.0, def:0.6, matk:0.9, mdef:0.5, spd:0.9, flavor:'a huddled shape wreathed in embers that never quite go out'},
+  {id:'chill_revenant',name:'Chill Revenant',       element:'ice',       icon:'🥶', atk:0.9, def:0.8, matk:1.0, mdef:1.0, spd:0.8, flavor:'a drowned soul who remembers only the cold'},
+  {id:'thornback_boar',name:'Thornback Boar',       element:'physical',  icon:'🐗', atk:1.4, def:1.0, matk:0.1, mdef:0.5, spd:1.0, flavor:'a tusked bulk crashing through the dark on instinct alone'},
+  {id:'cave_leech',   name:'Cave Leech',            element:'poison',    icon:'🪱', atk:0.7, def:0.6, matk:0.4, mdef:0.5, spd:0.7, flavor:'segmented and patient, latching before it is ever seen'},
+  {id:'ashen_monk',   name:'Ashen Monk',            element:'holy',      icon:'🙏', atk:0.9, def:0.9, matk:1.0, mdef:1.1, spd:0.9, flavor:'a robed figure chanting a vow it can no longer remember taking'},
+  {id:'static_wisp',  name:'Static Wisp',           element:'lightning', icon:'🔵', atk:0.6, def:0.4, matk:1.2, mdef:0.6, spd:1.5, flavor:'a crackling mote that hums louder the closer it drifts'},
+  {id:'gloom_hound',  name:'Gloom Hound',           element:'dark',      icon:'🐺', atk:1.1, def:0.7, matk:0.4, mdef:0.6, spd:1.3, flavor:'eyes like dying coals, footsteps that make no sound'},
+  {id:'root_horror',  name:'Root Horror',           element:'poison',    icon:'🌿', atk:0.8, def:1.1, matk:0.7, mdef:0.8, spd:0.5, flavor:'a tangle of bark and limb that was a tree, once, a long time ago'},
+  {id:'glass_serpent',name:'Glass Serpent',         element:'ice',       icon:'🐍', atk:1.2, def:0.6, matk:0.6, mdef:0.6, spd:1.2, flavor:'scales like broken windowpane, hissing cracks with every coil'},
+  {id:'brimstone_imp',name:'Brimstone Imp',         element:'fire',      icon:'😈', atk:0.9, def:0.6, matk:1.1, mdef:0.6, spd:1.2, flavor:'small, gleeful, and entirely too pleased to see you'},
+  {id:'hollow_knight',name:'Hollow Knight',         element:'physical',  icon:'🪖', atk:1.3, def:1.4, matk:0.2, mdef:0.9, spd:0.7, flavor:'armor standing at attention long after the man inside was lost'},
 ];
 
 const BOSS_TEMPLATES = [
@@ -27,4 +40,10 @@ const BOSS_TEMPLATES = [
   {id:'void_sovereign', name:'The Void Sovereign',    title:'That Which Waits Below',     element:'dark',      icon:'🌑', atk:1.8, def:1.6, matk:1.8, mdef:1.6, spd:1.2, flavor:'a silence with a shape and a hunger'},
   {id:'abyssal_leviathan',name:'The Abyssal Leviathan',title:'Drowner of the Deep Roads', element:'ice',       icon:'🐋', atk:1.5, def:1.7, matk:1.3, mdef:1.4, spd:0.7, flavor:'a vast shape surfacing where no water should be'},
   {id:'frozen_monarch', name:'The Frozen Monarch',   title:'Last King of the White Court',element:'lightning', icon:'👑', atk:1.7, def:1.3, matk:1.6, mdef:1.2, spd:1.1, flavor:'a crown of ice sparking with trapped lightning'},
+  {id:'rust_colossus', name:'The Rust Colossus',     title:'Last Engine of the Foundry', element:'lightning', icon:'⚙️', atk:1.8, def:1.7, matk:0.9, mdef:1.1, spd:0.6, flavor:'a shuddering giant of gears, still following its final order'},
+  {id:'plague_mother',name:'The Plague Mother',      title:'Broodmatron of the Cave Deep',element:'poison',   icon:'🕷️', atk:1.4, def:1.2, matk:1.5, mdef:1.2, spd:1.0, flavor:'countless young stirring beneath a bloated, patient shell'},
+  {id:'ash_patriarch',name:'The Ash Patriarch',      title:'Last Ember of the Foundry Line',element:'fire',   icon:'🔥', atk:1.7, def:1.2, matk:1.5, mdef:1.0, spd:1.1, flavor:'a burning silhouette that remembers being a man'},
+  {id:'drowned_king', name:'The Drowned King',       title:'Regent of the Sunken Halls', element:'ice',       icon:'🌊', atk:1.5, def:1.5, matk:1.4, mdef:1.4, spd:0.9, flavor:'a crowned corpse who never quite finished dying'},
+  {id:'nightloom_weaver',name:'The Nightloom Weaver',title:'Spinner of the Final Dark',  element:'dark',      icon:'🕸️', atk:1.5, def:1.1, matk:1.7, mdef:1.2, spd:1.2, flavor:'threads of true night trailing from too many hands'},
+  {id:'grand_reliquary',name:'The Grand Reliquary',  title:'Vessel of the Nameless Faith',element:'holy',     icon:'⛩️', atk:1.6, def:1.6, matk:1.6, mdef:1.5, spd:0.8, flavor:'a shattered idol animated by devotion nobody living still holds'},
 ];

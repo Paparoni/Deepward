@@ -25,6 +25,12 @@ const EFFECT_HANDLERS = {
   bossDamageBonus:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.target.isBoss){ ctx.damage=Math.round(ctx.damage*(1+v/100)); } },
   critInstantKillChance:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.isCrit && ctx.target && !ctx.target.isBoss && Math.random()*100<v){ ctx.damage=ctx.target.hp; ctx.notes.push('Annihilated!'); } },
   damageCapPct:(ctx,v)=>{ if(ctx.direction==='incoming' && ctx.maxHp){ const cap=Math.round(ctx.maxHp*v/100); if(ctx.damage>cap) ctx.damage=cap; } },
+  manaOnHit:(ctx,v)=>{ if(ctx.direction==='outgoing'){ ctx.player.mp = Math.min(ctx.maxMp, ctx.player.mp + v); } },
+  hpOnKill:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.target.hp<=ctx.damage){ ctx.player.hp = Math.min(ctx.maxHp, ctx.player.hp + v); ctx.notes.push(`The killing blow restores ${v} HP.`); } },
+  manaOnKill:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.target.hp<=ctx.damage){ const amt=Math.round(ctx.maxMp*v/100); ctx.player.mp = Math.min(ctx.maxMp, ctx.player.mp + amt); ctx.notes.push('Mana surges back into you.'); } },
+  defShred:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.target.def!=null){ const shred=Math.round(ctx.target.def*v/100); ctx.target.def=Math.max(0, ctx.target.def-shred); ctx.notes.push(`${ctx.targetName}'s armor shreds.`); } },
+  mdefShred:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.target.mdef!=null){ const shred=Math.round(ctx.target.mdef*v/100); ctx.target.mdef=Math.max(0, ctx.target.mdef-shred); ctx.notes.push(`${ctx.targetName}'s wards crack.`); } },
+  adrenaline:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.combat){ ctx.combat.buffs.push({stat:'spd', pct:v, name:'Adrenaline'}); } },
 };
 
 // -- active-skill action types (used by class skill trees, see [1] CLASSES) --------
@@ -95,8 +101,15 @@ const Engine = {
         allTraits.push({id:skill.id, name:skill.name, type:skill.effect.type, value:skill.effect.value, desc:skill.desc});
       }
     }
-    const maxHp = BALANCE.maxHp(p.level, totals.def);
+    let maxHp = BALANCE.maxHp(p.level, totals.def);
     const maxMp = BALANCE.maxMp(p.level, totals.mdef);
+    // dungeon-wide risk/reward pact from the cursed_altar event (see EVENT_HANDLERS);
+    // applied here so it survives refreshDerived recalculation for the rest of the dungeon.
+    if(state.dungeon && state.dungeon._altarPact){
+      totals.atk = Math.round(totals.atk*1.3);
+      totals.matk = Math.round(totals.matk*1.3);
+      maxHp = Math.max(1, Math.round(maxHp*0.85));
+    }
     return {...totals, maxHp, maxMp, traits:allTraits};
   },
 
@@ -262,7 +275,7 @@ const Engine = {
     let hitEff = isPlayer ? state.derived.hitEff : attackerStats.hitEff;
     let hitRes = isPlayer ? (targetRef.hitRes||0) : state.derived.hitRes;
     const hitChance = U.clamp(85 + (hitEff-hitRes)*0.5, 55, 98);
-    const ctxBase = {notes:[], combat:c, player:state.player, maxHp: state.derived.maxHp, combo: (c._combo||0)};
+    const ctxBase = {notes:[], combat:c, player:state.player, maxHp: state.derived.maxHp, maxMp: state.derived.maxMp, combo: (c._combo||0)};
 
     if(Math.random()*100 > hitChance){
       this.log(state, isPlayer ? `Your attack misses!` : `${monsterObj.name}'s attack misses!`, 'flavor');

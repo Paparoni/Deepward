@@ -17,6 +17,8 @@ const SLOTS = [
   {id:'chest',       label:'Chest Armor',  group:'armor',     primary:['def','hitRes']},
   {id:'legs',        label:'Leg Armor',    group:'armor',     primary:['def','spd']},
   {id:'arms',        label:'Arm Guards',   group:'armor',     primary:['atk','def']},
+  {id:'offhand',     label:'Off-Hand',     group:'weapon',    primary:['def','mdef']},
+  {id:'boots',       label:'Boots',        group:'armor',     primary:['spd','hitEff']},
   {id:'accessory1',  label:'Accessory',    group:'accessory', primary:null},
   {id:'accessory2',  label:'Accessory',    group:'accessory', primary:null},
   {id:'artifact',    label:'Artifact',     group:'artifact',  primary:null, rareSlot:true},

@@ -127,5 +127,141 @@ const EVENT_HANDLERS = {
     Engine.log(state, `The corridor opens into a vast chamber. <b>${monsters[0].name}</b> rises to meet you — ${monsters[0].flavor}.`, 'bad');
     Engine.startCombat(state, monsters, {isBoss:true});
     return true;
-  }
+  },
+
+  ambush(state){
+    const dlvl = state.dungeon.dungeonLevel;
+    Engine.log(state, `Shapes peel away from the dark before you're ready — an ambush!`, 'bad');
+    Engine.setChoices(state, [
+      {label:'Fight through it', act:(s)=>{
+        const monsters = Generators.generateBattleGroup(dlvl, s.dungeon.difficulty);
+        for(const m of monsters){
+          m.atk = Math.round(m.atk*1.2); m.spd = Math.round(m.spd*1.15);
+          m.goldDrop = Math.round(m.goldDrop*1.35); m.xpDrop = Math.round(m.xpDrop*1.35);
+        }
+        Engine.log(s, `Caught off guard, <b>${monsters.map(m=>m.name).join(', ')}</b> close in fast — they hit harder than usual, but carry better spoils.`, 'bad');
+        Engine.startCombat(s, monsters);
+      }},
+    ]);
+    return false;
+  },
+
+  archive(state){
+    Engine.log(state, `Shelves of collapsed stone hold what might once have been scrolls. Most have rotted to dust — but not all.`, 'flavor');
+    Engine.setChoices(state, [
+      {label:'Study the surviving texts (uses time, grants XP)', act:(s)=>{
+        const xp = Math.round(BALANCE.xpToNext(s.player.level)*0.09);
+        s.player.xp += xp;
+        Engine.checkLevelUp(s);
+        Engine.log(s, `Dense, careful notes teach you something real. You gain <b>${xp} XP</b>.`, 'good');
+        Engine.finishRoom(s);
+      }},
+      {label:'Search for a hidden cache instead', act:(s)=>{
+        if(Math.random()<0.5){
+          const gold = U.randInt(15,40);
+          s.player.gold += gold;
+          Engine.log(s, `Tucked behind a false panel: <b>${gold} gold</b>.`, 'good');
+        } else {
+          Engine.log(s, `Just dust and silence. Nothing here.`, 'flavor');
+        }
+        Engine.finishRoom(s);
+      }},
+    ]);
+    return false;
+  },
+
+  wishing_well(state){
+    Engine.log(state, `A well sinks into darkness, coins glinting faintly on its rim. It feels like it is owed something.`, 'flavor');
+    Engine.setChoices(state, [
+      {label:'Toss in a coin (10 gold, uncertain fortune)', act:(s)=>{
+        if(s.player.gold<10){ Engine.log(s,"You don't have enough gold for that.", 'bad'); Engine.renderCurrentChoices(s); return; }
+        s.player.gold -= 10;
+        const roll = Math.random();
+        if(roll<0.4){
+          const heal = Math.round(s.derived.maxHp*0.35);
+          s.player.hp = Math.min(s.derived.maxHp, s.player.hp+heal);
+          Engine.log(s, `Warm water rises around your hand. You recover <b>${heal} HP</b>.`, 'good');
+        } else if(roll<0.75){
+          const gold = U.randInt(20,45);
+          s.player.gold += gold;
+          Engine.log(s, `Something bright surfaces and you scoop it out: <b>${gold} gold</b>.`, 'good');
+        } else {
+          Engine.log(s, `The coin sinks. Nothing answers.`, 'flavor');
+        }
+        Engine.finishRoom(s);
+      }},
+      {label:'Leave the well undisturbed', act:(s)=>{
+        Engine.log(s,'Some debts aren\'t worth incurring. You move on.', 'flavor');
+        Engine.finishRoom(s);
+      }},
+    ]);
+    return false;
+  },
+
+  collapse(state){
+    Engine.log(state, `The passage ahead has caved in. A narrow gap remains — and a longer way around.`, 'flavor');
+    Engine.setChoices(state, [
+      {label:'Squeeze through the gap (uses SPD, risk of injury)', act:(s)=>{
+        const chance = U.clamp(45 + s.derived.spd*1.1, 25, 95);
+        if(Math.random()*100 < chance){
+          Engine.log(s, `You slip through without a scratch, saving time.`, 'good');
+        } else {
+          const dmg = Math.round(U.rand(5,12) * (1+s.dungeon.dungeonLevel*0.1));
+          s.player.hp = Math.max(1, s.player.hp - dmg);
+          Engine.log(s, `Loose stone catches you on the way through — <b>${dmg} damage</b>.`, 'bad');
+        }
+        Engine.finishRoom(s);
+      }},
+      {label:'Take the long way around (safe, no risk)', act:(s)=>{
+        Engine.log(s, `Slower, but safe. You find your way through.`, 'flavor');
+        Engine.finishRoom(s);
+      }},
+    ]);
+    return false;
+  },
+
+  wandering_healer(state){
+    Engine.log(state, `A robed figure tends a small fire, humming something old. "Wounds, traveler? I can mend what's mendable."`, 'flavor');
+    const cost = Math.round(12 + state.dungeon.dungeonLevel*1.5);
+    Engine.setChoices(state, [
+      {label:`Pay ${cost} gold for a full restoration`, act:(s)=>{
+        if(s.player.gold<cost){ Engine.log(s,"You don't have enough gold for that.", 'bad'); Engine.renderCurrentChoices(s); return; }
+        s.player.gold -= cost;
+        s.player.hp = s.derived.maxHp;
+        s.player.mp = s.derived.maxMp;
+        Engine.log(s, `The healer's hands are sure and warm. You are fully restored.`, 'good');
+        Engine.finishRoom(s);
+      }},
+      {label:'Accept a free, partial blessing instead', act:(s)=>{
+        const heal = Math.round(s.derived.maxHp*0.2);
+        s.player.hp = Math.min(s.derived.maxHp, s.player.hp+heal);
+        Engine.log(s, `"On the house." A small warmth spreads through you. Recovered <b>${heal} HP</b>.`, 'good');
+        Engine.finishRoom(s);
+      }},
+      {label:'Decline and move on', act:(s)=>{
+        Engine.log(s,'You thank them and continue into the dark.', 'flavor');
+        Engine.finishRoom(s);
+      }},
+    ]);
+    return false;
+  },
+
+  cursed_altar(state){
+    Engine.log(state, `A black altar hums with old, hungry power. It offers strength — for a price.`, 'flavor');
+    Engine.setChoices(state, [
+      {label:'Make the pact (+30% ATK & MATK, -15% max HP for the rest of this dungeon)', act:(s)=>{
+        if(s.dungeon._altarPact){ Engine.log(s, `The altar has nothing left to offer you.`, 'flavor'); Engine.finishRoom(s); return; }
+        s.dungeon._altarPact = true;
+        Engine.refreshDerived(s);
+        s.player.hp = Math.min(s.player.hp, s.derived.maxHp);
+        Engine.log(s, `Power floods your limbs — cold, eager, not entirely yours. You feel stronger, and thinner for it.`, 'bad');
+        Engine.finishRoom(s);
+      }},
+      {label:'Refuse and step back', act:(s)=>{
+        Engine.log(s, `Some power isn't worth what it asks. You leave the altar cold and silent.`, 'flavor');
+        Engine.finishRoom(s);
+      }},
+    ]);
+    return false;
+  },
 };

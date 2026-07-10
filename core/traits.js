@@ -17,6 +17,14 @@ const UNIQUE_TRAITS = [
   {id:'mana_eff',      name:'Mana Efficiency',  type:'manaCostReduction',base:12, perLvl:0.3, desc:v=>`Skills cost ${v}% less MP.`},
   {id:'momentum',      name:'Momentum',         type:'comboDamage',    base:4,  perLvl:0.15, desc:v=>`Each consecutive hit this battle deals ${v}% more damage (stacking).`},
   {id:'giant_slayer',  name:'Giant Slayer',     type:'bossDamageBonus',base:15, perLvl:0.4,  desc:v=>`+${v}% damage dealt to bosses.`},
+  {id:'mana_on_hit',   name:'Arcane Battery',   type:'manaOnHit',      base:2,  perLvl:0.08, desc:v=>`Restore ${v} MP whenever you land a hit.`},
+  {id:'reapers_bounty',name:"Reaper's Bounty",  type:'hpOnKill',       base:6,  perLvl:0.3,  desc:v=>`Restore ${v} HP whenever you land a killing blow.`},
+  {id:'armor_shred',   name:'Sundering Edge',   type:'defShred',       base:10, perLvl:0.3,  desc:v=>`Reduce target DEF by ${v}% on hit.`},
+  {id:'spell_shred',   name:'Ward Cracker',     type:'mdefShred',      base:10, perLvl:0.3,  desc:v=>`Reduce target MDEF by ${v}% on hit.`},
+  {id:'adrenaline',    name:'Adrenal Surge',    type:'adrenaline',     base:2,  perLvl:0.06, desc:v=>`Gain +${v}% SPD for the rest of the battle each time you hit (stacking).`},
+  {id:'bloodhunger',   name:'Bloodhunger',      type:'lifesteal',      base:9,  perLvl:0.2,  desc:v=>`Heals ${v}% of damage dealt as HP.`},
+  {id:'spiked_carapace',name:'Spiked Carapace', type:'thorns',         base:11, perLvl:0.35, desc:v=>`Reflects ${v}% of damage taken back to attacker.`},
+  {id:'wind_step',     name:'Wind Step',        type:'dodgeChance',    base:8,  perLvl:0.22, desc:v=>`${v}% chance to fully evade an incoming attack.`},
 ];
 
 // -- mythic traits (Mythic Legendary only) --------------------------------------
@@ -31,6 +39,11 @@ const MYTHIC_TRAITS = [
   {id:'annihilate',   name:'Annihilation',      type:'critInstantKillChance', base:5, perLvl:0.15, desc:v=>`Critical hits have a ${v}% chance to instantly destroy non-boss enemies.`},
   {id:'undying',      name:'Undying Will',      type:'damageCapPct',     base:35, perLvl:0.3, desc:v=>`Incoming hits can never deal more than ${v}% of your max HP at once.`},
   {id:'godslayer',    name:"Godslayer's Mark",  type:'bonusDamagePct',   base:20, perLvl:0.5, desc:v=>`+${v}% damage dealt to all enemies.`},
+  {id:'mana_font',    name:'Mana Font',         type:'manaOnKill',       base:40, perLvl:0.3, desc:v=>`Restore ${v}% of max MP whenever you land a killing blow.`},
+  {id:'sundering',    name:'The Sundering',     type:'defShred',         base:22, perLvl:0.5, desc:v=>`Reduce target DEF by ${v}% on hit.`},
+  {id:'crown_unseen', name:'Crown of the Unseen',type:'damageImmuneChance',base:22,perLvl:0.35,desc:v=>`${v}% chance to take zero damage from any hit.`},
+  {id:'ruinous_strike',name:'Ruinous Strike',   type:'critInstantKillChance',base:8, perLvl:0.2, desc:v=>`Critical hits have a ${v}% chance to instantly destroy non-boss enemies.`},
+  {id:'tidebound',    name:'Tidebound Echo',    type:'echoStrike',       base:55, perLvl:0.5, desc:v=>`${v}% chance every attack is followed by a weaker echo hit.`},
 ];
 
 // These traits belong only to Soulforge creations. They never enter the random
@@ -45,4 +58,8 @@ const CRAFTED_MYTHIC_TRAITS = [
   {id:'titan_oath', name:'Titan Oath', type:'damageCapPct', base:22, perLvl:.16, desc:v=>`Incoming hits cannot exceed ${v}% max HP.`},
   {id:'void_hunger', name:'Void Hunger', type:'bonusDamagePct', base:24, perLvl:.35, desc:v=>`+${v}% damage dealt.`},
   {id:'reaper_seal', name:'Reaper Seal', type:'executeThreshold', base:18, perLvl:.2, desc:v=>`Instantly finish enemies below ${v}% HP.`},
+  {id:'voidwrought_haste', name:'Voidwrought Haste', type:'adrenaline', base:3, perLvl:.08, desc:v=>`Gain +${v}% SPD for the rest of the battle each time you hit (stacking).`},
+  {id:'ember_communion', name:'Ember Communion', type:'hpOnKill', base:10, perLvl:.4, desc:v=>`Restore ${v} HP on every killing blow.`},
+  {id:'frostbite_ward', name:'Frostbite Ward', type:'defShred', base:16, perLvl:.4, desc:v=>`Reduce target DEF by ${v}% on hit.`},
+  {id:'stormcaller_pact', name:"Stormcaller's Pact", type:'manaOnHit', base:4, perLvl:.12, desc:v=>`Restore ${v} MP whenever you land a hit.`},
 ];

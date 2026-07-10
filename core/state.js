@@ -9,7 +9,7 @@ function newGame(name, classId){
   const equipment = {
     weapon: Generators.generateItem(1, {forcedSlot:'weapon', forcedTier:'common'}),
     helmet:null, chest: Generators.generateItem(1, {forcedSlot:'chest', forcedTier:'common'}),
-    legs:null, arms:null, accessory1:null, accessory2:null, artifact:null,
+    legs:null, arms:null, offhand:null, boots:null, accessory1:null, accessory2:null, artifact:null,
   };
   const state = {
     screen:'town', player, equipment, inventory:[], dungeon:null, mode:'explore',

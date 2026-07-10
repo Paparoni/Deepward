@@ -142,8 +142,10 @@ const Generators = {
     const roomCount = BALANCE.roomCount(playerLevel);
     const roomTypes = [];
     const weights = [
-      {t:'battle', w:38},{t:'chest', w:18},{t:'merchant', w:10},
-      {t:'gamble', w:9},{t:'trap', w:10},{t:'shrine', w:7},{t:'mystery', w:8},
+      {t:'battle', w:30},{t:'chest', w:16},{t:'merchant', w:9},
+      {t:'gamble', w:7},{t:'trap', w:8},{t:'shrine', w:6},{t:'mystery', w:7},
+      {t:'ambush', w:9},{t:'archive', w:6},{t:'wishing_well', w:6},
+      {t:'collapse', w:6},{t:'wandering_healer', w:6},{t:'cursed_altar', w:5},
     ];
     for(let i=0;i<roomCount-1;i++){
       roomTypes.push(U.weightedPick(weights, x=>x.w).t);

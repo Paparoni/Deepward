@@ -6,6 +6,11 @@ const DUNGEON_THEMES = [
   {id:'foundry',  name:'The Ember Foundry',     icon:'🔥', desc:'Abandoned forges still glowing faintly in the dark.'},
   {id:'sanctum',  name:'The Shadow Sanctum',    icon:'🕯️', desc:'A temple to something the wall-carvings refuse to name.'},
   {id:'web',      name:'The Sunken Web',        icon:'🕸️', desc:'Silk curtains hang between pillars swallowed by roots.'},
+  {id:'foundry_ruins', name:'The Rusted Foundry', icon:'⚙️', desc:'Broken gears the size of wagon wheels, still faintly turning.'},
+  {id:'ossuary',  name:'The Bone Ossuary',      icon:'🦴', desc:'Walls built from the dead, stacked with unsettling care.'},
+  {id:'flooded_hall',name:'The Flooded Hall',   icon:'🌊', desc:'Black water laps at broken columns, hiding what sank below.'},
+  {id:'thornwood',name:'The Thornwood Vault',   icon:'🌿', desc:'Roots have grown through the mortar, patient and enormous.'},
+  {id:'starfall', name:'The Starfall Scar',     icon:'☄️', desc:'A crater of black glass where something fell from the sky.'},
 ];
 
 // -- name flavor parts --------------------------------------------------------------
@@ -28,11 +33,14 @@ const NAME_PARTS = {
     accessory1: ['Ring','Talisman','Charm','Sigil','Amulet'],
     accessory2: ['Ring','Talisman','Charm','Sigil','Amulet'],
     artifact: ['Relic','Idol','Shard','Core','Reliquary'],
+    offhand: ['Buckler','Aegis','Kite Shield','Wardplate','Bulwark'],
+    boots: ['Boots','Treads','Striders','Sabatons','Wraps'],
   },
   // suffixes only appear on Unique tier and above, to make top-end drops feel distinct
   suffixes: [
     'of the Hollow King', 'of Ember Wraiths', 'of the Last Vigil', 'of the Drowned Choir',
     'of Undying Frost', 'of the Void Between', 'of the Forgotten Star', 'of Widows Grief',
-    'of the Silent Chorus', 'of the Ashen Throne',
+    'of the Silent Chorus', 'of the Ashen Throne', 'of the Rusted Crown', 'of the Nightloom',
+    'of the Starfall Scar', 'of the Bone Ossuary', 'of the Plague Mother', 'of the Drowned King',
   ],
 };
