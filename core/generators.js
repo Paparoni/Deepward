@@ -136,20 +136,57 @@ const Generators = {
     return [this.monsterFromTemplate(tpl, dungeonLevel, difficulty.monsterMult, true)];
   },
 
+  // room types that guarantee a fight breaks out (boss is handled separately and
+  // is always appended, so it isn't included here).
+  COMBAT_ROOM_TYPES: new Set(['battle', 'ambush', 'guarded_cache']),
+
+  // post-processes a generated room list so a run can never be cleared without
+  // fighting: breaks up long non-combat streaks and tops up a minimum combat quota.
+  enforceCombatPacing(roomTypes){
+    const types = [...roomTypes];
+    const isCombat = t => this.COMBAT_ROOM_TYPES.has(t);
+    const maxStreak = BALANCE.maxNonCombatStreak;
+
+    // pass 1: no more than `maxStreak` non-combat rooms in a row
+    let streak = 0;
+    for(let i=0;i<types.length;i++){
+      if(isCombat(types[i])){ streak = 0; continue; }
+      streak++;
+      if(streak > maxStreak){ types[i] = 'battle'; streak = 0; }
+    }
+
+    // pass 2: make sure a minimum share of the floor is combat, spread out evenly
+    const minCombat = Math.max(1, Math.ceil(types.length * BALANCE.minCombatFraction));
+    const combatCount = types.filter(isCombat).length;
+    if(combatCount < minCombat){
+      const nonCombatIdx = types.map((t,i)=>({t,i})).filter(x=>!isCombat(x.t)).map(x=>x.i);
+      const need = Math.min(minCombat - combatCount, nonCombatIdx.length);
+      const step = Math.max(1, Math.floor(nonCombatIdx.length/Math.max(1,need)));
+      for(let k=0, idx=0; k<need && idx<nonCombatIdx.length; k++, idx+=step){
+        types[nonCombatIdx[idx]] = 'battle';
+      }
+    }
+    return types;
+  },
+
   generateDungeon(playerLevel, difficultyId){
     const difficulty = BALANCE.difficulties[difficultyId];
     const theme = U.pick(DUNGEON_THEMES);
     const roomCount = BALANCE.roomCount(playerLevel);
-    const roomTypes = [];
+    let roomTypes = [];
     const weights = [
-      {t:'battle', w:30},{t:'chest', w:16},{t:'merchant', w:9},
-      {t:'gamble', w:7},{t:'trap', w:8},{t:'shrine', w:6},{t:'mystery', w:7},
-      {t:'ambush', w:9},{t:'archive', w:6},{t:'wishing_well', w:6},
-      {t:'collapse', w:6},{t:'wandering_healer', w:6},{t:'cursed_altar', w:5},
+      {t:'battle', w:26},{t:'chest', w:15},{t:'merchant', w:8},
+      {t:'gamble', w:6},{t:'trap', w:7},{t:'shrine', w:5},{t:'mystery', w:6},
+      {t:'ambush', w:9},{t:'archive', w:5},{t:'wishing_well', w:5},
+      {t:'collapse', w:5},{t:'wandering_healer', w:5},{t:'cursed_altar', w:4},
+      {t:'bonfire', w:6},{t:'black_market', w:5},{t:'puzzle_door', w:6},
+      {t:'foraging', w:6},{t:'guarded_cache', w:8},{t:'deep_pool', w:5},
+      {t:'abandoned_camp', w:5},
     ];
     for(let i=0;i<roomCount-1;i++){
       roomTypes.push(U.weightedPick(weights, x=>x.w).t);
     }
+    roomTypes = this.enforceCombatPacing(roomTypes);
     roomTypes.push('boss');
     return {
       theme, difficulty, difficultyId,

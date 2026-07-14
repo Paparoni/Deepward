@@ -11,6 +11,12 @@ const BALANCE = {
   // dungeons ramp up faster and keep pace with compounding player gear.
   monsterLevelExponent: 1.13,
   roomCount: lvl => U.clamp(5 + Math.floor(lvl/4), 5, 10),
+  // floor-generation pacing: guarantees a dungeon can't be cleared without fighting.
+  // minCombatFraction = minimum share of non-boss rooms that must be combat rooms.
+  // maxNonCombatStreak = longest run of consecutive non-combat rooms allowed before
+  // one gets forced into a battle.
+  minCombatFraction: 0.32,
+  maxNonCombatStreak: 2,
   difficulties: {
     normal:   {label:'Normal',   monsterMult:1.00, lootBonus:0.0},
     hard:     {label:'Hard',     monsterMult:1.35, lootBonus:0.6},

@@ -16,11 +16,7 @@ const EVENT_HANDLERS = {
   chest(state){
     Engine.log(state, `A weathered chest sits half-buried in rubble.`, 'flavor');
     Engine.setChoices(state, [
-      {label:'Open the chest', act:(s)=>{
-        const item = Generators.generateItem(s.dungeon.dungeonLevel, {lootBonus:s.dungeon.difficulty.lootBonus});
-        Engine.log(s, `Inside you find something.`, 'flavor');
-        Engine.presentItemDrop(s, item, (s2)=>{ Engine.finishRoom(s2); });
-      }},
+      {label:'Open the chest', act:(s)=>{ Engine.resolveChest(s); }},
       {label:'Leave it — could be trapped', act:(s)=>{
         Engine.log(s, `You decide it isn't worth the risk and move on.`, 'flavor');
         Engine.finishRoom(s);
@@ -259,6 +255,184 @@ const EVENT_HANDLERS = {
       }},
       {label:'Refuse and step back', act:(s)=>{
         Engine.log(s, `Some power isn't worth what it asks. You leave the altar cold and silent.`, 'flavor');
+        Engine.finishRoom(s);
+      }},
+    ]);
+    return false;
+  },
+
+  bonfire(state){
+    Engine.log(state, `A dying campfire still smolders in a side chamber — abandoned, but not cold. There's time to prepare here.`, 'flavor');
+    const dlvl = state.dungeon.dungeonLevel;
+    const boosts = [
+      {stat:'atk', flat: Math.round(3+dlvl*0.6), label:'Sharpen your blade'},
+      {stat:'def', flat: Math.round(3+dlvl*0.6), label:'Reinforce your guard'},
+      {stat:'spd', flat: Math.round(2+dlvl*0.4), label:'Stretch and steady your footing'},
+    ];
+    const choices = boosts.map(b=>({
+      label:`${b.label} (+${b.flat} ${STAT_BY_ID[b.stat].short} for the dungeon)`,
+      act:(s)=>{
+        s.dungeon._buffs = s.dungeon._buffs || [];
+        s.dungeon._buffs.push({stat:b.stat, flat:b.flat});
+        Engine.refreshDerived(s);
+        Engine.log(s, `The preparation settles into your bones. <b>+${b.flat} ${STAT_BY_ID[b.stat].short}</b> for the rest of this dungeon.`, 'good');
+        Engine.finishRoom(s);
+      }
+    }));
+    choices.push({label:'Rest instead (restore some HP & MP)', act:(s)=>{
+      const healHp = Math.round(s.derived.maxHp*0.25);
+      const healMp = Math.round(s.derived.maxMp*0.25);
+      s.player.hp = Math.min(s.derived.maxHp, s.player.hp+healHp);
+      s.player.mp = Math.min(s.derived.maxMp, s.player.mp+healMp);
+      Engine.log(s, `You rest a while by the embers. Recovered <b>${healHp} HP</b> and <b>${healMp} MP</b>.`, 'good');
+      Engine.finishRoom(s);
+    }});
+    Engine.setChoices(state, choices);
+    return false;
+  },
+
+  black_market(state){
+    Engine.log(state, `A hooded stranger crouches beside a case of curious reagents. "Materials, traveler — if the price is right."`, 'flavor');
+    const dlvl = state.dungeon.dungeonLevel;
+    const offers = [1,2,3].map(()=>U.pick(CRAFTING_MATERIALS));
+    const choices = offers.map(mat=>{
+      const price = Math.round(14 + dlvl*1.8);
+      return {label:`Buy ${mat.name} — ${price} gold`, act:(s)=>{
+        if(s.player.gold<price){ Engine.log(s,"You don't have enough gold for that.", 'bad'); Engine.renderCurrentChoices(s); return; }
+        s.player.gold -= price;
+        Engine.grantMaterial(s, mat.id);
+        Engine.log(s, `The stranger hands over a <b>${mat.name}</b>, wrapped in cloth.`, 'good');
+        Engine.finishRoom(s);
+      }};
+    });
+    choices.push({label:'Decline and move on', act:(s)=>{
+      Engine.log(s, 'You keep your coin. The stranger shrugs and fades back into the dark.', 'flavor');
+      Engine.finishRoom(s);
+    }});
+    Engine.setChoices(state, choices);
+    return false;
+  },
+
+  puzzle_door(state){
+    Engine.log(state, `An ancient lock covered in shifting runes bars the way forward. The pattern feels almost readable.`, 'flavor');
+    Engine.setChoices(state, [
+      {label:'Study the pattern (uses HIT EFF)', act:(s)=>{
+        const chance = U.clamp(35 + s.derived.hitEff*1.1, 20, 90);
+        if(Math.random()*100 < chance){
+          const item = Generators.generateItem(s.dungeon.dungeonLevel, {lootBonus:s.dungeon.difficulty.lootBonus, forcedMinTier:'uncommon'});
+          Engine.log(s, `The runes click into place. A hidden compartment slides open.`, 'good');
+          Engine.presentItemDrop(s, item, (s2)=>{ Engine.finishRoom(s2); });
+        } else {
+          Engine.log(s, `The runes flare red — a hidden ward triggers!`, 'bad');
+          const monsters = Generators.generateBattleGroup(s.dungeon.dungeonLevel, s.dungeon.difficulty);
+          Engine.log(s, `<b>${monsters.map(m=>m.name).join(', ')}</b> spill from a concealed alcove.`, 'bad');
+          Engine.startCombat(s, monsters);
+        }
+      }},
+      {label:'Force it open (guaranteed, minor damage)', act:(s)=>{
+        const dmg = Math.round(U.rand(6,13) * (1+s.dungeon.dungeonLevel*0.1));
+        s.player.hp = Math.max(1, s.player.hp - dmg);
+        Engine.log(s, `You wrench it open by force. It gives way, but not gently — <b>${dmg} damage</b>.`, 'bad');
+        Engine.finishRoom(s);
+      }},
+      {label:'Leave the door sealed', act:(s)=>{
+        Engine.log(s, 'Some locks are best left closed. You move on.', 'flavor');
+        Engine.finishRoom(s);
+      }},
+    ]);
+    return false;
+  },
+
+  foraging(state){
+    Engine.log(state, `Clusters of luminous fungus and mineral veins glint along the walls — worth harvesting.`, 'flavor');
+    Engine.setChoices(state, [
+      {label:'Harvest carefully', act:(s)=>{
+        const mat1 = U.pick(CRAFTING_MATERIALS);
+        Engine.grantMaterial(s, mat1.id);
+        let msg = `You carefully extract <b>${mat1.name}</b>.`;
+        if(Math.random()<0.35){
+          const mat2 = U.pick(CRAFTING_MATERIALS);
+          Engine.grantMaterial(s, mat2.id);
+          msg += ` A second vein yields <b>${mat2.name}</b> too.`;
+        }
+        Engine.log(s, msg, 'good');
+        Engine.finishRoom(s);
+      }},
+      {label:'Skip it and move on', act:(s)=>{
+        Engine.log(s, 'Not worth the time. You press onward.', 'flavor');
+        Engine.finishRoom(s);
+      }},
+    ]);
+    return false;
+  },
+
+  guarded_cache(state){
+    const dlvl = state.dungeon.dungeonLevel;
+    Engine.log(state, `A reinforced cache sits behind a sealed grate — and something is already curled up beside it.`, 'bad');
+    const monsters = Generators.generateBattleGroup(dlvl, state.dungeon.difficulty);
+    for(const m of monsters){ m.def = Math.round(m.def*1.15); m.mdef = Math.round(m.mdef*1.15); m.hp = Math.round(m.hp*1.15); m.maxHp = m.hp; }
+    Engine.log(state, `<b>${monsters.map(m=>m.name).join(', ')}</b> guards the cache fiercely — better loot if you can take it down.`, 'bad');
+    Engine.startCombat(state, monsters, {bonusLoot:true});
+    return true;
+  },
+
+  deep_pool(state){
+    Engine.log(state, `A still black pool reflects no light, though torches burn all around it.`, 'flavor');
+    Engine.setChoices(state, [
+      {label:'Drink from the pool', act:(s)=>{
+        const roll = Math.random();
+        if(roll<0.35){
+          const heal = Math.round(s.derived.maxHp*0.4);
+          s.player.hp = Math.min(s.derived.maxHp, s.player.hp+heal);
+          Engine.log(s, `The water is impossibly cold and impossibly clean. You recover <b>${heal} HP</b>.`, 'good');
+        } else if(roll<0.55){
+          const dmg = Math.round(U.rand(5,11) * (1+s.dungeon.dungeonLevel*0.08));
+          s.player.hp = Math.max(1, s.player.hp-dmg);
+          Engine.log(s, `Something in the water disagrees with you — <b>${dmg} damage</b>.`, 'bad');
+        } else if(roll<0.8){
+          const stat = Math.random()<0.5 ? 'atk' : 'matk';
+          const flat = Math.round(2+s.dungeon.dungeonLevel*0.4);
+          s.dungeon._buffs = s.dungeon._buffs || [];
+          s.dungeon._buffs.push({stat, flat});
+          Engine.refreshDerived(s);
+          Engine.log(s, `Strength you don't recognize floods your limbs. <b>+${flat} ${STAT_BY_ID[stat].short}</b> for the rest of this dungeon.`, 'good');
+        } else {
+          Engine.log(s, `Nothing happens. The water is only water, this time.`, 'flavor');
+        }
+        Engine.finishRoom(s);
+      }},
+      {label:"Search the pool's edge instead", act:(s)=>{
+        if(Math.random()<0.5){
+          const gold = U.randInt(15,40);
+          s.player.gold += gold;
+          Engine.log(s, `Something catches the torchlight in the shallows: <b>${gold} gold</b>.`, 'good');
+        } else {
+          Engine.log(s, `Just wet stone. Nothing here.`, 'flavor');
+        }
+        Engine.finishRoom(s);
+      }},
+      {label:'Leave it undisturbed', act:(s)=>{
+        Engine.log(s, 'You give the pool a wide berth.', 'flavor');
+        Engine.finishRoom(s);
+      }},
+    ]);
+    return false;
+  },
+
+  abandoned_camp(state){
+    Engine.log(state, `The ashes of a cold campfire surround a pack that its owner never came back for.`, 'flavor');
+    Engine.setChoices(state, [
+      {label:"Search the delver's pack (find their gear)", act:(s)=>{
+        const item = Generators.generateItem(s.dungeon.dungeonLevel, {lootBonus:s.dungeon.difficulty.lootBonus, forcedMinTier: Math.random()<0.5?'common':'uncommon'});
+        Engine.log(s, `Whatever happened to them, they left something behind.`, 'flavor');
+        Engine.presentItemDrop(s, item, (s2)=>{ Engine.finishRoom(s2); });
+      }},
+      {label:'Take supplies instead (small heal + material)', act:(s)=>{
+        const heal = Math.round(s.derived.maxHp*0.15);
+        s.player.hp = Math.min(s.derived.maxHp, s.player.hp+heal);
+        const mat = U.pick(CRAFTING_MATERIALS);
+        Engine.grantMaterial(s, mat.id);
+        Engine.log(s, `You patch yourself up (+${heal} HP) and pocket a <b>${mat.name}</b>.`, 'good');
         Engine.finishRoom(s);
       }},
     ]);

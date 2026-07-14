@@ -101,6 +101,11 @@ const Engine = {
         allTraits.push({id:skill.id, name:skill.name, type:skill.effect.type, value:skill.effect.value, desc:skill.desc});
       }
     }
+    // generic dungeon-wide flat stat buffs (bonfire, deep_pool, etc. push onto this);
+    // applied here so they survive refreshDerived recalculation for the rest of the dungeon.
+    if(state.dungeon && state.dungeon._buffs){
+      for(const b of state.dungeon._buffs) totals[b.stat] = (totals[b.stat]||0) + b.flat;
+    }
     let maxHp = BALANCE.maxHp(p.level, totals.def);
     const maxMp = BALANCE.maxMp(p.level, totals.mdef);
     // dungeon-wide risk/reward pact from the cursed_altar event (see EVENT_HANDLERS);
@@ -163,7 +168,7 @@ const Engine = {
     state.mode='combat';
     state.player._revivedThisFight = false;
     state.combat = {
-      monsters, isBoss: !!opts.isBoss, playerStunned:false, _firstStrikeUsed:false, round:1, _combo:0,
+      monsters, isBoss: !!opts.isBoss, bonusLoot: !!opts.bonusLoot, playerStunned:false, _firstStrikeUsed:false, round:1, _combo:0,
       playerElement: (state.equipment.weapon?.element) || 'physical',
       buffs: [], // {stat, pct, name} — from 'buff' type active skills, lasts the whole fight
     };
@@ -367,11 +372,11 @@ const Engine = {
         }
       }
       let drop=null;
-      const dropChance = isBoss ? 1.0 : 0.4;
+      const dropChance = isBoss ? 1.0 : (c.bonusLoot ? 0.7 : 0.4);
       if(Math.random()<dropChance){
         drop = Generators.generateItem(state.dungeon.dungeonLevel, {
-          lootBonus: state.dungeon.difficulty.lootBonus + (isBoss?0.8:0),
-          forcedMinTier: isBoss ? 'rare' : undefined,
+          lootBonus: state.dungeon.difficulty.lootBonus + (isBoss?0.8: (c.bonusLoot?0.35:0)),
+          forcedMinTier: isBoss ? 'rare' : (c.bonusLoot ? 'uncommon' : undefined),
         });
       }
       state.combat=null;
@@ -406,6 +411,60 @@ const Engine = {
       }},
     ];
     state.mode='event';
+  },
+
+  // rolls a varied chest outcome — gear, gold, materials, a small bundle, nothing,
+  // or (rarely) a mimic that springs to attack instead of opening.
+  resolveChest(state){
+    const dlvl = state.dungeon.dungeonLevel;
+    const lootBonus = state.dungeon.difficulty.lootBonus;
+    const outcomes = [
+      {t:'gear', w:34}, {t:'gold', w:22}, {t:'materials', w:16},
+      {t:'bundle', w:11}, {t:'empty', w:7}, {t:'mimic', w:10},
+    ];
+    const outcome = U.weightedPick(outcomes, x=>x.w).t;
+
+    if(outcome==='gear'){
+      const item = Generators.generateItem(dlvl, {lootBonus});
+      this.log(state, `Inside you find something.`, 'flavor');
+      this.presentItemDrop(state, item, (s2)=>{ this.finishRoom(s2); });
+    } else if(outcome==='gold'){
+      const gold = Math.round(U.randInt(20,45) * (1+dlvl*0.12));
+      state.player.gold += gold;
+      this.log(state, `The chest holds no gear — just coin. Plenty of it: <b>${gold} gold</b>.`, 'good');
+      this.finishRoom(state);
+    } else if(outcome==='materials'){
+      const count = U.randInt(1,3);
+      const names = [];
+      for(let i=0;i<count;i++){
+        const m = U.pick(CRAFTING_MATERIALS);
+        this.grantMaterial(state, m.id);
+        names.push(m.name);
+      }
+      this.log(state, `Wrapped in oilcloth: <b>${names.join(', ')}</b>.`, 'good');
+      this.finishRoom(state);
+    } else if(outcome==='bundle'){
+      const gold = Math.round(U.randInt(10,20) * (1+dlvl*0.1));
+      const mat = U.pick(CRAFTING_MATERIALS);
+      state.player.gold += gold;
+      this.grantMaterial(state, mat.id);
+      this.log(state, `A little of everything: <b>${gold} gold</b> and a <b>${mat.name}</b>.`, 'good');
+      this.finishRoom(state);
+    } else if(outcome==='empty'){
+      this.log(state, `The chest creaks open — empty. Someone beat you to it.`, 'flavor');
+      this.finishRoom(state);
+    } else if(outcome==='mimic'){
+      const tpl = {
+        id:'mimic', name:'Mimic', title:'the Betrayer Chest', icon:'📦', element:'physical',
+        flavor:'wood and iron peeling back to reveal teeth',
+        atk:1.25, def:0.9, matk:0.3, mdef:0.6, spd:0.75,
+      };
+      const monster = Generators.monsterFromTemplate(tpl, dlvl, state.dungeon.difficulty.monsterMult, false);
+      monster.goldDrop = Math.round(monster.goldDrop*1.5);
+      monster.xpDrop = Math.round(monster.xpDrop*1.5);
+      this.log(state, `The lid splits open into a maw of teeth — it was never a chest at all!`, 'bad');
+      this.startCombat(state, [monster], {bonusLoot:true});
+    }
   },
 
   checkLevelUp(state){
