@@ -106,8 +106,8 @@ const Engine = {
     if(state.dungeon && state.dungeon._buffs){
       for(const b of state.dungeon._buffs) totals[b.stat] = (totals[b.stat]||0) + b.flat;
     }
-    let maxHp = BALANCE.maxHp(p.level, totals.def);
-    const maxMp = BALANCE.maxMp(p.level, totals.mdef);
+    let maxHp = BALANCE.maxHp(p.level, totals.def) + (totals.hp||0);
+    const maxMp = BALANCE.maxMp(p.level, totals.mdef) + (totals.mp||0);
     // dungeon-wide risk/reward pact from the cursed_altar event (see EVENT_HANDLERS);
     // applied here so it survives refreshDerived recalculation for the rest of the dungeon.
     if(state.dungeon && state.dungeon._altarPact){
@@ -289,6 +289,10 @@ const Engine = {
 
     let critChance = 5 + hitEff*0.2;
     let critMult = 1.5;
+    if(isPlayer){
+      critChance += (state.derived.critChance||0);
+      critMult += (state.derived.critDamage||0)/100;
+    }
     if(isPlayer) for(const t of traits){
       if(t.type==='critChanceBonus') critChance += t.value;
       if(t.type==='critDmgBonus') critMult += t.value/100;

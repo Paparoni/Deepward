@@ -28,10 +28,11 @@ const Generators = {
       chosen.push(pickObj.s);
       available.splice(available.indexOf(pickObj.s),1);
     }
+    const [rollMin, rollMax] = tier.rollRange || [0.85, 1.15];
     const stats = {};
     for(const s of chosen){
       const scalar = s.kind==='pct' ? BALANCE.itemStatScalar.elementDmg : (BALANCE.itemStatScalar[s.id] ?? 1);
-      const raw = scalar * dungeonLevel * tier.mult * U.rand(0.85,1.15);
+      const raw = scalar * dungeonLevel * tier.mult * U.rand(rollMin, rollMax);
       stats[s.id] = s.kind==='pct' ? Math.max(1, Math.round(raw)) : Math.max(1, Math.round(raw));
     }
     return stats;
@@ -41,10 +42,11 @@ const Generators = {
     const count = tier.uniqueTraits ?? 0;
     const picked = [];
     const avail = [...pool];
+    const tvm = tier.traitValueMult ?? 1;
     for(let i=0;i<count && avail.length;i++){
       const t = U.pick(avail);
       avail.splice(avail.indexOf(t),1);
-      const value = Math.round((t.base + t.perLvl*dungeonLevel)*10)/10;
+      const value = Math.round((t.base + t.perLvl*dungeonLevel)*tvm*10)/10;
       picked.push({id:t.id, name:t.name, type:t.type, value, desc:t.desc(value)});
     }
     return picked;
@@ -53,7 +55,8 @@ const Generators = {
   rollMythicTrait(tier, dungeonLevel){
     if(!tier.mythicTraits) return null;
     const t = U.pick(MYTHIC_TRAITS);
-    const value = Math.round((t.base + t.perLvl*dungeonLevel)*10)/10;
+    const tvm = tier.traitValueMult ?? 1;
+    const value = Math.round((t.base + t.perLvl*dungeonLevel)*tvm*10)/10;
     return {id:t.id, name:t.name, type:t.type, value, desc:t.desc(value)};
   },
 
@@ -61,7 +64,10 @@ const Generators = {
     const prefix = U.pick(NAME_PARTS.prefixByTier[tier.id]);
     const noun = U.pick(NAME_PARTS.nounBySlot[slot.id]);
     let name = `${prefix} ${noun}`;
-    if(tier.uniqueTraits>0) name += ` ${U.pick(NAME_PARTS.suffixes)}`;
+    if(tier.uniqueTraits>0){
+      const suffixPool = NAME_PARTS.suffixesByTier[tier.id] || NAME_PARTS.suffixes;
+      name += ` ${U.pick(suffixPool)}`;
+    }
     return name;
   },
 
