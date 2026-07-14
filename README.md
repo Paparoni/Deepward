@@ -24,7 +24,7 @@ The project is actively developed in my spare time and will continue to grow wit
 - Boss encounters
 - RNG-driven gameplay with high replayability
 - Modular architecture for adding new content
-- Runs entirely in the browser—no installation required
+- Runs entirely in the browser
 - Crafting *(Work in Progress)*
 
 ---
