@@ -31,6 +31,7 @@ const EFFECT_HANDLERS = {
   defShred:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.target.def!=null){ const shred=Math.round(ctx.target.def*v/100); ctx.target.def=Math.max(0, ctx.target.def-shred); ctx.notes.push(`${ctx.targetName}'s armor shreds.`); } },
   mdefShred:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.target.mdef!=null){ const shred=Math.round(ctx.target.mdef*v/100); ctx.target.mdef=Math.max(0, ctx.target.mdef-shred); ctx.notes.push(`${ctx.targetName}'s wards crack.`); } },
   adrenaline:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.combat){ ctx.combat.buffs.push({stat:'spd', pct:v, name:'Adrenaline'}); } },
+  arcaneMomentum:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.combat){ ctx.combat.buffs.push({stat:'matk', pct:v, name:'Arcane Momentum'}); } },
 };
 
 // -- active-skill action types (used by class skill trees, see [1] CLASSES) --------
@@ -71,6 +72,37 @@ const SKILL_ACTION_HANDLERS = {
     target[skill.debuffStat] = Math.max(1, Math.round(target[skill.debuffStat]*(1-skill.debuffValue/100)));
     Engine.log(state, `${skill.name} weakens ${target.name}'s ${skill.debuffStat.toUpperCase()}.`, 'good');
   },
+  // Paladin innate: strips every negative buff (monster debuffs) and DoT off the player.
+  cleanse(state, skill){
+    const c = state.combat;
+    const hadAny = c.buffs.some(b=>b.pct<0) || c.playerDots.length>0;
+    c.buffs = c.buffs.filter(b=>b.pct>=0);
+    c.playerDots = [];
+    Engine.log(state, hadAny ? `${skill.name} burns away every affliction weighing on you.` : `${skill.name} finds nothing to cleanse.`, 'good');
+  },
+  // Rogue innate: instantly clears every skill cooldown for another go at your rotation.
+  resetCooldowns(state, skill){
+    for(const id of Object.keys(state.player.skillCooldowns)) state.player.skillCooldowns[id] = 0;
+    Engine.log(state, `${skill.name} resets your whole kit — everything is ready again.`, 'good');
+  },
+  // Necromancer innate: converts a sliver of your own life into mana.
+  manaTap(state, skill){
+    const hpCost = Math.round(state.derived.maxHp*(skill.hpCostPct||8)/100);
+    const mpGain = Math.round(state.derived.maxMp*(skill.manaPct||30)/100);
+    state.player.hp = Math.max(1, state.player.hp - hpCost);
+    state.player.mp = Math.min(state.derived.maxMp, state.player.mp + mpGain);
+    Engine.log(state, `${skill.name} trades <b>${hpCost} HP</b> for <b>${mpGain} MP</b>.`, 'good');
+  },
+  // Elementalist innate: a versatile bolt that picks a random element each cast.
+  nukeRandomElement(state, skill){
+    const target = Engine.getTarget(state);
+    if(!target) return;
+    const element = U.pick(ELEMENTS).id;
+    Engine.resolveAttack(state, state.derived, target, 'skill', true, null, {
+      powerMult:skill.power||1, forcedElement:element, skillName:skill.name, magic:!!skill.magic,
+    });
+    if(target.hp<=0) Engine.log(state, `${target.name} falls.`, 'good');
+  },
 };
 
 const Engine = {
@@ -99,6 +131,16 @@ const Engine = {
         totals[skill.effect.stat] = (totals[skill.effect.stat]||0) + skill.effect.value;
       } else {
         allTraits.push({id:skill.id, name:skill.name, type:skill.effect.type, value:skill.effect.value, desc:skill.desc});
+      }
+    }
+    // class-innate passive: baked into the discipline itself, active regardless of which
+    // route was chosen or how many skill points have been spent.
+    if(cls.innatePassive){
+      const ip = cls.innatePassive;
+      if(ip.effect.type==='statBonus'){
+        totals[ip.effect.stat] = (totals[ip.effect.stat]||0) + ip.effect.value;
+      } else {
+        allTraits.push({id:ip.id, name:ip.name, type:ip.effect.type, value:ip.effect.value, desc:ip.desc});
       }
     }
     // generic dungeon-wide flat stat buffs (bonfire, deep_pool, etc. push onto this);
@@ -241,13 +283,23 @@ const Engine = {
     this.resolveRound(state, {kind});
   },
 
+  // finds an active skill by id: a route skill (must be unlocked) or the
+  // class's always-available innate active.
+  findActiveSkill(state, skillId){
+    const cls = CLASS_BY_ID[state.player.classId];
+    if(cls.innateActive && cls.innateActive.id===skillId) return cls.innateActive;
+    const skill = cls.skillTree.find(sk=>sk.id===skillId);
+    return (skill && skill.kind==='active') ? skill : null;
+  },
+
   useSkill(state, skillId){
     const c = state.combat;
     if(!c || state.player.hp<=0) return;
     const cls = CLASS_BY_ID[state.player.classId];
-    const skill = cls.skillTree.find(sk=>sk.id===skillId);
-    if(!skill || skill.kind!=='active') return;
-    if(!state.player.unlockedSkills.includes(skillId)) return;
+    const skill = this.findActiveSkill(state, skillId);
+    if(!skill) return;
+    const isInnate = cls.innateActive && cls.innateActive.id===skillId;
+    if(!isInnate && !state.player.unlockedSkills.includes(skillId)) return;
     if(!c.monsters.some(m=>m.hp>0)) return;
     if((state.player.skillCooldowns[skillId]||0) > 0){ this.log(state, `${skill.name} is still recovering.`, 'bad'); return; }
     const manaTrait = state.derived.traits.find(t=>t.type==='manaCostReduction');
@@ -281,6 +333,11 @@ const Engine = {
       const mpBack = Math.round(state.derived.maxMp*BALANCE.guardManaRestorePct);
       state.player.mp = Math.min(state.derived.maxMp, state.player.mp+mpBack);
       this.log(state, `You brace behind your guard, steadying your breath.${mpBack?` <b>+${mpBack} MP</b>.`:''}`, 'flavor');
+      const guardFury = state.derived.traits.find(t=>t.type==='guardFury');
+      if(guardFury){
+        c.buffs.push({stat:'atk', pct:guardFury.value, name:guardFury.name});
+        this.log(state, `${guardFury.name} turns your guard into leverage — +${guardFury.value}% ATK for the rest of the fight.`, 'good');
+      }
     }
     // 'flee-failed' spends the round doing nothing further
   },
@@ -390,6 +447,11 @@ const Engine = {
     const c = state.combat;
     if(!c) return;
     c.playerGuarding = action.kind==='defend';
+    // tick down cooldowns from PRIOR rounds before this round's action executes,
+    // so a skill used this round is still on cooldown at the start of the next one.
+    for(const id of Object.keys(state.player.skillCooldowns)){
+      if(state.player.skillCooldowns[id]>0) state.player.skillCooldowns[id]--;
+    }
 
     const jitter = ()=> (Math.random()*2-1) * BALANCE.initiativeJitter;
     const combatants = [
@@ -416,6 +478,7 @@ const Engine = {
     if(!c) return;
     for(const t of state.derived.traits){
       if(t.type==='regenPerTurn') state.player.hp = Math.min(state.derived.maxHp, state.player.hp + Math.round(t.value));
+      if(t.type==='mpRegenPerTurn') state.player.mp = Math.min(state.derived.maxMp, state.player.mp + Math.round(t.value));
     }
     if(state.player.hp>0 && c.playerDots.length){
       for(const dot of c.playerDots){
@@ -428,9 +491,6 @@ const Engine = {
     }
     state.player.hp = U.clamp(state.player.hp, 0, state.derived.maxHp);
     c.playerGuarding = false;
-    for(const id of Object.keys(state.player.skillCooldowns)){
-      if(state.player.skillCooldowns[id]>0) state.player.skillCooldowns[id]--;
-    }
     for(const m of c.monsters){
       if(m.hp>0 && m._utilityCooldown>0) m._utilityCooldown--;
     }
@@ -537,7 +597,9 @@ const Engine = {
       }
       let finalDmg = incomingCtx.dodged ? 0 : incomingCtx.damage;
       if(!incomingCtx.dodged && c.playerGuarding){
-        const mit = opts.charged ? BALANCE.guardMitigationVsCharge : BALANCE.guardMitigation;
+        let mit = opts.charged ? BALANCE.guardMitigationVsCharge : BALANCE.guardMitigation;
+        const guardBonus = state.derived.traits.find(t=>t.type==='guardMitigationBonus');
+        if(guardBonus) mit = Math.min(0.95, mit + guardBonus.value/100);
         finalDmg = Math.round(finalDmg*(1-mit));
         incomingCtx.notes.push('Your guard absorbs much of the blow.');
       }

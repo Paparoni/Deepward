@@ -164,7 +164,10 @@ function renderCombat(s){
   const afflictionRow = (debuffTags.length||dotTags.length) ? `<div class="affliction-row">${debuffTags.join('')}${dotTags.join('')}</div>` : '';
 
   const cls = CLASS_BY_ID[s.player.classId];
-  const activeSkills = cls.skillTree.filter(sk=>sk.kind==='active' && s.player.unlockedSkills.includes(sk.id));
+  const activeSkills = [
+    ...(cls.innateActive ? [cls.innateActive] : []),
+    ...cls.skillTree.filter(sk=>sk.kind==='active' && s.player.unlockedSkills.includes(sk.id)),
+  ];
   const skillButtons = activeSkills.map(sk=>{
     const cd = s.player.skillCooldowns[sk.id]||0;
     const disabled = !alive || s.player.mp < sk.manaCost || cd>0;
@@ -334,6 +337,7 @@ function renderTitle(){
     return `<div class="slot" style="cursor:pointer;text-align:left;${selected?'border-color:var(--ember);background:#2a2115;':''}" onclick="selectClass('${c.id}')">
       <div class="slot-label">${c.icon} ${c.name.toUpperCase()}${selected?' ✓':''}</div>
       <div class="slot-empty" style="color:var(--ink-dim);font-style:normal;">${c.desc}</div>
+      ${c.innatePassive ? `<div class="small" style="color:var(--gold);margin-top:4px;">Innate: ${c.innatePassive.name}</div>` : ''}
     </div>`;
   }).join('');
   return `<div class="title-screen">
@@ -373,11 +377,28 @@ function renderSkillsOverlay(s){
     }).join('');
     return `<div style="margin-bottom:14px;"><div class="panel-title" style="border:none;padding:4px 0;">Tier ${i+1}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${cards}</div></div>`;
   }).join('');
+  const innateHtml = (cls.innatePassive || cls.innateActive) ? `
+    <div style="margin-bottom:14px;">
+      <div class="panel-title" style="border:none;padding:4px 0;">Class Innate <span class="small">(no discipline required, always active)</span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        ${cls.innatePassive ? `<div class="item-card" style="border-color:var(--good);">
+          <div class="item-name" style="font-size:13px;">◆ ${cls.innatePassive.name}</div>
+          <div class="item-meta">INNATE PASSIVE</div>
+          <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${cls.innatePassive.desc}</div>
+        </div>` : ''}
+        ${cls.innateActive ? `<div class="item-card" style="border-color:var(--good);">
+          <div class="item-name" style="font-size:13px;color:var(--ember);">⚡ ${cls.innateActive.name}</div>
+          <div class="item-meta">INNATE ACTIVE · ${cls.innateActive.manaCost} MP</div>
+          <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${cls.innateActive.desc}</div>
+        </div>` : ''}
+      </div>
+    </div>` : '';
   return `<div class="overlay" onclick="if(event.target===this) toggleSkills()">
     <div class="panel overlay-panel">
       <div class="panel-title">${cls.icon} ${cls.name} Skill Tree <span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleSkills()">Close ✕</span></div>
       <div class="overlay-body">
         <div class="small" style="margin-bottom:10px;">Skill points available: <b style="color:var(--gold)">${s.player.skillPoints}</b></div>
+        ${innateHtml}
         ${tierHtml}
       </div>
     </div>

@@ -23,10 +23,12 @@ function advancedNodes(route){
   ];
 }
 
-function makeClass(id, name, icon, desc, statMods, routes){
+function makeClass(id, name, icon, desc, statMods, routes, innate={}){
   const choiceGroup = `${id}-discipline`;
+  const innatePassive = innate.passive ? {...innate.passive, id:`${id}_innate_passive`, kind:'passive'} : null;
+  const innateActive = innate.active ? {...innate.active, id:`${id}_innate_active`, kind:'active'} : null;
   return {
-    id, name, icon, desc, statMods,
+    id, name, icon, desc, statMods, innatePassive, innateActive,
     skillTree: routes.flatMap(route => [...route.nodes, ...advancedNodes(route)].map((node, index) => {
       const cost = index >= 8 ? 3 : index >= 4 ? 2 : 1;
       return {
@@ -76,7 +78,10 @@ const CLASSES = [
       P('Giant Slayer', {type:'bossDamageBonus', value:18}, '+18% damage to bosses.'),
       A('Conqueror\'s Banner', 18, 'buff', '+42% ATK for the battle.', {buffStat:'atk', buffValue:42}),
     ]},
-  ]),
+  ], {
+    passive: {name:'Unshakable Resolve', effect:{type:'guardFury', value:12}, desc:'Every time you Defend, also gain +12% ATK for the rest of the battle (stacks).'},
+    active: {name:"Warrior's Second Wind", manaCost:6, cooldown:4, action:'heal', healPct:22, desc:'Restore 22% of your maximum HP. Available regardless of discipline.'},
+  }),
   makeClass('mage', 'Mage', '🔮', 'A scholar of dangerous arcane disciplines.', {matk:5, mdef:2, spd:1}, [
     {id:'pyre', name:'Pyromancer', nodes:[
       A('Firebolt', 8, 'nuke', 'A fire bolt for 115% magic damage.', {power:1.15, magic:true, forcedElement:'fire'}),
@@ -106,7 +111,10 @@ const CLASSES = [
       P('Mana Loop', {type:'manaCostReduction', value:16}, 'Skills cost 16% less MP.'),
       A('Epoch Surge', 18, 'buff', '+45% MATK for the battle.', {buffStat:'matk', buffValue:45}),
     ]},
-  ]),
+  ], {
+    passive: {name:'Arcane Reservoir', effect:{type:'mpRegenPerTurn', value:6}, desc:'Regenerate 6 MP every round, in or out of your chosen discipline.'},
+    active: {name:'Arcane Surge', manaCost:5, cooldown:1, action:'nuke', power:0.9, magic:true, desc:'A quick 90% magic bolt in your weapon\'s element. Available regardless of discipline.'},
+  }),
   makeClass('rogue', 'Rogue', '🗡️', 'A quick killer who commits to a single lethal craft.', {spd:5, hitEff:3}, [
     {id:'duel', name:'Duelist', nodes:[
       A('Quick Strike', 5, 'nuke', 'A fast 95% weapon-damage attack.', {power:.95}),
@@ -136,7 +144,10 @@ const CLASSES = [
       P('Twinned Blades', {type:'doubleHitChance', value:14}, '14% chance to strike twice.'),
       A('Highwayman\'s Gambit', 17, 'buff', '+40% ATK for the battle.', {buffStat:'atk', buffValue:40}),
     ]},
-  ]),
+  ], {
+    passive: {name:"Predator's Instinct", effect:{type:'critChanceBonus', value:10}, desc:'+10% critical hit chance, always — no discipline required.'},
+    active: {name:'Second Chance', manaCost:10, cooldown:5, action:'resetCooldowns', desc:'Instantly clear every skill cooldown. Available regardless of discipline.'},
+  }),
   makeClass('paladin', 'Paladin', '🛡️', 'A holy warrior defined by one sacred oath.', {def:4, mdef:2, hitRes:2}, [
     {id:'devotion', name:'Devotion', nodes:[
       A('Smite', 7, 'nuke', 'A holy strike for 105% magic damage.', {power:1.05, magic:true, forcedElement:'holy'}),
@@ -166,7 +177,10 @@ const CLASSES = [
       P('Relentless Verdict', {type:'critDmgBonus', value:25}, '+25% critical damage.'),
       A('Final Inquisition', 20, 'nuke', 'A 190% holy sentence.', {power:1.9, magic:true, forcedElement:'holy', executeThreshold:24}),
     ]},
-  ]),
+  ], {
+    passive: {name:'Sanctified Guard', effect:{type:'guardMitigationBonus', value:15}, desc:'Defend mitigates an additional 15 percentage points of incoming damage, always.'},
+    active: {name:'Cleansing Light', manaCost:8, cooldown:4, action:'cleanse', desc:'Strip every debuff and damage-over-time effect off yourself. Available regardless of discipline.'},
+  }),
   makeClass('elementalist', 'Elementalist', '🌪️', 'A conduit who dedicates their craft to one element.', {matk:4, spd:2, hitEff:1}, [
     {id:'flame', name:'Flamecaller', nodes:[
       A('Ignite', 7, 'nuke', 'A 105% fire spell.', {power:1.05, magic:true, forcedElement:'fire'}),
@@ -196,7 +210,10 @@ const CLASSES = [
       P('Bulwark of Stone', {type:'thorns', value:12}, 'Reflect 12% of incoming damage.'),
       A('Worldbreaker', 19, 'nuke', 'A 175% earth spell.', {power:1.75, magic:true, forcedElement:'physical'}),
     ]},
-  ]),
+  ], {
+    passive: {name:'Arcane Momentum', effect:{type:'arcaneMomentum', value:3}, desc:'Each hit you land grants +3% MATK for the rest of the battle (stacks), regardless of discipline.'},
+    active: {name:'Elemental Shift', manaCost:7, cooldown:2, action:'nukeRandomElement', power:1.0, magic:true, desc:'A 100% magic bolt in a random element. Available regardless of discipline.'},
+  }),
   makeClass('necromancer', 'Necromancer', '☠️', 'A master of death who follows one forbidden art.', {matk:3, mdef:3, hitRes:2}, [
     {id:'blight', name:'Blight', nodes:[
       A('Curse', 7, 'nuke', 'A withering 100% dark spell.', {power:1, magic:true, forcedElement:'dark'}),
@@ -226,7 +243,10 @@ const CLASSES = [
       P('Undying Bond', {type:'reviveOncePerFight', value:30}, 'Survive one killing blow each battle at 30% HP.'),
       A('Bone Colossus', 18, 'buff', '+44% MATK for the battle.', {buffStat:'matk', buffValue:44}),
     ]},
-  ]),
+  ], {
+    passive: {name:"Death's Due", effect:{type:'manaOnKill', value:20}, desc:'Restore 20% of your max MP on every killing blow, regardless of discipline.'},
+    active: {name:'Soul Tap', manaCost:0, cooldown:3, action:'manaTap', hpCostPct:8, manaPct:30, desc:'Trade 8% of your max HP for 30% of your max MP. Available regardless of discipline.'},
+  }),
 ];
 
 const CLASS_BY_ID = Object.fromEntries(CLASSES.map(c=>[c.id,c]));
