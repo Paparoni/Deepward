@@ -138,11 +138,22 @@ body{
 .btn-row .btn{flex:1;min-width:110px;text-align:center;}
 
 /* ---------- combat ---------- */
+.round-label{font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+.init-strip{display:flex;align-items:center;flex-wrap:wrap;gap:4px;}
+.init-chip{background:var(--bg-raised);border:1px solid var(--stone-lite);border-radius:10px;padding:2px 8px;font-size:10px;}
+.init-chip.init-you{color:var(--ember);border-color:var(--ember-dim);}
+.init-arrow{color:var(--ink-faint);}
 .combatants{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px;}
-.combatant{background:var(--bg-raised);border:1px solid var(--stone);border-radius:6px;padding:10px 12px;min-width:160px;}
-.combatant.dead{opacity:.35;}
+.combatant{background:var(--bg-raised);border:1px solid var(--stone);border-radius:6px;padding:10px 12px;min-width:160px;cursor:pointer;transition:border-color .15s, box-shadow .15s;}
+.combatant:hover{border-color:var(--ember-dim);}
+.combatant.dead{opacity:.35;cursor:default;}
+.combatant.targeted{border-color:var(--ember);box-shadow:0 0 0 1px var(--ember) inset;}
+.combatant.charging{border-color:var(--blood);}
 .combatant-name{font-family:var(--font-display);font-size:13px;color:var(--ember);}
+.target-mark{font-size:11px;}
 .combatant-hp-num{font-family:var(--font-mono);font-size:10px;color:var(--ink-dim);}
+.charge-tag{margin-top:6px;font-family:var(--font-mono);font-size:9.5px;color:#ff9d9d;animation:charge-pulse 1.1s ease-in-out infinite;}
+@keyframes charge-pulse{0%,100%{opacity:.65;}50%{opacity:1;}}
 
 /* ---------- stat sheet ---------- */
 .statsheet{padding:10px 14px;}

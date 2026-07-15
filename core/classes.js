@@ -27,15 +27,22 @@ function makeClass(id, name, icon, desc, statMods, routes){
   const choiceGroup = `${id}-discipline`;
   return {
     id, name, icon, desc, statMods,
-    skillTree: routes.flatMap(route => [...route.nodes, ...advancedNodes(route)].map((node, index) => ({
-      ...node,
-      id: `${id}_${route.id}_${index + 1}`,
-      tier: index + 1,
-      cost: index >= 8 ? 3 : index >= 4 ? 2 : 1,
-      branch: route.name,
-      requires: index ? `${id}_${route.id}_${index}` : null,
-      choiceGroup: index === 0 ? choiceGroup : null,
-    }))),
+    skillTree: routes.flatMap(route => [...route.nodes, ...advancedNodes(route)].map((node, index) => {
+      const cost = index >= 8 ? 3 : index >= 4 ? 2 : 1;
+      return {
+        ...node,
+        id: `${id}_${route.id}_${index + 1}`,
+        tier: index + 1,
+        cost,
+        // active skills go on cooldown after use (rounds) so the strongest
+        // nuke in a build can't just be spammed every turn — deeper skills
+        // hit harder but also sit out longer, forcing a rotation.
+        cooldown: node.kind === 'active' ? cost : undefined,
+        branch: route.name,
+        requires: index ? `${id}_${route.id}_${index}` : null,
+        choiceGroup: index === 0 ? choiceGroup : null,
+      };
+    })),
   };
 }
 

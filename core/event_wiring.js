@@ -55,6 +55,7 @@ function onChoiceClick(i){
   render();
 }
 function onCombatAction(kind){ Engine.playerAction(STATE, kind); render(); }
+function onSelectTarget(monsterUid){ Engine.setTarget(STATE, monsterUid); render(); }
 function onBuyItem(i, price){
   const s = STATE;
   const item = s.ui.merchantStock[i];

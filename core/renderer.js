@@ -135,27 +135,46 @@ function renderLog(s){
 
 function renderCombat(s){
   const c = s.combat;
-  const monsterHtml = c.monsters.map(m=>`
-    <div class="combatant ${m.hp<=0?'dead':''}">
-      <div class="combatant-name">${m.icon} ${m.name}</div>
+  const monsterHtml = c.monsters.map(m=>{
+    const targeted = m.hp>0 && m.uid===c.targetUid;
+    const clickable = m.hp>0;
+    const classes = ['combatant', m.hp<=0?'dead':'', targeted?'targeted':'', m._charging?'charging':''].filter(Boolean).join(' ');
+    return `
+    <div class="${classes}" ${clickable?`onclick="onSelectTarget('${m.uid}')" title="Target ${m.name}"`:''}>
+      <div class="combatant-name">${m.icon} ${m.name}${targeted?' <span class="target-mark">🎯</span>':''}</div>
       <div class="bar-track" style="margin-top:4px;"><div class="bar-fill bar-hp" style="width:${U.clamp(m.hp/m.maxHp*100,0,100)}%"></div></div>
       <div class="combatant-hp-num">${Math.max(0,m.hp)}/${m.maxHp} HP</div>
-    </div>`).join('');
+      ${m._charging? `<div class="charge-tag">⚡ Charging a heavy blow — Defend or burst it down!</div>` : ''}
+    </div>`;
+  }).join('');
   const alive = c.monsters.some(m=>m.hp>0);
+
+  // initiative preview for this round — mirrors the sort resolveRound() uses,
+  // without the per-round jitter (the jitter can swap close ties in practice).
+  const order = [
+    {name:'You', spd: Engine.effectiveStat(s,'spd'), you:true},
+    ...c.monsters.filter(m=>m.hp>0).map(m=>({name:m.name, spd:m.spd, icon:m.icon})),
+  ].sort((a,b)=>b.spd-a.spd);
+  const orderHtml = order.map(o=>`<span class="init-chip${o.you?' init-you':''}">${o.you?'🧍':o.icon} ${o.you?'You':o.name}</span>`).join('<span class="init-arrow">→</span>');
+
   const cls = CLASS_BY_ID[s.player.classId];
   const activeSkills = cls.skillTree.filter(sk=>sk.kind==='active' && s.player.unlockedSkills.includes(sk.id));
   const skillButtons = activeSkills.map(sk=>{
-    const disabled = !alive || s.player.mp < sk.manaCost;
-    return `<button class="btn" title="${sk.desc}" onclick="onUseSkill('${sk.id}')" ${disabled?'disabled':''}>${sk.name} <span class="small">(${sk.manaCost} MP)</span></button>`;
+    const cd = s.player.skillCooldowns[sk.id]||0;
+    const disabled = !alive || s.player.mp < sk.manaCost || cd>0;
+    const cdTag = cd>0 ? ` <span class="small">[CD ${cd}]</span>` : '';
+    return `<button class="btn" title="${sk.desc}" onclick="onUseSkill('${sk.id}')" ${disabled?'disabled':''}>${sk.name} <span class="small">(${sk.manaCost} MP)</span>${cdTag}</button>`;
   }).join('');
   const buffNote = c.buffs.length ? `<div class="small" style="margin:6px 0;">Active this battle: ${c.buffs.map(b=>`+${b.pct}% ${STAT_BY_ID[b.stat].short} (${b.name})`).join(', ')}</div>` : '';
   return `
+    <div class="round-label">Round ${c.round}<span class="init-strip">${orderHtml}</span></div>
     <div class="combatants">${monsterHtml}</div>
     ${buffNote}
     ${renderLog(s)}
     <div class="btn-row" style="margin-top:14px;">
       <button class="btn btn-primary" onclick="onCombatAction('attack')" ${alive?'':'disabled'}>Attack</button>
       <button class="btn" onclick="onCombatAction('cast')" ${alive?'':'disabled'}>Cast (Magic)</button>
+      <button class="btn" onclick="onCombatAction('defend')" ${alive?'':'disabled'} title="Sharply reduce all damage you take this round; restores a little MP.">Defend</button>
       <button class="btn btn-danger" onclick="onCombatAction('flee')" ${alive?'':'disabled'}>Flee</button>
       ${skillButtons}
     </div>`;

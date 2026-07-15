@@ -5,7 +5,7 @@ let STATE = null;
 let PENDING_CLASS = CLASSES[0].id;
 
 function newGame(name, classId){
-  const player = {name, classId, level:1, xp:0, gold:40, hp:1, mp:1, skillPoints:1, unlockedSkills:[], recipes:[], materials:{}};
+  const player = {name, classId, level:1, xp:0, gold:40, hp:1, mp:1, skillPoints:1, unlockedSkills:[], recipes:[], materials:{}, skillCooldowns:{}};
   const equipment = {
     weapon: Generators.generateItem(1, {forcedSlot:'weapon', forcedTier:'common'}),
     helmet:null, chest: Generators.generateItem(1, {forcedSlot:'chest', forcedTier:'common'}),

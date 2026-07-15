@@ -26,5 +26,25 @@ const BALANCE = {
     normal:   {label:'Normal',   monsterMult:1.00, lootBonus:0.0},
     hard:     {label:'Hard',     monsterMult:1.35, lootBonus:0.6},
     nightmare:{label:'Nightmare',monsterMult:1.85, lootBonus:1.3},
-  }
+  },
+
+  // -- turn-based combat tuning -----------------------------------------
+  // Initiative order each round is SPD-based with a little jitter so ties
+  // (and near-ties) aren't perfectly deterministic.
+  initiativeJitter: 3,
+  // chance per round a non-boss monster starts a telegraphed charge instead
+  // of attacking; it attacks for real the round after.
+  monsterChargeChance: 0.17,
+  // bosses charge on a fixed cadence instead of randomly, so their pattern
+  // can be learned and played around.
+  bossChargeCadence: 4,
+  chargeDamageMult: 1.9,
+  // charged hits partially ignore the target's relevant defense stat.
+  chargeDefPiercePct: 0.5,
+  // Guard (the Defend action) mitigation, and a stronger version specifically
+  // against a charged/telegraphed hit that the player had a full round of
+  // warning about.
+  guardMitigation: 0.45,
+  guardMitigationVsCharge: 0.65,
+  guardManaRestorePct: 0.10,
 };

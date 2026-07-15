@@ -39,7 +39,7 @@ const EFFECT_HANDLERS = {
 // automatically benefit from crit, elemental bonus stats, and item/skill traits.
 const SKILL_ACTION_HANDLERS = {
   nuke(state, skill){
-    const target = state.combat.monsters.find(m=>m.hp>0);
+    const target = Engine.getTarget(state);
     if(!target) return;
     Engine.resolveAttack(state, state.derived, target, 'skill', true, null, {
       powerMult:skill.power||1, forcedElement:skill.forcedElement, executeThreshold:skill.executeThreshold, skillName:skill.name, magic:!!skill.magic,
@@ -66,7 +66,7 @@ const SKILL_ACTION_HANDLERS = {
   },
   debuff(state, skill){
     // extension point: e.g. {id:'x', action:'debuff', debuffStat:'def', debuffValue:20}
-    const target = state.combat.monsters.find(m=>m.hp>0);
+    const target = Engine.getTarget(state);
     if(!target) return;
     target[skill.debuffStat] = Math.max(1, Math.round(target[skill.debuffStat]*(1-skill.debuffValue/100)));
     Engine.log(state, `${skill.name} weakens ${target.name}'s ${skill.debuffStat.toUpperCase()}.`, 'good');
@@ -163,14 +163,28 @@ const Engine = {
   },
 
   // ---- battle lifecycle ----
+  // Combat resolves in ROUNDS. Each round the player locks in one action
+  // (attack / cast / a skill / defend / flee), then every combatant still
+  // standing — player included — acts once in SPD-based initiative order.
+  // Monsters occasionally telegraph a heavy "charge" attack a full round
+  // before it lands, so a build's SPD (who reacts to what first) and its
+  // Defend action (mitigates a round's incoming damage, and mitigates a
+  // charged hit especially hard) both become real tactical levers.
   startCombat(state, monsters, opts={}){
     this.refreshDerived(state);
     state.mode='combat';
     state.player._revivedThisFight = false;
+    state.player.skillCooldowns = {};
+    for(const m of monsters){
+      m._charging = false;
+      if(m.isBoss) m._chargeCountdown = BALANCE.bossChargeCadence - 1;
+    }
     state.combat = {
-      monsters, isBoss: !!opts.isBoss, bonusLoot: !!opts.bonusLoot, playerStunned:false, _firstStrikeUsed:false, round:1, _combo:0,
+      monsters, isBoss: !!opts.isBoss, bonusLoot: !!opts.bonusLoot, round:1, _combo:0, _firstStrikeUsed:false,
       playerElement: (state.equipment.weapon?.element) || 'physical',
       buffs: [], // {stat, pct, name} — from 'buff' type active skills, lasts the whole fight
+      playerGuarding: false,
+      targetUid: monsters[0] ? monsters[0].uid : null,
     };
   },
 
@@ -192,25 +206,37 @@ const Engine = {
     }
   },
 
+  // ---- targeting ----
+  getTarget(state){
+    const c = state.combat;
+    if(!c) return null;
+    return c.monsters.find(m=>m.uid===c.targetUid && m.hp>0) || c.monsters.find(m=>m.hp>0) || null;
+  },
+
+  setTarget(state, monsterUid){
+    const c = state.combat;
+    if(!c) return;
+    const m = c.monsters.find(m=>m.uid===monsterUid && m.hp>0);
+    if(m) c.targetUid = m.uid;
+  },
+
+  // ---- player round actions ----
+  // Attack / Cast / Flee call straight in. Skills go through useSkill (which
+  // validates mana + cooldown) but both end up here to lock in the round.
   playerAction(state, kind){
     const c = state.combat;
     if(!c || state.player.hp<=0) return;
-    const target = c.monsters.find(m=>m.hp>0);
-    if(!target) return;
-
     if(kind==='flee'){
-      if(Math.random()<0.5){ this.log(state,'You slip away from the fight.', 'flavor'); this.endCombat(state,'fled'); return; }
+      // faster delvers slip away more easily than slower ones
+      const fastestFoe = Math.max(0, ...c.monsters.filter(m=>m.hp>0).map(m=>m.spd));
+      const chance = U.clamp(50 + (this.effectiveStat(state,'spd')-fastestFoe)*0.6, 15, 90);
+      if(Math.random()*100<chance){ this.log(state,'You slip away from the fight.', 'flavor'); this.endCombat(state,'fled'); return; }
       this.log(state, 'You fail to escape!', 'bad');
-      this.resolveMonsterPhase(state);
+      this.resolveRound(state, {kind:'flee-failed'});
       return;
     }
-    this.resolveAttack(state, state.derived, target, kind, true);
-    if(target.hp<=0) this.log(state, `${target.name} falls.`, 'good');
-    this.maybeExtraAction(state, ()=>{
-      const t2 = c.monsters.find(m=>m.hp>0);
-      if(t2){ this.resolveAttack(state, state.derived, t2, kind, true); if(t2.hp<=0) this.log(state, `${t2.name} falls.`, 'good'); }
-    });
-    this.resolveMonsterPhase(state);
+    if(!['attack','cast','defend'].includes(kind)) return;
+    this.resolveRound(state, {kind});
   },
 
   useSkill(state, skillId){
@@ -221,29 +247,113 @@ const Engine = {
     if(!skill || skill.kind!=='active') return;
     if(!state.player.unlockedSkills.includes(skillId)) return;
     if(!c.monsters.some(m=>m.hp>0)) return;
+    if((state.player.skillCooldowns[skillId]||0) > 0){ this.log(state, `${skill.name} is still recovering.`, 'bad'); return; }
     const manaTrait = state.derived.traits.find(t=>t.type==='manaCostReduction');
     const cost = manaTrait ? Math.max(1, Math.round(skill.manaCost*(1-manaTrait.value/100))) : skill.manaCost;
     if(state.player.mp < cost){ this.log(state, "Not enough MP for that.", 'bad'); return; }
-    state.player.mp -= cost;
-    const handler = SKILL_ACTION_HANDLERS[skill.action];
-    if(handler) handler(state, skill);
-    this.maybeExtraAction(state, ()=>{ if(handler) handler(state, skill); });
-    this.resolveMonsterPhase(state);
+    this.resolveRound(state, {kind:'skill', skill, cost});
   },
 
-  // shared post-player-action phase: monster turns, regen, defeat/victory checks
-  resolveMonsterPhase(state){
+  // executes the player's locked-in action (their single slot within the
+  // round's initiative order)
+  executePlayerAction(state, action){
+    const c = state.combat;
+    if(action.kind==='attack' || action.kind==='cast'){
+      const target = this.getTarget(state);
+      if(!target) return;
+      this.resolveAttack(state, state.derived, target, action.kind, true);
+      if(target.hp<=0) this.log(state, `${target.name} falls.`, 'good');
+      this.maybeExtraAction(state, ()=>{
+        const t2 = this.getTarget(state);
+        if(t2){ this.resolveAttack(state, state.derived, t2, action.kind, true); if(t2.hp<=0) this.log(state, `${t2.name} falls.`, 'good'); }
+      });
+    } else if(action.kind==='skill'){
+      state.player.mp -= action.cost;
+      state.player.skillCooldowns[action.skill.id] = action.skill.cooldown || 1;
+      const handler = SKILL_ACTION_HANDLERS[action.skill.action];
+      if(handler) handler(state, action.skill);
+      this.maybeExtraAction(state, ()=>{ if(handler) handler(state, action.skill); });
+    } else if(action.kind==='defend'){
+      c.playerGuarding = true;
+      c._combo = 0;
+      const mpBack = Math.round(state.derived.maxMp*BALANCE.guardManaRestorePct);
+      state.player.mp = Math.min(state.derived.maxMp, state.player.mp+mpBack);
+      this.log(state, `You brace behind your guard, steadying your breath.${mpBack?` <b>+${mpBack} MP</b>.`:''}`, 'flavor');
+    }
+    // 'flee-failed' spends the round doing nothing further
+  },
+
+  // decides and executes one monster's turn
+  monsterTurn(state, m){
+    const c = state.combat;
+    if(m.hp<=0) return;
+    if(m._stunned){ m._stunned=false; this.log(state, `${m.name} is stunned and cannot act.`, 'flavor'); return; }
+
+    if(m._charging){
+      m._charging = false;
+      if(m.isBoss) m._chargeCountdown = BALANCE.bossChargeCadence;
+      this.log(state, `${m.name} unleashes the blow it's been building!`, 'bad');
+      this.resolveAttack(state, m, {hp:state.player.hp}, 'attack', false, m, {powerMult:BALANCE.chargeDamageMult, charged:true});
+      return;
+    }
+
+    let startsCharge = false;
+    if(m.isBoss){
+      m._chargeCountdown--;
+      startsCharge = m._chargeCountdown<=0;
+    } else {
+      startsCharge = Math.random() < BALANCE.monsterChargeChance;
+    }
+
+    if(startsCharge){
+      m._charging = true;
+      this.log(state, `${m.name} winds up for a devastating strike — brace yourself!`, 'bad');
+      return;
+    }
+    this.resolveAttack(state, m, {hp:state.player.hp}, 'attack', false, m);
+  },
+
+  // resolves one full round: player's locked-in action plus every surviving
+  // monster's turn, all ordered by SPD (with a little jitter for near-ties).
+  resolveRound(state, action){
     const c = state.combat;
     if(!c) return;
-    for(const m of c.monsters){
-      if(m.hp<=0 || state.player.hp<=0) continue;
-      if(m._stunned){ m._stunned=false; this.log(state, `${m.name} is stunned and cannot act.`, 'flavor'); continue; }
-      this.resolveAttack(state, m, {hp:state.player.hp}, 'attack', false, m);
+    c.playerGuarding = action.kind==='defend';
+
+    const jitter = ()=> (Math.random()*2-1) * BALANCE.initiativeJitter;
+    const combatants = [
+      {type:'player', spd:this.effectiveStat(state,'spd')+jitter()},
+      ...c.monsters.filter(m=>m.hp>0).map(m=>({type:'monster', ref:m, spd:m.spd+jitter()})),
+    ].sort((a,b)=>b.spd-a.spd);
+
+    for(const combatant of combatants){
+      if(state.player.hp<=0) break;
+      if(c.monsters.every(m=>m.hp<=0)) break;
+      if(combatant.type==='player'){
+        this.executePlayerAction(state, action);
+      } else if(combatant.ref.hp>0){
+        this.monsterTurn(state, combatant.ref);
+      }
     }
+    this.endOfRound(state);
+  },
+
+  // regen, cooldown ticks, guard reset, retargeting, and the defeat/victory checks
+  endOfRound(state){
+    const c = state.combat;
+    if(!c) return;
     for(const t of state.derived.traits){
-      if(t.type==='regenPerTurn') EFFECT_HANDLERS.regenPerTurn({player:state.player}, t.value);
+      if(t.type==='regenPerTurn') state.player.hp = Math.min(state.derived.maxHp, state.player.hp + Math.round(t.value));
     }
     state.player.hp = U.clamp(state.player.hp, 0, state.derived.maxHp);
+    c.playerGuarding = false;
+    for(const id of Object.keys(state.player.skillCooldowns)){
+      if(state.player.skillCooldowns[id]>0) state.player.skillCooldowns[id]--;
+    }
+    if(!c.monsters.find(m=>m.uid===c.targetUid && m.hp>0)){
+      const nextAlive = c.monsters.find(m=>m.hp>0);
+      c.targetUid = nextAlive ? nextAlive.uid : null;
+    }
     if(state.player.hp<=0){
       let revived=false;
       for(const t of state.derived.traits){
@@ -260,7 +370,7 @@ const Engine = {
   },
 
   // unified damage resolution; attacker/defender are stat-bearing objects.
-  // opts: {powerMult, forcedElement, executeThreshold, skillName} — used by active skills.
+  // opts: {powerMult, forcedElement, executeThreshold, skillName, charged} — used by active skills & monster charge attacks.
   resolveAttack(state, attackerStats, targetRef, kind, isPlayer, monsterObj=null, opts={}){
     const c = state.combat;
     const traits = isPlayer ? state.derived.traits : [];
@@ -271,7 +381,8 @@ const Engine = {
       : (useMagic ? attackerStats.matk : attackerStats.atk) * powerMult;
     const defStat = isPlayer ? (targetRef.def||0) : state.derived.def;
     const mdefStat = isPlayer ? (targetRef.mdef||0) : state.derived.mdef;
-    const relevantDef = useMagic ? mdefStat : defStat;
+    let relevantDef = useMagic ? mdefStat : defStat;
+    if(!isPlayer && opts.charged) relevantDef *= (1-BALANCE.chargeDefPiercePct);
     const element = opts.forcedElement || (isPlayer ? c.playerElement : monsterObj.element);
     const elemBonusStat = element+'Dmg';
     const elemBonus = isPlayer ? (state.derived[elemBonusStat]||0) : 0;
@@ -340,8 +451,13 @@ const Engine = {
         if(h) h(incomingCtx, t.value);
       }
       let finalDmg = incomingCtx.dodged ? 0 : incomingCtx.damage;
+      if(!incomingCtx.dodged && c.playerGuarding){
+        const mit = opts.charged ? BALANCE.guardMitigationVsCharge : BALANCE.guardMitigation;
+        finalDmg = Math.round(finalDmg*(1-mit));
+        incomingCtx.notes.push('Your guard absorbs much of the blow.');
+      }
       state.player.hp = Math.max(0, state.player.hp - finalDmg);
-      this.log(state, `${monsterObj.name} ${useMagic?'casts at':'strikes'} you for <b>${finalDmg}</b>${isCrit?' (critical!)':''} damage.${incomingCtx.notes.length? ' '+incomingCtx.notes.join(' '):''}`, 'bad');
+      this.log(state, `${monsterObj.name} ${useMagic?'casts at':(opts.charged?'unleashes a charged blow on':'strikes')} you for <b>${finalDmg}</b>${isCrit?' (critical!)':''} damage.${incomingCtx.notes.length? ' '+incomingCtx.notes.join(' '):''}`, 'bad');
     }
   },
 
