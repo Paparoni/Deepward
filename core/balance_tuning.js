@@ -18,6 +18,12 @@ const BALANCE = {
   // phase triggers) add real effective damage on top of raw stats now, so the stat
   // curve itself doesn't need to carry quite as much of the late-game difficulty.
   monsterLevelExponent: 1.10,
+  // Early dungeon levels intentionally hit softer than the raw stat curve implies —
+  // this is about giving new runs room to learn the systems (targeting, guard timing,
+  // reading telegraphs) before the game asks much of them. Only trims monster ATK/MATK
+  // (how hard they hit), not HP/DEF, so early fights aren't shorter, just less punishing.
+  // Fully fades out by dungeon level 12, at which point stats scale at full strength.
+  monsterEarlyMercy: dlvl => 1 - 0.22*U.clamp(1-(dlvl-1)/11, 0, 1),
   roomCount: lvl => U.clamp(5 + Math.floor(lvl/4), 5, 10),
   // floor-generation pacing: guarantees a dungeon can't be cleared without fighting.
   // minCombatFraction = minimum share of non-boss rooms that must be combat rooms.
@@ -35,18 +41,27 @@ const BALANCE = {
   // Initiative order each round is SPD-based with a little jitter so ties
   // (and near-ties) aren't perfectly deterministic.
   initiativeJitter: 3,
-  // chance per round a non-boss monster starts a telegraphed charge instead
-  // of attacking; it attacks for real the round after.
-  monsterChargeChance: 0.17,
-  // bosses charge on a fixed cadence instead of randomly, so their pattern
-  // can be learned and played around.
-  bossChargeCadence: 4,
+  // 0 at dungeon level 1 → 1 by dungeon level 20. Drives how much tactical
+  // pressure a fight applies: early dungeons see monsters attack plainly most
+  // of the time, so a new run can learn targeting/guard/cooldowns without being
+  // punished for it; by the time this ramp maxes out, telegraphs, utility moves,
+  // and boss patterns are all firing near their full designed frequency and a
+  // build that just mashes Attack will lose.
+  strategyRamp: dlvl => U.clamp(((dlvl||1)-1)/19, 0, 1),
+  // chance per round a non-boss monster starts a telegraphed charge instead of
+  // attacking (attacks for real the round after) — ramps 0.06 → 0.19.
+  monsterChargeChance: dlvl => 0.06 + BALANCE.strategyRamp(dlvl)*0.13,
+  // bosses charge on a fixed cadence instead of randomly, so their pattern can
+  // be learned and played around — starts generous (every 6th round) and
+  // tightens to every 3rd as the ramp maxes out.
+  bossChargeCadence: dlvl => Math.round(6 - BALANCE.strategyRamp(dlvl)*3),
   chargeDamageMult: 1.15,
   // charged hits partially ignore the target's relevant defense stat.
   chargeDefPiercePct: 0.5,
-  // how often a monster reaches for its cooldown-gated utility move on a
-  // turn it isn't charging or releasing.
-  monsterUtilityChance: 0.32,
+  // how often a monster reaches for its cooldown-gated utility move on a turn
+  // it isn't charging or releasing — ramps 0.12 → 0.34, so early fights are
+  // mostly plain attacks and late fights layer buffs/debuffs/heals on top.
+  monsterUtilityChance: dlvl => 0.12 + BALANCE.strategyRamp(dlvl)*0.22,
   monsterUtilityCooldown: 3,
   // Guard (the Defend action) mitigation, and a stronger version specifically
   // against a charged/telegraphed hit that the player had a full round of

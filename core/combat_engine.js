@@ -218,9 +218,13 @@ const Engine = {
     state.player._revivedThisFight = false;
     state.player._stunned = false;
     state.player.skillCooldowns = {};
+    const dlvl = state.dungeon?.dungeonLevel || 1;
+    const chargeChance = BALANCE.monsterChargeChance(dlvl);
+    const utilityChance = BALANCE.monsterUtilityChance(dlvl);
+    const bossCadence = BALANCE.bossChargeCadence(dlvl);
     for(const m of monsters){
       m._charging = false; m._chargingMove = null; m._utilityCooldown = 0; m._phaseUsed = false;
-      if(m.isBoss) m._chargeCountdown = BALANCE.bossChargeCadence - 1;
+      if(m.isBoss) m._chargeCountdown = bossCadence - 1;
     }
     state.combat = {
       monsters, isBoss: !!opts.isBoss, bonusLoot: !!opts.bonusLoot, round:1, _combo:0, _firstStrikeUsed:false,
@@ -229,6 +233,9 @@ const Engine = {
       playerDots: [], // {name, dmgPerTurn, turnsLeft} — poison/bleed-style damage over time on the player
       playerGuarding: false,
       targetUid: monsters[0] ? monsters[0].uid : null,
+      // resolved once per fight from the dungeon's strategy ramp (see BALANCE) — how
+      // often monsters charge/use their utility move, and how tight the boss's pattern is.
+      chargeChance, utilityChance, bossCadence,
     };
   },
 
@@ -412,7 +419,7 @@ const Engine = {
     if(m._charging){
       const move = m._chargingMove || m.moves[0] || {kind:'strike', power:1};
       m._charging = false; m._chargingMove = null;
-      if(m.isBoss) m._chargeCountdown = BALANCE.bossChargeCadence;
+      if(m.isBoss) m._chargeCountdown = c.bossCadence;
       this.log(state, `${m.name} unleashes ${move.name || 'the blow'} it's been building!`, 'bad');
       this.executeMonsterMove(state, m, move, {chargeBonus:BALANCE.chargeDamageMult, charged:true});
       return;
@@ -423,7 +430,7 @@ const Engine = {
       m._chargeCountdown--;
       startsCharge = m._chargeCountdown<=0;
     } else {
-      startsCharge = Math.random() < BALANCE.monsterChargeChance;
+      startsCharge = Math.random() < c.chargeChance;
     }
     if(startsCharge && m.moves[0]){
       m._charging = true; m._chargingMove = m.moves[0];
@@ -432,7 +439,7 @@ const Engine = {
     }
 
     const utilityMove = m.moves[1];
-    if(utilityMove && m._utilityCooldown<=0 && Math.random()<BALANCE.monsterUtilityChance){
+    if(utilityMove && m._utilityCooldown<=0 && Math.random()<c.utilityChance){
       m._utilityCooldown = BALANCE.monsterUtilityCooldown;
       this.executeMonsterMove(state, m, utilityMove);
       return;

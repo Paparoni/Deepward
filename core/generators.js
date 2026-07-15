@@ -111,14 +111,15 @@ const Generators = {
     // ones, so late game doesn't trivialize once players stack compounding gear tiers.
     const scale = Math.pow(dungeonLevel, BALANCE.monsterLevelExponent) * mult * (isBoss?1.2:1);
     const hp = Math.floor((isBoss?75:28) + scale*(isBoss?12.5:7.2));
+    const mercy = BALANCE.monsterEarlyMercy(dungeonLevel);
     return {
       uid:U.uid(), tplId:tpl.id, name: isBoss ? `${tpl.name}, ${tpl.title}` : tpl.name,
       icon:tpl.icon, element:tpl.element, flavor:tpl.flavor, isBoss,
       moves: tpl.moves || [],
       _charging:false, _chargingMove:null, _utilityCooldown:0, _phaseUsed:false,
-      atk: Math.round(3 + scale*tpl.atk*1.75),
+      atk: Math.round((3 + scale*tpl.atk*1.75)*mercy),
       def: Math.round(2 + scale*tpl.def*1.3),
-      matk: Math.round(2.5 + scale*tpl.matk*1.75),
+      matk: Math.round((2.5 + scale*tpl.matk*1.75)*mercy),
       mdef: Math.round(2 + scale*tpl.mdef*1.3),
       spd: Math.round(3 + scale*tpl.spd*1.1),
       hitEff: Math.round(6 + scale*0.9),
