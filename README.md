@@ -31,6 +31,7 @@ The project is actively developed in my spare time and will continue to grow wit
 - JSON save export and import
 - Modular architecture for adding new content
 - Runs entirely in the browser
+- Crafting *(Work in Progress)*
 
 ## Roadmap
 
