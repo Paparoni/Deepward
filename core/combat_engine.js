@@ -76,6 +76,7 @@ const SKILL_ACTION_HANDLERS = {
     const actual=Math.min(amt,state.derived.maxHp-state.player.hp);
     state.player.hp = Math.min(state.derived.maxHp, state.player.hp+amt);
     Metrics.addTotal('healing',actual);
+    Metrics.healing(state.combat,actual);
     Engine.log(state, `${skill.name} restores <b>${amt} HP</b>.`, 'good');
   },
   buff(state, skill){
@@ -310,7 +311,7 @@ const Engine = {
       // often monsters charge/use their utility move, and how tight the boss's pattern is.
       chargeChance, utilityChance, bossCadence,
     };
-    Metrics.battleStarted(state,monsters);
+    state.combat._metrics=Metrics.battleStarted(state,monsters);
   },
 
   // reads a stat with any active combat buffs (from skills) layered on top
@@ -421,11 +422,14 @@ const Engine = {
         if(t2){ this.resolveAttack(state, state.derived, t2, action.kind, true); if(t2.hp<=0) this.log(state, `${t2.name} falls.`, 'good'); }
       });
     } else if(action.kind==='skill'){
+      const hpBefore=c.monsters.reduce((sum,m)=>sum+Math.max(0,m.hp),0), killsBefore=c.monsters.filter(m=>m.hp<=0).length, playerHpBefore=state.player.hp;
       state.player.mp -= action.cost;
       state.player.skillCooldowns[action.skill.id] = (action.skill.cooldown || 2) + 1;
       const handler = SKILL_ACTION_HANDLERS[action.skill.action];
       if(handler) handler(state, action.skill);
       this.maybeExtraAction(state, ()=>{ if(handler) handler(state, action.skill); });
+      const hpAfter=c.monsters.reduce((sum,m)=>sum+Math.max(0,m.hp),0), killsAfter=c.monsters.filter(m=>m.hp<=0).length;
+      Metrics.skillPerformance(action.skill,{damage:Math.max(0,hpBefore-hpAfter),healing:Math.max(0,state.player.hp-playerHpBefore),kills:Math.max(0,killsAfter-killsBefore),mana:action.cost});
     } else if(action.kind==='defend'){
       c.playerGuarding = true;
       c._combo = 0;
@@ -498,6 +502,7 @@ const Engine = {
   monsterTurn(state, m){
     const c = state.combat;
     if(m.hp<=0) return;
+    Metrics.mobAction(m,'turn');
     if(m._stunned){ m._stunned=false; this.log(state, `${m.name} is stunned and cannot act.`, 'flavor'); return; }
 
     const phaseMove = m.moves[2];
@@ -509,6 +514,7 @@ const Engine = {
     }
 
     if(m._charging){
+      Metrics.mobAction(m,'charge');
       const move = m._chargingMove || m.moves[0] || {kind:'strike', power:1};
       m._charging = false; m._chargingMove = null;
       if(m.isBoss) m._chargeCountdown = Math.max(2,Math.round(c.bossCadence/(m._chargeBias||1)));
@@ -532,6 +538,7 @@ const Engine = {
 
     const utilityMove = m.moves[1];
     if(utilityMove && m._utilityCooldown<=0 && Math.random()<c.utilityChance*(m._utilityBias||1)){
+      Metrics.mobAction(m,'utility');
       m._utilityCooldown = BALANCE.monsterUtilityCooldown;
       this.executeMonsterMove(state, m, utilityMove);
       return;
@@ -702,16 +709,19 @@ const Engine = {
     if(isPlayer){
       targetRef.hp = Math.max(0, targetRef.hp - dmg);
       Metrics.addTotal('damageDealt',dmg);
+      Metrics.combatFlow(c,'dealt',dmg,targetRef);
       this.log(state, `You ${verb} ${targetRef.name} for <b>${dmg}</b>${isCrit?' (critical!)':''} damage.${ctx.notes.length? ' '+ctx.notes.join(' '):''}`, 'combat');
       if(ctx.extraHit){
         const extra = Math.max(1, Math.round(dmg*0.5));
         targetRef.hp = Math.max(0, targetRef.hp-extra);
         Metrics.addTotal('damageDealt',extra);
+        Metrics.combatFlow(c,'dealt',extra,targetRef);
         this.log(state, `A twinned strike lands for another <b>${extra}</b> damage!`, 'combat');
       }
       if(ctx.echo){
         targetRef.hp = Math.max(0, targetRef.hp-ctx.echo);
         Metrics.addTotal('damageDealt',ctx.echo);
+        Metrics.combatFlow(c,'dealt',ctx.echo,targetRef);
         this.log(state, `An echo of the strike deals <b>${ctx.echo}</b> more damage.`, 'combat');
       }
       c._combo = (c._combo||0)+1;
@@ -732,6 +742,7 @@ const Engine = {
       }
       state.player.hp = Math.max(0, state.player.hp - finalDmg);
       Metrics.addTotal('damageTaken',finalDmg);
+      Metrics.combatFlow(c,'taken',finalDmg,monsterObj);
       const monsterVerb = opts.skillName ? `uses ${opts.skillName} on` : (useMagic?'casts a spell at':(opts.charged?'unleashes a charged blow on':'strikes'));
       this.log(state, `${monsterObj.name} ${monsterVerb} you for <b>${finalDmg}</b>${isCrit?' (critical!)':''} damage.${incomingCtx.notes.length? ' '+incomingCtx.notes.join(' '):''}`, 'bad');
       return {hit:!incomingCtx.dodged, damage:finalDmg, crit:isCrit};
