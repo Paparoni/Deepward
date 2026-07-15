@@ -213,6 +213,7 @@ const Engine = {
   },
 
   equip(state, item){
+    if(state.mode==='combat'){ this.log(state,'Equipment cannot be changed during combat.', 'bad'); return false; }
     let slotId = item.slot;
     if(slotId==='accessory1' || slotId==='accessory2'){
       slotId = state.equipment.accessory1 ? 'accessory2' : 'accessory1';
@@ -222,22 +223,27 @@ const Engine = {
     state.inventory = state.inventory.filter(i=>i.uid!==item.uid);
     if(prev) state.inventory.push(prev);
     this.refreshDerived(state);
+    return true;
   },
 
   equipToSlot(state, item, slotId){
+    if(state.mode==='combat'){ this.log(state,'Equipment cannot be changed during combat.', 'bad'); return false; }
     const prev = state.equipment[slotId];
     state.equipment[slotId] = item;
     state.inventory = state.inventory.filter(i=>i.uid!==item.uid);
     if(prev) state.inventory.push(prev);
     this.refreshDerived(state);
+    return true;
   },
 
   unequip(state, slotId){
+    if(state.mode==='combat'){ this.log(state,'Equipment cannot be changed during combat.', 'bad'); return false; }
     const item = state.equipment[slotId];
     if(!item) return;
     state.equipment[slotId] = null;
     state.inventory.push(item);
     this.refreshDerived(state);
+    return true;
   },
 
   sell(state, item){
@@ -259,6 +265,7 @@ const Engine = {
   startCombat(state, monsters, opts={}){
     this.refreshDerived(state);
     state.mode='combat';
+    state.ui.invOpen=false; state.ui.skillsOpen=false; state.ui.craftOpen=false; state.ui.slotOverlay=null;
     state.player._revivedThisFight = false;
     state.player._stunned = false;
     state.player.skillCooldowns = {};
@@ -289,10 +296,25 @@ const Engine = {
   // reads a stat with any active combat buffs (from skills) layered on top
   effectiveStat(state, statId){
     let v = state.derived[statId] || 0;
-    if(state.combat){
-      for(const b of state.combat.buffs) if(b.stat===statId) v = v*(1+b.pct/100);
+    if(state.mode==='combat' && state.combat){
+      const totalPct = state.combat.buffs.filter(b=>b.stat===statId).reduce((sum,b)=>sum+b.pct,0);
+      v *= 1+totalPct/100;
     }
     return Math.round(v);
+  },
+
+  // Returns every temporary source affecting a stat. Percent modifiers stack
+  // additively, so -15% and -5% are presented and resolved as -20%.
+  statModifiers(state, statId){
+    const mods=[];
+    if(state.mode==='combat' && state.combat){
+      for(const b of state.combat.buffs) if(b.stat===statId) mods.push({name:b.name, pct:b.pct});
+    }
+    if(state.dungeon?._buffs){
+      for(const b of state.dungeon._buffs) if(b.stat===statId) mods.push({name:b.name||'Dungeon preparation', flat:b.flat});
+    }
+    if(state.dungeon?._altarPact && (statId==='atk'||statId==='matk')) mods.push({name:'Cursed Altar pact', pct:30, baked:true});
+    return mods;
   },
 
   // mythic 'extraTurnChance' trait: a chance to immediately repeat the action for free
@@ -822,6 +844,7 @@ const Engine = {
 
   // ---- skill tree ----
   canUnlock(state, skill){
+    if(state.mode==='combat') return false;
     if(state.player.unlockedSkills.includes(skill.id)) return false;
     if(state.player.skillPoints < skill.cost) return false;
     if(skill.requires && !state.player.unlockedSkills.includes(skill.requires)) return false;
@@ -836,6 +859,7 @@ const Engine = {
   },
 
   unlockSkill(state, skillId){
+    if(state.mode==='combat'){ this.log(state,'New skills cannot be learned during combat.', 'bad'); return false; }
     const cls = CLASS_BY_ID[state.player.classId];
     const skill = cls.skillTree.find(sk=>sk.id===skillId);
     if(!skill || !this.canUnlock(state, skill)) return;
@@ -843,6 +867,7 @@ const Engine = {
     state.player.unlockedSkills.push(skillId);
     this.refreshDerived(state);
     this.log(state, `Learned <b>${skill.name}</b>.`, 'good');
+    return true;
   },
 
   // ---- room / dungeon flow ----

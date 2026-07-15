@@ -3,8 +3,17 @@
    ============================================================ */
 function esc(s){ return String(s); }
 
-function renderStatBlock(derived, weaponElement){
-  const rows = CORE_STATS.map(s=>`<div class="stat-row"><span>${s.short}</span><b>${derived[s.id]}</b></div>`).join('');
+function renderStatBlock(state, weaponElement){
+  const derived = state.derived;
+  const rows = CORE_STATS.map(stat=>{
+    const mods = Engine.statModifiers(state,stat.id);
+    const pct = mods.reduce((sum,m)=>sum+(m.pct||0),0);
+    const flat = mods.reduce((sum,m)=>sum+(m.flat||0),0);
+    const details = mods.map(m=>`${m.name}: ${m.pct!=null?U.fmtSigned(m.pct)+'%':U.fmtSigned(m.flat)+' '+stat.short}`).join('\n');
+    const badges = `${pct?`<span class="stat-mod ${pct<0?'negative':'positive'}" title="${U.escapeHtml(details)}">${U.fmtSigned(pct)}%</span>`:''}${flat?`<span class="stat-mod ${flat<0?'negative':'positive'}" title="${U.escapeHtml(details)}">${U.fmtSigned(flat)}</span>`:''}`;
+    const value = state.mode==='combat' ? Engine.effectiveStat(state,stat.id) : derived[stat.id];
+    return `<div class="stat-row"><span>${stat.short}</span><b>${value} ${badges}</b></div>`;
+  }).join('');
   const elemRows = ELEMENT_STATS.map(s=>{
     const active = s.element===weaponElement;
     return `<div class="stat-row" style="${active?'color:var(--ember)':''}"><span>${s.short}${active?' ★':''}</span><b>+${derived[s.id]||0}%</b></div>`;
@@ -419,7 +428,7 @@ function render(){
     <div class="layout">
       ${renderSlots(s)}
       ${scene}
-      <div class="panel"><div class="panel-title">Character</div>${renderStatBlock(s.derived, weaponElement)}</div>
+      <div class="panel"><div class="panel-title">Character</div>${renderStatBlock(s, weaponElement)}</div>
     </div>
     ${renderInventoryOverlay(s)}
     ${renderCraftingOverlay(s)}

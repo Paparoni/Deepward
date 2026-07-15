@@ -273,7 +273,7 @@ const EVENT_HANDLERS = {
       label:`${b.label} (+${b.flat} ${STAT_BY_ID[b.stat].short} for the dungeon)`,
       act:(s)=>{
         s.dungeon._buffs = s.dungeon._buffs || [];
-        s.dungeon._buffs.push({stat:b.stat, flat:b.flat});
+        s.dungeon._buffs.push({stat:b.stat, flat:b.flat, name:b.label});
         Engine.refreshDerived(s);
         Engine.log(s, `The preparation settles into your bones. <b>+${b.flat} ${STAT_BY_ID[b.stat].short}</b> for the rest of this dungeon.`, 'good');
         Engine.finishRoom(s);
@@ -393,7 +393,7 @@ const EVENT_HANDLERS = {
           const stat = Math.random()<0.5 ? 'atk' : 'matk';
           const flat = Math.round(2+s.dungeon.dungeonLevel*0.4);
           s.dungeon._buffs = s.dungeon._buffs || [];
-          s.dungeon._buffs.push({stat, flat});
+          s.dungeon._buffs.push({stat, flat, name:'Strength of the Deep Pool'});
           Engine.refreshDerived(s);
           Engine.log(s, `Strength you don't recognize floods your limbs. <b>+${flat} ${STAT_BY_ID[stat].short}</b> for the rest of this dungeon.`, 'good');
         } else {

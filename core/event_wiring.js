@@ -6,9 +6,9 @@ function startFromTitle(){
   const val = document.getElementById('nameInput').value.trim();
   newGame(val || 'Wanderer', PENDING_CLASS);
 }
-function toggleInventory(){ STATE.ui.invOpen = !STATE.ui.invOpen; render(); }
+function toggleInventory(){ if(STATE.mode!=='combat' || STATE.ui.invOpen) STATE.ui.invOpen = !STATE.ui.invOpen; render(); }
 function toggleCrafting(){ STATE.ui.craftOpen = !STATE.ui.craftOpen; render(); }
-function toggleSkills(){ STATE.ui.skillsOpen = !STATE.ui.skillsOpen; render(); }
+function toggleSkills(){ if(STATE.mode!=='combat' || STATE.ui.skillsOpen) STATE.ui.skillsOpen = !STATE.ui.skillsOpen; render(); }
 function onUnlockSkill(skillId){ Engine.unlockSkill(STATE, skillId); render(); }
 function onUseSkill(skillId){ Engine.useSkill(STATE, skillId); render(); }
 function toggleCombatSkills(){
@@ -16,6 +16,7 @@ function toggleCombatSkills(){
   render();
 }
 function onSlotClick(slotId){
+  if(STATE.mode==='combat'){ Engine.log(STATE,'Equipment cannot be changed during combat.','bad'); render(); return; }
   STATE.ui.slotOverlay = {slotId, mode:'view'};
   render();
 }
