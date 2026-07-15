@@ -149,7 +149,9 @@ function renderDepthTrack(s){
 }
 
 function renderLog(s){
-  return `<div class="log-feed">${s.log.map(l=>`<p class="log-${l.cls}">${l.html}</p>`).join('')}</div>`;
+  const combat=s.mode==='combat';
+  const entries=combat?s.log.slice(-6):s.log;
+  return `<div class="log-feed${combat?' combat-log':''}">${entries.map(l=>`<p class="log-${l.cls}">${l.html}</p>`).join('')}</div>`;
 }
 
 function renderCombat(s){
@@ -204,14 +206,14 @@ function renderCombat(s){
     ${buffNote}
     ${afflictionRow}
     ${renderLog(s)}
-    <div class="btn-row" style="margin-top:14px;">
+    <div class="combat-action-dock"><div class="btn-row combat-actions">
       <button class="btn btn-primary" onclick="onCombatAction('attack')" ${alive&&!c.resolving?'':'disabled'}>Attack</button>
       <button class="btn" onclick="onCombatAction('cast')" ${alive&&!c.resolving?'':'disabled'}>Cast (Magic)</button>
       <button class="btn skill-menu-btn" onclick="toggleCombatSkills()" ${alive&&!c.resolving&&activeSkills.length?'':'disabled'}>Skills <span class="small">(${activeSkills.length})</span></button>
       <button class="btn" onclick="onCombatAction('defend')" ${alive&&!c.resolving?'':'disabled'} title="Sharply reduce all damage you take this round; restores a little MP.">Defend</button>
       <button class="btn btn-danger" onclick="onCombatAction('flee')" ${alive&&!c.resolving?'':'disabled'}>Flee</button>
     </div>
-    ${c.skillMenuOpen?`<div class="combat-skill-menu"><div class="skill-menu-head"><b>Choose a skill</b><button onclick="toggleCombatSkills()">×</button></div>${skillButtons||'<div class="empty-note">No active skills learned.</div>'}</div>`:''}`;
+    ${c.skillMenuOpen?`<div class="combat-skill-menu"><div class="skill-menu-head"><b>Choose a skill</b><button onclick="toggleCombatSkills()">×</button></div>${skillButtons||'<div class="empty-note">No active skills learned.</div>'}</div>`:''}</div>`;
 }
 
 function renderMerchantPanel(s){
