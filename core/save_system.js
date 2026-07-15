@@ -11,7 +11,7 @@ const SaveSystem = {
     delete player._revivedThisDungeon; delete player._revivedThisFight; delete player._stunned;
     return {
       game:'DEEPWARD', version:this.version, savedAt:new Date().toISOString(),
-      player, equipment:state.equipment, inventory:state.inventory,
+      player, equipment:state.equipment, inventory:state.inventory, settings:state.settings||{},
     };
   },
 
@@ -60,7 +60,8 @@ const SaveSystem = {
     const inventory=data.inventory.map(cleanItem).filter(Boolean);
     const state={
       screen:'town',player,equipment,inventory,dungeon:null,mode:'explore',combat:null,log:[],
-      ui:{choices:null,invOpen:false,skillsOpen:false,craftOpen:false,merchantStock:null,pendingItem:null,slotOverlay:null,saveNotice:'Game loaded.'},
+      settings:{combatPace:['fast','normal','cinematic'].includes(data.settings?.combatPace)?data.settings.combatPace:'normal',reduceMotion:!!data.settings?.reduceMotion},
+      ui:{choices:null,invOpen:false,skillsOpen:false,craftOpen:false,characterOpen:false,systemOpen:false,merchantStock:null,pendingItem:null,slotOverlay:null,saveNotice:'Game loaded.'},
     };
     Engine.refreshDerived(state);
     player.hp=state.derived.maxHp; player.mp=state.derived.maxMp;

@@ -16,6 +16,10 @@ function importSave(input){ SaveSystem.importFile(input.files?.[0]); input.value
 function toggleInventory(){ if(STATE.mode!=='combat' || STATE.ui.invOpen) STATE.ui.invOpen = !STATE.ui.invOpen; render(); }
 function toggleCrafting(){ STATE.ui.craftOpen = !STATE.ui.craftOpen; render(); }
 function toggleSkills(){ if(STATE.mode!=='combat' || STATE.ui.skillsOpen) STATE.ui.skillsOpen = !STATE.ui.skillsOpen; render(); }
+function toggleCharacter(){ STATE.ui.characterOpen=!STATE.ui.characterOpen; render(); }
+function toggleSystemMenu(){ STATE.ui.systemOpen=!STATE.ui.systemOpen; render(); }
+function setCombatPace(pace){ if(['fast','normal','cinematic'].includes(pace)) STATE.settings.combatPace=pace; render(); }
+function toggleReduceMotion(){ STATE.settings.reduceMotion=!STATE.settings.reduceMotion; render(); }
 function onUnlockSkill(skillId){ Engine.unlockSkill(STATE, skillId); render(); }
 function onUseSkill(skillId){ Engine.useSkill(STATE, skillId); render(); }
 function toggleCombatSkills(){

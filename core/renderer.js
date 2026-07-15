@@ -41,7 +41,7 @@ function tierGlowStyle(tierId){
   return `style="--glow:${t.color};border-color:${t.color}"`;
 }
 
-function renderItemCard(item, actions){
+function renderItemCard(item, actions, extra=''){
   const t = TIER_BY_ID[item.tier];
   const coreEntries = Object.entries(item.stats).filter(([k])=>!k.endsWith('Dmg'));
   const elemEntries = Object.entries(item.stats).filter(([k])=>k.endsWith('Dmg'));
@@ -62,7 +62,7 @@ function renderItemCard(item, actions){
       <div class="item-meta">${t.name.toUpperCase()} · ${item.slotLabel} · ilvl ${item.ilvl}${item.slot==='weapon'?' · '+item.element.toUpperCase()+' DMG':''}</div>
       <div class="item-stats">${statLines || '<span class="small">(no core stats)</span>'}</div>
       ${elemEntries.length? `<div class="item-stats" style="margin-top:5px;color:var(--ember)"><b>Bonus Damage:</b>${bonusLines}</div>` : ''}
-      ${traitLines}${mythicLine}
+      ${traitLines}${mythicLine}${extra}
       ${actions? `<div class="item-actions">${actions}</div>` : ''}
     </div>`;
 }
@@ -90,7 +90,7 @@ function renderHud(s){
       <div class="bar-track">${animatedBar(s,'player-xp',s.player.xp/xpNeed*100,'bar-xp')}</div>
     </div>
     ${diffLabel? `<div class="hud-diff">${diffLabel}</div>`:''}
-    <div class="save-controls"><button onclick="saveGame()">Save</button><button onclick="exportSave()">Export</button><button onclick="chooseSaveImport()">Import</button></div>
+    <div class="save-controls"><button onclick="toggleCharacter()">Character</button><button onclick="toggleSystemMenu()">Menu</button><button onclick="saveGame()">Save</button><button onclick="exportSave()">Export</button><button onclick="chooseSaveImport()">Import</button></div>
     <input id="saveImportInput" type="file" accept="application/json,.json" hidden onchange="importSave(this)">
     <div class="hud-gold">⛁ ${s.player.gold} gold</div>
   </div>`;
@@ -271,7 +271,7 @@ function renderInventoryOverlay(s){
     const equipLabel = (item.slot==='accessory1'||item.slot==='accessory2') ? 'Equip' : 'Equip';
     return renderItemCard(item, `
       <button class="btn" onclick="onEquipItem('${item.uid}')">${equipLabel}</button>
-      <button class="btn btn-danger" onclick="onSellItem('${item.uid}')">Sell</button>`);
+      <button class="btn btn-danger" onclick="onSellItem('${item.uid}')">Sell</button>`, renderItemComparison(s,item));
   }).join('');
   return `<div class="overlay" onclick="if(event.target===this) toggleInventory()">
     <div class="panel overlay-panel">
@@ -279,6 +279,23 @@ function renderInventoryOverlay(s){
       <div class="overlay-body">${cards || '<div class="empty-note">Your pack is empty. Explore the dungeon to find gear.</div>'}</div>
     </div>
   </div>`;
+}
+
+function comparisonTarget(s,item){
+  if(item.slot==='accessory1'||item.slot==='accessory2'){
+    const options=[s.equipment.accessory1,s.equipment.accessory2].filter(Boolean);
+    return options.sort((a,b)=>Object.values(a.stats).reduce((x,y)=>x+y,0)-Object.values(b.stats).reduce((x,y)=>x+y,0))[0]||null;
+  }
+  return s.equipment[item.slot]||null;
+}
+
+function renderItemComparison(s,item){
+  const current=comparisonTarget(s,item);
+  if(!current) return '<div class="item-compare upgrade">Empty slot · direct upgrade opportunity</div>';
+  const ids=new Set([...Object.keys(item.stats||{}),...Object.keys(current.stats||{})]);
+  const changes=[...ids].map(id=>({id,value:(item.stats[id]||0)-(current.stats[id]||0)})).filter(x=>x.value).sort((a,b)=>Math.abs(b.value)-Math.abs(a.value)).slice(0,5);
+  if(!changes.length) return '<div class="item-compare">Same raw stat total as equipped item</div>';
+  return `<div class="item-compare"><b>vs ${U.escapeHtml(current.name)}</b>${changes.map(x=>`<span class="${x.value>0?'up':'down'}">${STAT_BY_ID[x.id]?.short||x.id} ${U.fmtSigned(x.value)}${x.id.endsWith('Dmg')?'%':''}</span>`).join('')}</div>`;
 }
 
 function renderSlotOverlay(s){
@@ -292,7 +309,7 @@ function renderSlotOverlay(s){
       slot.group==='accessory' ? (item.slot==='accessory1'||item.slot==='accessory2') : item.slot===slot.id
     );
     const cards = matches.map(item=>renderItemCard(item,
-      `<button class="btn btn-primary" onclick="onEquipToSlot('${item.uid}','${slot.id}')">Equip</button>`
+      `<button class="btn btn-primary" onclick="onEquipToSlot('${item.uid}','${slot.id}')">Equip</button>`, renderItemComparison(s,item)
     )).join('');
     body = `
       <div class="small" style="margin-bottom:10px;">Choose a ${slot.label.toLowerCase()} from your pack to equip here.</div>
@@ -470,10 +487,57 @@ function renderSkillsOverlay(s){
   </div>`;
 }
 
+function renderCharacterOverlay(s){
+  if(!s.ui.characterOpen) return '';
+  const cls=CLASS_BY_ID[s.player.classId];
+  const gear=Object.values(s.equipment).filter(Boolean);
+  const gearScore=gear.reduce((sum,item)=>sum+Object.values(item.stats||{}).reduce((a,b)=>a+b,0),0);
+  const learned=s.player.unlockedSkills.length;
+  const elements=ELEMENT_STATS.map(stat=>({name:STAT_BY_ID[stat.id].short,value:s.derived[stat.id]||0})).filter(x=>x.value).sort((a,b)=>b.value-a.value);
+  const traits=s.derived.traits.map(t=>`<div class="build-trait" title="${U.escapeHtml(t.desc||'')}"><b>${U.escapeHtml(t.name)}</b><span>${U.escapeHtml(t.desc||'')}</span></div>`).join('');
+  const equipment=SLOTS.map(slot=>{const item=s.equipment[slot.id];return `<div class="build-gear-row"><span>${slot.label}</span><b style="color:${item?TIER_BY_ID[item.tier].color:'var(--ink-faint)'}">${item?U.escapeHtml(item.name):'Empty'}</b></div>`}).join('');
+  return `<div class="overlay dashboard-overlay" onclick="if(event.target===this) toggleCharacter()"><div class="panel dashboard-panel">
+    <div class="panel-title"><span>${cls.icon} ${s.player.name} · Build Dashboard</span><button class="icon-close" onclick="toggleCharacter()">×</button></div>
+    <div class="dashboard-hero"><div><strong>${cls.name}</strong><span>Level ${s.player.level} · ${s.player.skillPoints} skill points</span></div><div class="build-metrics"><span><b>${gear.length}</b> equipped</span><span><b>${gearScore}</b> gear power</span><span><b>${learned}</b> nodes</span></div></div>
+    <div class="dashboard-grid"><section><h3>Equipment Loadout</h3>${equipment}</section><section><h3>Elemental Profile</h3>${elements.length?elements.map(e=>`<div class="element-meter"><span>${e.name}</span><div><i style="width:${Math.min(100,e.value)}%"></i></div><b>+${e.value}%</b></div>`).join(''):'<div class="empty-note">No elemental bonuses yet.</div>'}<h3>Active Traits</h3><div class="build-traits">${traits||'<div class="empty-note">No active traits.</div>'}</div></section></div>
+  </div></div>`;
+}
+
+function renderSystemOverlay(s){
+  if(!s.ui.systemOpen) return '';
+  const pace=s.settings?.combatPace||'normal';
+  return `<div class="overlay dashboard-overlay" onclick="if(event.target===this) toggleSystemMenu()"><div class="panel system-panel">
+    <div class="panel-title"><span>Deepward Menu</span><button class="icon-close" onclick="toggleSystemMenu()">×</button></div>
+    <div class="system-body"><h3>Combat Presentation</h3><div class="segmented">${['fast','normal','cinematic'].map(p=>`<button class="${pace===p?'selected':''}" onclick="setCombatPace('${p}')">${p}</button>`).join('')}</div>
+    <label class="setting-toggle"><span><b>Reduce motion</b><small>Disables interface animations and pulsing effects.</small></span><input type="checkbox" ${s.settings?.reduceMotion?'checked':''} onchange="toggleReduceMotion()"></label>
+    <h3>Save Management</h3><div class="menu-actions"><button class="btn" onclick="saveGame()">Save locally</button><button class="btn" onclick="exportSave()">Export JSON</button><button class="btn" onclick="chooseSaveImport()">Import JSON</button></div>
+    <div class="system-note">Combat settings and character progress are included in your save.</div></div>
+  </div></div>`;
+}
+
+let TOOLTIP_BOUND=false;
+function enhanceTooltips(root){
+  root.querySelectorAll('[title]').forEach(el=>{el.dataset.tip=el.getAttribute('title');el.removeAttribute('title');});
+  if(TOOLTIP_BOUND) return;
+  TOOLTIP_BOUND=true;
+  const tip=document.createElement('div'); tip.className='deep-tooltip'; document.body.appendChild(tip);
+  document.addEventListener('mouseover',event=>{
+    const target=event.target.closest?.('[data-tip]'); if(!target) return;
+    tip.textContent=target.dataset.tip; tip.classList.add('visible');
+  });
+  document.addEventListener('mousemove',event=>{
+    if(!tip.classList.contains('visible')) return;
+    const x=Math.min(innerWidth-tip.offsetWidth-12,event.clientX+16), y=Math.min(innerHeight-tip.offsetHeight-12,event.clientY+16);
+    tip.style.left=`${Math.max(8,x)}px`;tip.style.top=`${Math.max(8,y)}px`;
+  });
+  document.addEventListener('mouseout',event=>{if(event.target.closest?.('[data-tip]')) tip.classList.remove('visible');});
+}
+
 function render(){
   const app = document.getElementById('app');
-  if(!STATE){ app.innerHTML = renderTitle(); return; }
+  if(!STATE){ app.innerHTML = renderTitle(); enhanceTooltips(app); return; }
   const s = STATE;
+  document.body.classList.toggle('reduce-motion',!!s.settings?.reduceMotion);
   SaveSystem.save(s);
   const scene = s.screen==='town' ? renderTown(s) : renderScene(s);
   const weaponElement = (s.equipment.weapon && s.equipment.weapon.element) || 'physical';
@@ -488,5 +552,8 @@ function render(){
     ${renderCraftingOverlay(s)}
     ${renderSkillsOverlay(s)}
     ${renderSlotOverlay(s)}
+    ${renderCharacterOverlay(s)}
+    ${renderSystemOverlay(s)}
   `;
+  enhanceTooltips(app);
 }

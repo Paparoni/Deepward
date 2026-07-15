@@ -568,9 +568,11 @@ const Engine = {
         this.monsterTurn(state, combatant.ref);
       }
       render();
-      setTimeout(()=>runNext(index+1), BALANCE.combatActionDelayMs);
+      const pace={fast:.55,normal:1,cinematic:1.55}[state.settings?.combatPace]||1;
+      setTimeout(()=>runNext(index+1), BALANCE.combatActionDelayMs*pace);
     };
-    setTimeout(()=>runNext(0), Math.round(BALANCE.combatActionDelayMs*.55));
+    const pace={fast:.55,normal:1,cinematic:1.55}[state.settings?.combatPace]||1;
+    setTimeout(()=>runNext(0), Math.round(BALANCE.combatActionDelayMs*.55*pace));
   },
 
   // regen, DoT ticks, cooldown ticks, guard reset, retargeting, and the defeat/victory checks
