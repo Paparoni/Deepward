@@ -1,5 +1,6 @@
 const BALANCE = {
-  xpToNext: lvl => Math.floor(50 * Math.pow(lvl, 1.5)),
+  // Faster early/mid progression, while still leaving room to live with each build.
+  xpToNext: lvl => Math.floor(44 * Math.pow(lvl, 1.42)),
   // critChance/critDamage/hp/mp are gear-only affixes — players get none of these
   // innately from leveling, so they stay at 0 base / 0 per-level.
   playerBaseStat: {atk:8, def:7, matk:8, mdef:7, spd:6, hitEff:7, hitRes:6, critChance:0, critDamage:0, hp:0, mp:0},
@@ -9,8 +10,8 @@ const BALANCE = {
   // reduced vs. earlier version — 9 equipped items compounding tier multipliers made gear
   // snowball much faster than monsters (linear), which is what caused "easy after a point".
   itemStatScalar: {
-    atk:1.05, def:0.9, matk:1.05, mdef:0.9, spd:0.55, hitEff:0.7, hitRes:0.7, elementDmg:0.45,
-    critChance:0.32, critDamage:0.85, hp:3.2, mp:1.4,
+    atk:1.32, def:1.12, matk:1.32, mdef:1.12, spd:0.68, hitEff:0.86, hitRes:0.86, elementDmg:0.58,
+    critChance:0.40, critDamage:1.08, hp:4.0, mp:1.8,
   },
   // monster scaling uses level^exponent (convex) instead of flat level scaling, so late
   // dungeons ramp up faster and keep pace with compounding player gear. Nudged down

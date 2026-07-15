@@ -149,7 +149,20 @@ const Engine = {
       for(const b of state.dungeon._buffs) totals[b.stat] = (totals[b.stat]||0) + b.flat;
     }
     let maxHp = BALANCE.maxHp(p.level, totals.def) + (totals.hp||0);
-    const maxMp = BALANCE.maxMp(p.level, totals.mdef) + (totals.mp||0);
+    let maxMp = BALANCE.maxMp(p.level, totals.mdef) + (totals.mp||0);
+    // Apply build-defining conversions after ordinary additive stats, making the
+    // item sheet deterministic and allowing focused gear to compound coherently.
+    for(const trait of allTraits){
+      if(trait.type==='statConversion'){
+        const source = trait.source==='maxHp' ? maxHp : trait.source==='maxMp' ? maxMp : (totals[trait.source]||0);
+        totals[trait.target] = Math.round((totals[trait.target]||0) + source*trait.value/100);
+      } else if(trait.type==='elementMastery'){
+        const best = ELEMENT_STATS.reduce((a,s)=>(totals[s.id]||0)>(totals[a.id]||0)?s:a, ELEMENT_STATS[0]);
+        totals[best.id] = Math.round((totals[best.id]||0)*(1+trait.value/100));
+      } else if(trait.type==='critFromPower'){
+        totals.critChance += Math.floor(Math.max(totals.atk,totals.matk)/Math.max(1,trait.value));
+      }
+    }
     // dungeon-wide risk/reward pact from the cursed_altar event (see EVENT_HANDLERS);
     // applied here so it survives refreshDerived recalculation for the rest of the dungeon.
     if(state.dungeon && state.dungeon._altarPact){
@@ -198,7 +211,7 @@ const Engine = {
 
   sell(state, item){
     const tierIdx = TIERS.findIndex(t=>t.id===item.tier);
-    const value = Math.round((8 + item.ilvl*2) * (1+tierIdx*0.9));
+    const value = Math.round((8 + item.ilvl*2.2) * (1+tierIdx*.92));
     state.player.gold += value;
     state.inventory = state.inventory.filter(i=>i.uid!==item.uid);
     this.log(state, `Sold ${item.name} for ${value} gold.`, 'good');
@@ -622,10 +635,10 @@ const Engine = {
     if(result==='victory'){
       let gold=0, xp=0;
       for(const m of c.monsters){ gold+=m.goldDrop; xp+=m.xpDrop; }
-      const goldTrait = state.derived.traits.find(t=>t.type==='goldFind');
-      const xpTrait = state.derived.traits.find(t=>t.type==='xpBonus');
-      if(goldTrait) gold = Math.round(gold*(1+goldTrait.value/100));
-      if(xpTrait) xp = Math.round(xp*(1+xpTrait.value/100));
+      const goldBonus = state.derived.traits.filter(t=>t.type==='goldFind').reduce((sum,t)=>sum+t.value, 0);
+      const xpBonus = state.derived.traits.filter(t=>t.type==='xpBonus').reduce((sum,t)=>sum+t.value, 0);
+      gold = Math.round(gold*(1+goldBonus/100));
+      xp = Math.round(xp*(1+xpBonus/100));
       state.player.gold += gold;
       state.player.xp += xp;
       this.log(state, `Victory! You gain <b>${gold} gold</b> and <b>${xp} XP</b>.`, 'good');

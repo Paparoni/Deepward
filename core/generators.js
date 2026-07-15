@@ -6,7 +6,10 @@ const Generators = {
   rollTier(lootBonus=0){
     const adjusted = TIERS.map(t=>{
       const rarityRank = TIERS.indexOf(t);
-      const boost = 1 + lootBonus*(rarityRank/ (TIERS.length-1)) * 2;
+      // Difficulty meaningfully moves probability mass upward instead of merely
+      // adding a small bonus to every tier.
+      const rank = rarityRank/(TIERS.length-1);
+      const boost = Math.pow(1 + lootBonus*1.35, rank*2.2) * (rarityRank===0 ? 1/(1+lootBonus*.55) : 1);
       return {t, w: t.weight*boost};
     });
     return U.weightedPick(adjusted, x=>x.w).t;
@@ -47,7 +50,7 @@ const Generators = {
       const t = U.pick(avail);
       avail.splice(avail.indexOf(t),1);
       const value = Math.round((t.base + t.perLvl*dungeonLevel)*tvm*10)/10;
-      picked.push({id:t.id, name:t.name, type:t.type, value, desc:t.desc(value)});
+      picked.push({id:t.id, name:t.name, type:t.type, value, desc:t.desc(value), source:t.source, target:t.target});
     }
     return picked;
   },
@@ -125,8 +128,8 @@ const Generators = {
       hitEff: Math.round(6 + scale*0.9),
       hitRes: Math.round(5 + scale*0.8),
       hp, maxHp:hp,
-      goldDrop: Math.floor((isBoss?40:8) + scale*(isBoss?7:1.6)),
-      xpDrop: Math.floor((isBoss?60:14) + scale*(isBoss?9:2.2)),
+      goldDrop: Math.floor((isBoss?48:10) + scale*(isBoss?8.2:1.9)),
+      xpDrop: Math.floor((isBoss?72:17) + scale*(isBoss?10.5:2.65)),
     };
   },
 

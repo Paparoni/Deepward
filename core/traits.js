@@ -25,6 +25,15 @@ const UNIQUE_TRAITS = [
   {id:'bloodhunger',   name:'Bloodhunger',      type:'lifesteal',      base:9,  perLvl:0.2,  desc:v=>`Heals ${v}% of damage dealt as HP.`},
   {id:'spiked_carapace',name:'Spiked Carapace', type:'thorns',         base:11, perLvl:0.35, desc:v=>`Reflects ${v}% of damage taken back to attacker.`},
   {id:'wind_step',     name:'Wind Step',        type:'dodgeChance',    base:8,  perLvl:0.22, desc:v=>`${v}% chance to fully evade an incoming attack.`},
+  // Keystone-style conversions: these turn a pile of stats into an actual build.
+  {id:'bloodforged', name:'Bloodforged Might', type:'statConversion', source:'maxHp', target:'atk', base:4, perLvl:.05, desc:v=>`Gain ATK equal to ${v}% of maximum HP.`},
+  {id:'iron_rebuke', name:'Iron Rebuke', type:'statConversion', source:'def', target:'atk', base:24, perLvl:.25, desc:v=>`Gain ATK equal to ${v}% of DEF.`},
+  {id:'spellplate', name:'Spellplate Doctrine', type:'statConversion', source:'mdef', target:'matk', base:26, perLvl:.25, desc:v=>`Gain MATK equal to ${v}% of MDEF.`},
+  {id:'overflowing_mind', name:'Overflowing Mind', type:'statConversion', source:'maxMp', target:'matk', base:15, perLvl:.18, desc:v=>`Gain MATK equal to ${v}% of maximum MP.`},
+  {id:'velocity', name:'Velocity Is Violence', type:'statConversion', source:'spd', target:'atk', base:34, perLvl:.3, desc:v=>`Gain ATK equal to ${v}% of SPD.`},
+  {id:'arcane_velocity', name:'Thought at Lightspeed', type:'statConversion', source:'spd', target:'matk', base:34, perLvl:.3, desc:v=>`Gain MATK equal to ${v}% of SPD.`},
+  {id:'prismatic_oath', name:'Prismatic Oath', type:'elementMastery', base:18, perLvl:.2, desc:v=>`Your highest elemental damage bonus is amplified by ${v}%.`},
+  {id:'glass_throne', name:'The Glass Throne', type:'critFromPower', base:12, perLvl:.08, desc:v=>`Gain 1% critical chance per ${v} ATK or MATK, whichever is higher.`},
 ];
 
 // -- mythic traits (Mythic Legendary only) --------------------------------------
