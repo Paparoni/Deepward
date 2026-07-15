@@ -114,6 +114,8 @@ const Generators = {
     return {
       uid:U.uid(), tplId:tpl.id, name: isBoss ? `${tpl.name}, ${tpl.title}` : tpl.name,
       icon:tpl.icon, element:tpl.element, flavor:tpl.flavor, isBoss,
+      moves: tpl.moves || [],
+      _charging:false, _chargingMove:null, _utilityCooldown:0, _phaseUsed:false,
       atk: Math.round(3 + scale*tpl.atk*1.75),
       def: Math.round(2 + scale*tpl.def*1.3),
       matk: Math.round(2.5 + scale*tpl.matk*1.75),

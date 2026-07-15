@@ -38,9 +38,13 @@ const BALANCE = {
   // bosses charge on a fixed cadence instead of randomly, so their pattern
   // can be learned and played around.
   bossChargeCadence: 4,
-  chargeDamageMult: 1.9,
+  chargeDamageMult: 1.15,
   // charged hits partially ignore the target's relevant defense stat.
   chargeDefPiercePct: 0.5,
+  // how often a monster reaches for its cooldown-gated utility move on a
+  // turn it isn't charging or releasing.
+  monsterUtilityChance: 0.4,
+  monsterUtilityCooldown: 3,
   // Guard (the Defend action) mitigation, and a stronger version specifically
   // against a charged/telegraphed hit that the player had a full round of
   // warning about.

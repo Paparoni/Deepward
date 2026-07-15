@@ -174,15 +174,17 @@ const Engine = {
     this.refreshDerived(state);
     state.mode='combat';
     state.player._revivedThisFight = false;
+    state.player._stunned = false;
     state.player.skillCooldowns = {};
     for(const m of monsters){
-      m._charging = false;
+      m._charging = false; m._chargingMove = null; m._utilityCooldown = 0; m._phaseUsed = false;
       if(m.isBoss) m._chargeCountdown = BALANCE.bossChargeCadence - 1;
     }
     state.combat = {
       monsters, isBoss: !!opts.isBoss, bonusLoot: !!opts.bonusLoot, round:1, _combo:0, _firstStrikeUsed:false,
       playerElement: (state.equipment.weapon?.element) || 'physical',
-      buffs: [], // {stat, pct, name} — from 'buff' type active skills, lasts the whole fight
+      buffs: [], // {stat, pct, name} — from player 'buff' skills OR monster debuffs (negative pct), lasts the whole fight
+      playerDots: [], // {name, dmgPerTurn, turnsLeft} — poison/bleed-style damage over time on the player
       playerGuarding: false,
       targetUid: monsters[0] ? monsters[0].uid : null,
     };
@@ -283,17 +285,79 @@ const Engine = {
     // 'flee-failed' spends the round doing nothing further
   },
 
-  // decides and executes one monster's turn
+  // applies a monster move's non-damage effects. `hitResult` is what
+  // resolveAttack returned (only present for 'strike' moves that connected).
+  applyMonsterMoveExtras(state, m, move, hitResult){
+    const c = state.combat;
+    if(move.debuffStat && (!hitResult || hitResult.hit)){
+      c.buffs.push({stat:move.debuffStat, pct:-move.debuffValue, name:move.name});
+      this.log(state, `${m.name}'s ${move.name} saps your ${STAT_BY_ID[move.debuffStat]?.short||move.debuffStat}.`, 'bad');
+    }
+    if(move.lifestealPct && hitResult && hitResult.hit && hitResult.damage>0){
+      const heal = Math.max(1, Math.round(hitResult.damage*move.lifestealPct/100));
+      m.hp = Math.min(m.maxHp, m.hp+heal);
+      this.log(state, `${m.name} drains <b>${heal}</b> HP from the blow.`, 'bad');
+    }
+    if(move.dotPct && hitResult && hitResult.hit && hitResult.damage>0){
+      const dmgPerTurn = Math.max(1, Math.round(hitResult.damage*move.dotPct/100));
+      c.playerDots.push({name:move.name, dmgPerTurn, turnsLeft:move.dotTurns||2});
+      this.log(state, `${move.name} leaves you afflicted!`, 'bad');
+    }
+    if(move.stunChance && hitResult && hitResult.hit && Math.random()*100<move.stunChance){
+      state.player._stunned = true;
+      this.log(state, `${move.name} leaves you reeling!`, 'bad');
+    }
+  },
+
+  // executes a non-strike monster move (buff/heal/pure debuff) or a strike
+  // move (delegates to resolveAttack, then layers on its extras).
+  executeMonsterMove(state, m, move, opts={}){
+    const c = state.combat;
+    if(move.kind==='buff'){
+      m[move.buffStat] = Math.round((m[move.buffStat]||0) * (1+move.buffValue/100));
+      this.log(state, `${m.name} uses <b>${move.name}</b>, growing stronger!`, 'bad');
+      return;
+    }
+    if(move.kind==='heal'){
+      const amt = Math.round(m.maxHp*move.healPct/100);
+      m.hp = Math.min(m.maxHp, m.hp+amt);
+      this.log(state, `${m.name} uses <b>${move.name}</b>, recovering <b>${amt}</b> HP!`, 'bad');
+      return;
+    }
+    if(move.kind==='debuff'){
+      c.buffs.push({stat:move.debuffStat, pct:-move.debuffValue, name:move.name});
+      this.log(state, `${m.name} uses <b>${move.name}</b>, weakening you!`, 'bad');
+      return;
+    }
+    // 'strike'
+    const result = this.resolveAttack(state, m, {hp:state.player.hp}, 'attack', false, m, {
+      powerMult:(move.power||1)*(opts.chargeBonus||1), forcedElement:move.forcedElement, charged:!!opts.charged, skillName:move.name,
+    });
+    this.applyMonsterMoveExtras(state, m, move, result);
+  },
+
+  // decides and executes one monster's turn: stun check → one-time low-HP
+  // phase move → release a telegraphed charge → maybe start a new charge →
+  // maybe reach for the cooldown-gated utility move → plain attack.
   monsterTurn(state, m){
     const c = state.combat;
     if(m.hp<=0) return;
     if(m._stunned){ m._stunned=false; this.log(state, `${m.name} is stunned and cannot act.`, 'flavor'); return; }
 
+    const phaseMove = m.moves[2];
+    if(phaseMove && !m._phaseUsed && (m.hp/m.maxHp*100)<=40){
+      m._phaseUsed = true;
+      m._charging = false; // a phase move interrupts any in-progress wind-up
+      this.executeMonsterMove(state, m, phaseMove);
+      return;
+    }
+
     if(m._charging){
-      m._charging = false;
+      const move = m._chargingMove || m.moves[0] || {kind:'strike', power:1};
+      m._charging = false; m._chargingMove = null;
       if(m.isBoss) m._chargeCountdown = BALANCE.bossChargeCadence;
-      this.log(state, `${m.name} unleashes the blow it's been building!`, 'bad');
-      this.resolveAttack(state, m, {hp:state.player.hp}, 'attack', false, m, {powerMult:BALANCE.chargeDamageMult, charged:true});
+      this.log(state, `${m.name} unleashes ${move.name || 'the blow'} it's been building!`, 'bad');
+      this.executeMonsterMove(state, m, move, {chargeBonus:BALANCE.chargeDamageMult, charged:true});
       return;
     }
 
@@ -304,12 +368,19 @@ const Engine = {
     } else {
       startsCharge = Math.random() < BALANCE.monsterChargeChance;
     }
-
-    if(startsCharge){
-      m._charging = true;
-      this.log(state, `${m.name} winds up for a devastating strike — brace yourself!`, 'bad');
+    if(startsCharge && m.moves[0]){
+      m._charging = true; m._chargingMove = m.moves[0];
+      this.log(state, `${m.name} begins channeling <b>${m.moves[0].name}</b> — brace yourself!`, 'bad');
       return;
     }
+
+    const utilityMove = m.moves[1];
+    if(utilityMove && m._utilityCooldown<=0 && Math.random()<BALANCE.monsterUtilityChance){
+      m._utilityCooldown = BALANCE.monsterUtilityCooldown;
+      this.executeMonsterMove(state, m, utilityMove);
+      return;
+    }
+
     this.resolveAttack(state, m, {hp:state.player.hp}, 'attack', false, m);
   },
 
@@ -330,7 +401,8 @@ const Engine = {
       if(state.player.hp<=0) break;
       if(c.monsters.every(m=>m.hp<=0)) break;
       if(combatant.type==='player'){
-        this.executePlayerAction(state, action);
+        if(state.player._stunned){ state.player._stunned=false; this.log(state, "You're reeling and can't act this round!", 'bad'); }
+        else this.executePlayerAction(state, action);
       } else if(combatant.ref.hp>0){
         this.monsterTurn(state, combatant.ref);
       }
@@ -338,17 +410,29 @@ const Engine = {
     this.endOfRound(state);
   },
 
-  // regen, cooldown ticks, guard reset, retargeting, and the defeat/victory checks
+  // regen, DoT ticks, cooldown ticks, guard reset, retargeting, and the defeat/victory checks
   endOfRound(state){
     const c = state.combat;
     if(!c) return;
     for(const t of state.derived.traits){
       if(t.type==='regenPerTurn') state.player.hp = Math.min(state.derived.maxHp, state.player.hp + Math.round(t.value));
     }
+    if(state.player.hp>0 && c.playerDots.length){
+      for(const dot of c.playerDots){
+        if(dot.turnsLeft<=0) continue;
+        state.player.hp = Math.max(0, state.player.hp - dot.dmgPerTurn);
+        this.log(state, `${dot.name} gnaws at you for <b>${dot.dmgPerTurn}</b> damage.`, 'bad');
+        dot.turnsLeft--;
+      }
+      c.playerDots = c.playerDots.filter(d=>d.turnsLeft>0);
+    }
     state.player.hp = U.clamp(state.player.hp, 0, state.derived.maxHp);
     c.playerGuarding = false;
     for(const id of Object.keys(state.player.skillCooldowns)){
       if(state.player.skillCooldowns[id]>0) state.player.skillCooldowns[id]--;
+    }
+    for(const m of c.monsters){
+      if(m.hp>0 && m._utilityCooldown>0) m._utilityCooldown--;
     }
     if(!c.monsters.find(m=>m.uid===c.targetUid && m.hp>0)){
       const nextAlive = c.monsters.find(m=>m.hp>0);
@@ -379,8 +463,8 @@ const Engine = {
     const atkStat = isPlayer
       ? this.effectiveStat(state, useMagic ? 'matk' : 'atk') * powerMult
       : (useMagic ? attackerStats.matk : attackerStats.atk) * powerMult;
-    const defStat = isPlayer ? (targetRef.def||0) : state.derived.def;
-    const mdefStat = isPlayer ? (targetRef.mdef||0) : state.derived.mdef;
+    const defStat = isPlayer ? (targetRef.def||0) : this.effectiveStat(state,'def');
+    const mdefStat = isPlayer ? (targetRef.mdef||0) : this.effectiveStat(state,'mdef');
     let relevantDef = useMagic ? mdefStat : defStat;
     if(!isPlayer && opts.charged) relevantDef *= (1-BALANCE.chargeDefPiercePct);
     const element = opts.forcedElement || (isPlayer ? c.playerElement : monsterObj.element);
@@ -389,13 +473,13 @@ const Engine = {
     const verb = opts.skillName ? `use ${opts.skillName} on` : (useMagic?'cast a spell at':'strike');
 
     let hitEff = isPlayer ? state.derived.hitEff : attackerStats.hitEff;
-    let hitRes = isPlayer ? (targetRef.hitRes||0) : state.derived.hitRes;
+    let hitRes = isPlayer ? (targetRef.hitRes||0) : this.effectiveStat(state,'hitRes');
     const hitChance = U.clamp(85 + (hitEff-hitRes)*0.5, 55, 98);
     const ctxBase = {notes:[], combat:c, player:state.player, maxHp: state.derived.maxHp, maxMp: state.derived.maxMp, combo: (c._combo||0)};
 
     if(Math.random()*100 > hitChance){
       this.log(state, isPlayer ? `Your attack misses!` : `${monsterObj.name}'s attack misses!`, 'flavor');
-      return;
+      return {hit:false};
     }
 
     let critChance = 5 + hitEff*0.2;
@@ -444,6 +528,7 @@ const Engine = {
         this.log(state, `An echo of the strike deals <b>${ctx.echo}</b> more damage.`, 'combat');
       }
       c._combo = (c._combo||0)+1;
+      return {hit:true, damage:dmg, crit:isCrit};
     } else {
       const incomingCtx = {...ctxBase, direction:'incoming', damage:dmg, attacker:monsterObj, target:state.player, targetName:'You', source:monsterObj};
       for(const t of state.derived.traits){
@@ -457,7 +542,9 @@ const Engine = {
         incomingCtx.notes.push('Your guard absorbs much of the blow.');
       }
       state.player.hp = Math.max(0, state.player.hp - finalDmg);
-      this.log(state, `${monsterObj.name} ${useMagic?'casts at':(opts.charged?'unleashes a charged blow on':'strikes')} you for <b>${finalDmg}</b>${isCrit?' (critical!)':''} damage.${incomingCtx.notes.length? ' '+incomingCtx.notes.join(' '):''}`, 'bad');
+      const monsterVerb = opts.skillName ? `uses ${opts.skillName} on` : (useMagic?'casts a spell at':(opts.charged?'unleashes a charged blow on':'strikes'));
+      this.log(state, `${monsterObj.name} ${monsterVerb} you for <b>${finalDmg}</b>${isCrit?' (critical!)':''} damage.${incomingCtx.notes.length? ' '+incomingCtx.notes.join(' '):''}`, 'bad');
+      return {hit:!incomingCtx.dodged, damage:finalDmg, crit:isCrit};
     }
   },
 

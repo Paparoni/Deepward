@@ -139,12 +139,13 @@ function renderCombat(s){
     const targeted = m.hp>0 && m.uid===c.targetUid;
     const clickable = m.hp>0;
     const classes = ['combatant', m.hp<=0?'dead':'', targeted?'targeted':'', m._charging?'charging':''].filter(Boolean).join(' ');
+    const chargeName = m._chargingMove ? m._chargingMove.name : 'a heavy blow';
     return `
     <div class="${classes}" ${clickable?`onclick="onSelectTarget('${m.uid}')" title="Target ${m.name}"`:''}>
       <div class="combatant-name">${m.icon} ${m.name}${targeted?' <span class="target-mark">🎯</span>':''}</div>
       <div class="bar-track" style="margin-top:4px;"><div class="bar-fill bar-hp" style="width:${U.clamp(m.hp/m.maxHp*100,0,100)}%"></div></div>
       <div class="combatant-hp-num">${Math.max(0,m.hp)}/${m.maxHp} HP</div>
-      ${m._charging? `<div class="charge-tag">⚡ Charging a heavy blow — Defend or burst it down!</div>` : ''}
+      ${m._charging? `<div class="charge-tag">⚡ Channeling <b>${U.escapeHtml(chargeName)}</b> — Defend or burst it down!</div>` : ''}
     </div>`;
   }).join('');
   const alive = c.monsters.some(m=>m.hp>0);
@@ -156,6 +157,11 @@ function renderCombat(s){
     ...c.monsters.filter(m=>m.hp>0).map(m=>({name:m.name, spd:m.spd, icon:m.icon})),
   ].sort((a,b)=>b.spd-a.spd);
   const orderHtml = order.map(o=>`<span class="init-chip${o.you?' init-you':''}">${o.you?'🧍':o.icon} ${o.you?'You':o.name}</span>`).join('<span class="init-arrow">→</span>');
+
+  // player-facing affliction tags: negative buffs (monster debuffs) plus active DoTs
+  const debuffTags = c.buffs.filter(b=>b.pct<0).map(b=>`<span class="affliction-tag bad-tag">${U.escapeHtml(b.name)}: ${b.pct}% ${STAT_BY_ID[b.stat]?.short||b.stat}</span>`);
+  const dotTags = c.playerDots.map(d=>`<span class="affliction-tag bad-tag">${U.escapeHtml(d.name)}: ${d.dmgPerTurn}/turn (${d.turnsLeft} left)</span>`);
+  const afflictionRow = (debuffTags.length||dotTags.length) ? `<div class="affliction-row">${debuffTags.join('')}${dotTags.join('')}</div>` : '';
 
   const cls = CLASS_BY_ID[s.player.classId];
   const activeSkills = cls.skillTree.filter(sk=>sk.kind==='active' && s.player.unlockedSkills.includes(sk.id));
@@ -170,6 +176,7 @@ function renderCombat(s){
     <div class="round-label">Round ${c.round}<span class="init-strip">${orderHtml}</span></div>
     <div class="combatants">${monsterHtml}</div>
     ${buffNote}
+    ${afflictionRow}
     ${renderLog(s)}
     <div class="btn-row" style="margin-top:14px;">
       <button class="btn btn-primary" onclick="onCombatAction('attack')" ${alive?'':'disabled'}>Attack</button>

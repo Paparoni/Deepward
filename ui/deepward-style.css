@@ -154,6 +154,9 @@ body{
 .combatant-hp-num{font-family:var(--font-mono);font-size:10px;color:var(--ink-dim);}
 .charge-tag{margin-top:6px;font-family:var(--font-mono);font-size:9.5px;color:#ff9d9d;animation:charge-pulse 1.1s ease-in-out infinite;}
 @keyframes charge-pulse{0%,100%{opacity:.65;}50%{opacity:1;}}
+.affliction-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.affliction-tag{font-family:var(--font-mono);font-size:9.5px;border-radius:8px;padding:2px 8px;border:1px solid transparent;}
+.affliction-tag.bad-tag{color:#ff9d9d;border-color:#5c2b2b;background:rgba(120,40,40,.15);}
 
 /* ---------- stat sheet ---------- */
 .statsheet{padding:10px 14px;}
