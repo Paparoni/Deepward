@@ -161,7 +161,9 @@ Equipment includes:
 
 Contributions are welcome!
 
-Detailed Documentation here: https://paparoni.github.io/Deepward/developer.html
+Detailed Documentation here: 
+https://paparoni.github.io/Deepward/developer.html
+
 Ideas include:
 
 - New enemies
