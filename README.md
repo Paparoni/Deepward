@@ -25,6 +25,8 @@ The project is actively developed in my spare time and will continue to grow wit
 - Shops and merchants
 - Boss encounters with phases and unique behavior
 - Crafting
+- Developer Codex covering architecture, APIs, schemas, and extension examples
+- Dungeon defeat penalties for gold, current-level XP, carried items, and crafting materials
 - Automatic local saving
 - JSON save export and import
 - Modular architecture for adding new content
