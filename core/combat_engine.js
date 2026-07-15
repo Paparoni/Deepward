@@ -212,6 +212,23 @@ const Engine = {
     state.player.materials[materialId] = (state.player.materials[materialId]||0) + amount;
   },
 
+  lootAffinities(state){
+    const cls=CLASS_BY_ID[state.player.classId];
+    const weights={};
+    for(const [stat,value] of Object.entries(cls.statMods)) if(value>0) weights[stat]=1.55;
+    // Learned subclass nodes progressively bias drops toward their damage engine.
+    for(const id of state.player.unlockedSkills){
+      const skill=cls.skillTree.find(node=>node.id===id);
+      if(!skill) continue;
+      if(skill.magic) weights.matk=(weights.matk||1)+.22;
+      else if(skill.kind==='active') weights.atk=(weights.atk||1)+.18;
+      if(skill.forcedElement) weights[`${skill.forcedElement}Dmg`]=(weights[`${skill.forcedElement}Dmg`]||1)+.32;
+      if(skill.effect?.type==='statBonus') weights[skill.effect.stat]=(weights[skill.effect.stat]||1)+.16;
+    }
+    for(const stat of Object.keys(weights)) weights[stat]=Math.min(2.8,weights[stat]);
+    return weights;
+  },
+
   equip(state, item){
     if(state.mode==='combat'){ this.log(state,'Equipment cannot be changed during combat.', 'bad'); return false; }
     let slotId = item.slot;
@@ -275,7 +292,7 @@ const Engine = {
     const bossCadence = BALANCE.bossChargeCadence(dlvl);
     for(const m of monsters){
       m._charging = false; m._chargingMove = null; m._utilityCooldown = 0; m._phaseUsed = false;
-      if(m.isBoss) m._chargeCountdown = bossCadence - 1;
+      if(m.isBoss) m._chargeCountdown = Math.max(2,Math.round(bossCadence/(m._chargeBias||1))) - 1;
     }
     state.combat = {
       monsters, isBoss: !!opts.isBoss, bonusLoot: !!opts.bonusLoot, round:1, _combo:0, _firstStrikeUsed:false,
@@ -378,8 +395,8 @@ const Engine = {
     if(!isInnate && !state.player.unlockedSkills.includes(skillId)) return;
     if(!c.monsters.some(m=>m.hp>0)) return;
     if((state.player.skillCooldowns[skillId]||0) > 0){ this.log(state, `${skill.name} is still recovering.`, 'bad'); return; }
-    const manaTrait = state.derived.traits.find(t=>t.type==='manaCostReduction');
-    const cost = manaTrait ? Math.max(1, Math.round(skill.manaCost*(1-manaTrait.value/100))) : skill.manaCost;
+    const manaReduction = Math.min(75,state.derived.traits.filter(t=>t.type==='manaCostReduction').reduce((sum,t)=>sum+t.value,0));
+    const cost = Math.max(0, Math.round(skill.manaCost*(1-manaReduction/100)));
     if(state.player.mp < cost){ this.log(state, "Not enough MP for that.", 'bad'); return; }
     c.skillMenuOpen = false;
     this.resolveRound(state, {kind:'skill', skill, cost});
@@ -489,7 +506,7 @@ const Engine = {
     if(m._charging){
       const move = m._chargingMove || m.moves[0] || {kind:'strike', power:1};
       m._charging = false; m._chargingMove = null;
-      if(m.isBoss) m._chargeCountdown = c.bossCadence;
+      if(m.isBoss) m._chargeCountdown = Math.max(2,Math.round(c.bossCadence/(m._chargeBias||1)));
       this.log(state, `${m.name} unleashes ${move.name || 'the blow'} it's been building!`, 'bad');
       this.executeMonsterMove(state, m, move, {chargeBonus:BALANCE.chargeDamageMult, charged:true});
       return;
@@ -500,7 +517,7 @@ const Engine = {
       m._chargeCountdown--;
       startsCharge = m._chargeCountdown<=0;
     } else {
-      startsCharge = Math.random() < c.chargeChance;
+      startsCharge = Math.random() < c.chargeChance*(m._chargeBias||1);
     }
     if(startsCharge && m.moves[0]){
       m._charging = true; m._chargingMove = m.moves[0];
@@ -509,7 +526,7 @@ const Engine = {
     }
 
     const utilityMove = m.moves[1];
-    if(utilityMove && m._utilityCooldown<=0 && Math.random()<c.utilityChance){
+    if(utilityMove && m._utilityCooldown<=0 && Math.random()<c.utilityChance*(m._utilityBias||1)){
       m._utilityCooldown = BALANCE.monsterUtilityCooldown;
       this.executeMonsterMove(state, m, utilityMove);
       return;
@@ -645,10 +662,19 @@ const Engine = {
 
     let dmg = Math.max(1, Math.round((atkStat*1.0 - relevantDef*0.5) * U.rand(0.85,1.15)));
     dmg = Math.round(dmg * (1+elemBonus/100));
+    let matchupNote='';
+    if(isPlayer && element!=='physical' && targetRef.element && targetRef.element!=='physical'){
+      if(BALANCE.elementalPreysOn[element]===targetRef.element){
+        dmg=Math.round(dmg*BALANCE.elementalStrongMult); matchupNote='Elemental weakness!';
+      } else if(BALANCE.elementalPreysOn[targetRef.element]===element){
+        dmg=Math.round(dmg*BALANCE.elementalResistMult); matchupNote=`${targetRef.name} resists the element.`;
+      }
+    }
     if(isCrit) dmg = Math.round(dmg*critMult);
 
     const ctx = {...ctxBase, attacker:isPlayer?state.player:monsterObj, target:isPlayer?targetRef:state.player,
       targetName:isPlayer?targetRef.name:'You', damage:dmg, direction:'outgoing', source:isPlayer?state.player:monsterObj, isCrit};
+    if(matchupNote) ctx.notes.push(matchupNote);
 
     // outgoing trait effects (only player has trait list currently)
     if(isPlayer){
@@ -736,6 +762,7 @@ const Engine = {
         drop = Generators.generateItem(state.dungeon.dungeonLevel, {
           lootBonus: state.dungeon.difficulty.lootBonus + (isBoss?0.8: (c.bonusLoot?0.35:0)),
           forcedMinTier: isBoss ? 'rare' : (c.bonusLoot ? 'uncommon' : undefined),
+          affinities:this.lootAffinities(state),
         });
       }
       state.combat=null;
@@ -784,7 +811,7 @@ const Engine = {
     const outcome = U.weightedPick(outcomes, x=>x.w).t;
 
     if(outcome==='gear'){
-      const item = Generators.generateItem(dlvl, {lootBonus});
+      const item = Generators.generateItem(dlvl, {lootBonus,affinities:this.lootAffinities(state)});
       this.log(state, `Inside you find something.`, 'flavor');
       this.presentItemDrop(state, item, (s2)=>{ this.finishRoom(s2); });
     } else if(outcome==='gold'){
@@ -831,14 +858,14 @@ const Engine = {
     while(state.player.xp >= BALANCE.xpToNext(state.player.level)){
       state.player.xp -= BALANCE.xpToNext(state.player.level);
       state.player.level++;
-      state.player.skillPoints++;
+      state.player.skillPoints += 2;
       leveled=true;
     }
     this.refreshDerived(state);
     if(leveled){
       state.player.hp = state.derived.maxHp;
       state.player.mp = state.derived.maxMp;
-      this.log(state, `<b style="color:var(--gold)">Level up!</b> You are now level ${state.player.level}. (+1 skill point)`, 'good');
+      this.log(state, `<b style="color:var(--gold)">Level up!</b> You are now level ${state.player.level}. (+2 skill points)`, 'good');
     }
   },
 

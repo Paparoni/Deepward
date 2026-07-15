@@ -20,13 +20,13 @@ const Generators = {
     return U.weightedPick(SLOTS, (s,i)=>weights[SLOTS.indexOf(s)]);
   },
 
-  rollStatsForSlot(slot, tier, dungeonLevel){
+  rollStatsForSlot(slot, tier, dungeonLevel, affinities={}){
     const pool = [...ALL_STATS];
     const primary = slot.primary || [];
     const chosen = [];
     const available = [...pool];
     for(let i=0;i<tier.statCount && available.length;i++){
-      const weighted = available.map(s=>({s, w: primary.includes(s.id) ? 3 : 1}));
+      const weighted = available.map(s=>({s, w:(primary.includes(s.id)?3:1)*(affinities[s.id]||1)}));
       const pickObj = U.weightedPick(weighted, x=>x.w);
       chosen.push(pickObj.s);
       available.splice(available.indexOf(pickObj.s),1);
@@ -81,7 +81,7 @@ const Generators = {
         ? TIERS[Math.max(TIERS.findIndex(t=>t.id===opts.forcedMinTier), TIERS.indexOf(this.rollTier(opts.lootBonus||0)))]
         : this.rollTier(opts.lootBonus||0);
     const slot = opts.forcedSlot ? SLOTS.find(s=>s.id===opts.forcedSlot) : this.pickSlot();
-    const stats = this.rollStatsForSlot(slot, tier, dungeonLevel);
+    const stats = this.rollStatsForSlot(slot, tier, dungeonLevel, opts.affinities||{});
     const uniqueTraits = this.rollTraits(tier, dungeonLevel, UNIQUE_TRAITS);
     const mythicTrait = this.rollMythicTrait(tier, dungeonLevel);
     // weapon element flavor = strongest elemental stat rolled, else physical
@@ -109,24 +109,41 @@ const Generators = {
     return U.pick(CRAFTING_MATERIALS);
   },
 
+  monsterIdentity(tpl,isBoss=false){
+    const tags=[];
+    if(tpl.spd>=1.2) tags.push('Swift');
+    if(tpl.def>=1.2||tpl.mdef>=1.25) tags.push('Armored');
+    if(tpl.matk>tpl.atk*1.25) tags.push('Caster');
+    if(tpl.atk>=1.25) tags.push('Brutal');
+    if(tpl.moves?.some(move=>move.kind==='heal')) tags.push('Regenerator');
+    if(tpl.moves?.some(move=>move.dotPct)) tags.push('Afflictor');
+    if(tpl.moves?.some(move=>move.kind==='debuff'||move.debuffStat)) tags.push('Controller');
+    if(!tags.length) tags.push('Skirmisher');
+    return `${isBoss?'Boss · ':''}${tags.join(' · ')}`;
+  },
+
   monsterFromTemplate(tpl, dungeonLevel, mult=1, isBoss=false){
     // convex (level^exponent) growth keeps late dungeons scaling up faster than early
     // ones, so late game doesn't trivialize once players stack compounding gear tiers.
     const scale = Math.pow(dungeonLevel, BALANCE.monsterLevelExponent) * mult * (isBoss?1.2:1);
-    const hp = Math.floor((isBoss?82:31) + scale*(isBoss?14.2:8.1));
+    const variance=(min=.94,max=1.06)=>U.rand(min,max);
+    const identity=ENEMY_IDENTITIES[tpl.id]||{name:this.monsterIdentity(tpl,isBoss),desc:tpl.flavor,mods:{},charge:1,utility:1};
+    const mod=stat=>identity.mods?.[stat]||1;
+    const hp = Math.floor(((isBoss?82:31) + scale*(isBoss?14.2:8.1))*mod('hp')*variance(.96,1.05));
     const mercy = BALANCE.monsterEarlyMercy(dungeonLevel);
     return {
       uid:U.uid(), tplId:tpl.id, name: isBoss ? `${tpl.name}, ${tpl.title}` : tpl.name,
-      icon:tpl.icon, element:tpl.element, flavor:tpl.flavor, isBoss,
+      icon:tpl.icon, element:tpl.element, flavor:tpl.flavor, isBoss, identity:identity.name, identityDesc:identity.desc,
       moves: tpl.moves || [],
+      _chargeBias:identity.charge||1, _utilityBias:identity.utility||1,
       _charging:false, _chargingMove:null, _utilityCooldown:0, _phaseUsed:false,
-      atk: Math.round((3 + scale*tpl.atk*1.86)*mercy),
-      def: Math.round(2 + scale*tpl.def*1.46),
-      matk: Math.round((2.5 + scale*tpl.matk*1.86)*mercy),
-      mdef: Math.round(2 + scale*tpl.mdef*1.46),
-      spd: Math.round(3 + scale*tpl.spd*1.1),
-      hitEff: Math.round(6 + scale*0.9),
-      hitRes: Math.round(5 + scale*0.8),
+      atk: Math.round((6.5 + scale*tpl.atk*1.92)*mercy*mod('atk')*variance()),
+      def: Math.round((2 + scale*tpl.def*1.46)*mod('def')*variance()),
+      matk: Math.round((6 + scale*tpl.matk*1.92)*mercy*mod('matk')*variance()),
+      mdef: Math.round((2 + scale*tpl.mdef*1.46)*mod('mdef')*variance()),
+      spd: Math.round((4.5 + scale*tpl.spd*1.15)*mod('spd')*variance(.92,1.08)),
+      hitEff: Math.round((6 + scale*0.9)*mod('hitEff')*variance()),
+      hitRes: Math.round((5 + scale*0.8)*mod('hitRes')*variance()),
       hp, maxHp:hp,
       goldDrop: Math.floor((isBoss?48:10) + scale*(isBoss?8.2:1.9)),
       xpDrop: Math.floor((isBoss?72:17) + scale*(isBoss?10.5:2.65)),
@@ -134,7 +151,7 @@ const Generators = {
   },
 
   generateBattleGroup(dungeonLevel, difficulty){
-    const packSize = Math.random()<0.35 ? U.randInt(2,3) : 1;
+    const packSize = Math.random()<0.44 ? U.randInt(2,3) : 1;
     const group=[];
     for(let i=0;i<packSize;i++){
       const tpl = U.pick(MONSTER_TEMPLATES);

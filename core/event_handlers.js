@@ -27,7 +27,8 @@ const EVENT_HANDLERS = {
 
   merchant(state){
     const dlvl = state.dungeon.dungeonLevel;
-    const stock = [1,2,3].map(()=>Generators.generateItem(dlvl, {lootBonus:0}));
+    const affinities=Engine.lootAffinities(state);
+    const stock = [1,2,3].map(()=>Generators.generateItem(dlvl, {lootBonus:0,affinities}));
     state.ui.merchantStock = stock;
     Engine.log(state, `A hooded merchant has set up a small stall between the pillars. "Something for the journey?"`, 'flavor');
     Engine.renderMerchant(state);
@@ -319,7 +320,7 @@ const EVENT_HANDLERS = {
       {label:'Study the pattern (uses HIT EFF)', act:(s)=>{
         const chance = U.clamp(35 + s.derived.hitEff*1.1, 20, 90);
         if(Math.random()*100 < chance){
-          const item = Generators.generateItem(s.dungeon.dungeonLevel, {lootBonus:s.dungeon.difficulty.lootBonus, forcedMinTier:'uncommon'});
+          const item = Generators.generateItem(s.dungeon.dungeonLevel, {lootBonus:s.dungeon.difficulty.lootBonus, forcedMinTier:'uncommon',affinities:Engine.lootAffinities(s)});
           Engine.log(s, `The runes click into place. A hidden compartment slides open.`, 'good');
           Engine.presentItemDrop(s, item, (s2)=>{ Engine.finishRoom(s2); });
         } else {
@@ -423,7 +424,7 @@ const EVENT_HANDLERS = {
     Engine.log(state, `The ashes of a cold campfire surround a pack that its owner never came back for.`, 'flavor');
     Engine.setChoices(state, [
       {label:"Search the delver's pack (find their gear)", act:(s)=>{
-        const item = Generators.generateItem(s.dungeon.dungeonLevel, {lootBonus:s.dungeon.difficulty.lootBonus, forcedMinTier: Math.random()<0.5?'common':'uncommon'});
+        const item = Generators.generateItem(s.dungeon.dungeonLevel, {lootBonus:s.dungeon.difficulty.lootBonus, forcedMinTier: Math.random()<0.5?'common':'uncommon',affinities:Engine.lootAffinities(s)});
         Engine.log(s, `Whatever happened to them, they left something behind.`, 'flavor');
         Engine.presentItemDrop(s, item, (s2)=>{ Engine.finishRoom(s2); });
       }},

@@ -3,6 +3,14 @@
    ============================================================ */
 function esc(s){ return String(s); }
 
+function animatedBar(state,key,pct,kind){
+  state.ui.barHistory ||= {};
+  const now=U.clamp(pct,0,100), before=state.ui.barHistory[key]??now;
+  state.ui.barHistory[key]=now;
+  const changed=Math.abs(now-before)>.01;
+  return `<div class="bar-fill ${kind}${changed?' bar-changing':''}" style="width:${now}%;--bar-from:${before}%;--bar-to:${now}%"></div>`;
+}
+
 function renderStatBlock(state, weaponElement){
   const derived = state.derived;
   const rows = CORE_STATS.map(stat=>{
@@ -71,15 +79,15 @@ function renderHud(s){
     </div>
     <div class="bar-wrap">
       <div class="bar-label"><span>HP</span><span>${s.player.hp}/${d.maxHp}</span></div>
-      <div class="bar-track"><div class="bar-fill bar-hp" style="width:${U.clamp(s.player.hp/d.maxHp*100,0,100)}%"></div></div>
+      <div class="bar-track">${animatedBar(s,'player-hp',s.player.hp/d.maxHp*100,'bar-hp')}</div>
     </div>
     <div class="bar-wrap">
       <div class="bar-label"><span>MP</span><span>${s.player.mp}/${d.maxMp}</span></div>
-      <div class="bar-track"><div class="bar-fill bar-mp" style="width:${U.clamp(s.player.mp/d.maxMp*100,0,100)}%"></div></div>
+      <div class="bar-track">${animatedBar(s,'player-mp',s.player.mp/d.maxMp*100,'bar-mp')}</div>
     </div>
     <div class="bar-wrap">
       <div class="bar-label"><span>XP</span><span>${s.player.xp}/${xpNeed}</span></div>
-      <div class="bar-track"><div class="bar-fill bar-xp" style="width:${U.clamp(s.player.xp/xpNeed*100,0,100)}%"></div></div>
+      <div class="bar-track">${animatedBar(s,'player-xp',s.player.xp/xpNeed*100,'bar-xp')}</div>
     </div>
     ${diffLabel? `<div class="hud-diff">${diffLabel}</div>`:''}
     <div class="hud-gold">⛁ ${s.player.gold} gold</div>
@@ -152,7 +160,9 @@ function renderCombat(s){
     return `
     <div class="${classes}" ${clickable?`onclick="onSelectTarget('${m.uid}')" title="Target ${m.name}"`:''}>
       <div class="combatant-name">${m.icon} ${m.name}${targeted?' <span class="target-mark">🎯</span>':''}</div>
-      <div class="bar-track" style="margin-top:4px;"><div class="bar-fill bar-hp" style="width:${U.clamp(m.hp/m.maxHp*100,0,100)}%"></div></div>
+      <div class="enemy-element">${m.element.toUpperCase()} AFFINITY</div>
+      <div class="enemy-identity" title="${U.escapeHtml(m.identityDesc||m.flavor)}">${U.escapeHtml(m.identity||'Skirmisher')}</div>
+      <div class="bar-track" style="margin-top:4px;">${animatedBar(s,`monster-${m.uid}`,m.hp/m.maxHp*100,'bar-hp')}</div>
       <div class="combatant-hp-num">${Math.max(0,m.hp)}/${m.maxHp} HP</div>
       ${m._charging? `<div class="charge-tag">⚡ Channeling <b>${U.escapeHtml(chargeName)}</b> — Defend or burst it down!</div>` : ''}
     </div>`;
@@ -179,8 +189,8 @@ function renderCombat(s){
   ];
   const skillButtons = activeSkills.map(sk=>{
     const cd = s.player.skillCooldowns[sk.id]||0;
-    const manaTrait = s.derived.traits.find(t=>t.type==='manaCostReduction');
-    const cost = manaTrait ? Math.max(1,Math.round(sk.manaCost*(1-manaTrait.value/100))) : sk.manaCost;
+    const manaReduction = Math.min(75,s.derived.traits.filter(t=>t.type==='manaCostReduction').reduce((sum,t)=>sum+t.value,0));
+    const cost = Math.max(0,Math.round(sk.manaCost*(1-manaReduction/100)));
     const disabled = !alive || s.player.mp < cost || cd>0 || c.resolving;
     const status = cd>0 ? `Ready in ${cd} round${cd===1?'':'s'}` : s.player.mp<cost ? 'Not enough MP' : 'Ready';
     return `<button class="skill-choice" title="${U.escapeHtml(sk.desc)}" onclick="onUseSkill('${sk.id}')" ${disabled?'disabled':''}><span><b>${sk.name}</b><small>${U.escapeHtml(sk.desc)}</small></span><span class="skill-cost">${cost} MP<br><em>${status}</em></span></button>`;
@@ -364,9 +374,49 @@ function renderTitle(){
   </div>`;
 }
 
+function renderSkillGraph(s, cls){
+  const width=3050, height=1260;
+  const byId=Object.fromEntries(cls.skillTree.map(node=>[node.id,node]));
+  const lines=cls.skillTree.filter(node=>node.requires&&byId[node.requires]).map(node=>{
+    const parent=byId[node.requires];
+    const active=s.player.unlockedSkills.includes(parent.id)&&s.player.unlockedSkills.includes(node.id);
+    const available=s.player.unlockedSkills.includes(parent.id)&&!s.player.unlockedSkills.includes(node.id);
+    return `<line x1="${parent.x}" y1="${parent.y}" x2="${node.x}" y2="${node.y}" class="tree-link ${active?'active':available?'available':''}"/>`;
+  }).join('');
+  const branches=[...new Set(cls.skillTree.map(node=>node.branch))];
+  const headers=branches.map(branch=>{
+    const nodes=cls.skillTree.filter(node=>node.branch===branch);
+    const x=Math.round(nodes.reduce((sum,node)=>sum+node.x,0)/nodes.length);
+    return `<div class="tree-branch-title" style="left:${x}px">${branch}</div>`;
+  }).join('');
+  const nodes=cls.skillTree.map(node=>{
+    const unlocked=s.player.unlockedSkills.includes(node.id);
+    const can=Engine.canUnlock(s,node);
+    const parent=node.requires?byId[node.requires]:null;
+    const reason=!unlocked&&!can?(parent&&!s.player.unlockedSkills.includes(parent.id)?`Requires ${parent.name}`:s.player.skillPoints<node.cost?`Requires ${node.cost} points`:'Locked'):'';
+    const icon=node.kind==='active'?'⚡':node.nodeRole==='capstone'?'★':node.nodeRole==='notable'?'✦':'◆';
+    const title=`${node.name}\n${node.kind.toUpperCase()} · ${node.cost} point${node.cost===1?'':'s'}\n${node.desc}${reason?'\n'+reason:''}`;
+    return `<button class="tree-node ${node.nodeRole||''} ${node.kind} ${unlocked?'unlocked':can?'available':'locked'}" style="left:${node.x}px;top:${node.y}px" title="${U.escapeHtml(title)}" onclick="onUnlockSkill('${node.id}')" ${unlocked||!can?'disabled':''}><span>${icon}</span><small>${node.name}</small><em>${unlocked?'✓':node.cost}</em></button>`;
+  }).join('');
+  const learned=s.player.unlockedSkills.filter(id=>byId[id]).length;
+  return `<div class="overlay skill-tree-overlay" onclick="if(event.target===this) toggleSkills()">
+    <div class="panel skill-tree-panel">
+      <div class="panel-title tree-toolbar"><span>${cls.icon} ${cls.name} Constellation <small>${learned}/${cls.skillTree.length} learned</small></span><span>Points: <b>${s.player.skillPoints}</b> <button onclick="toggleSkills()">Close ×</button></span></div>
+      <div class="tree-legend"><span class="legend-dot available"></span>Available <span class="legend-dot unlocked"></span>Learned <span>⚡ Active</span><span>★ Capstone</span><span>Drag the scrollbars to explore · hover any node for details</span></div>
+      <div class="skill-tree-viewport">
+        <div class="skill-tree-canvas" style="width:${width}px;height:${height}px">
+          <svg width="${width}" height="${height}" aria-hidden="true">${lines}</svg>${headers}${nodes}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderSkillsOverlay(s){
   if(!s.ui.skillsOpen) return '';
   const cls = CLASS_BY_ID[s.player.classId];
+  return renderSkillGraph(s,cls);
+  /* Legacy tier renderer retained below for save-compatible data diagnostics. */
   const maxTier = Math.max(...cls.skillTree.map(sk=>sk.tier));
   const byTier = Array.from({length:maxTier}, (_,i)=>cls.skillTree.filter(sk=>sk.tier===i+1));
   const tierHtml = byTier.map((skills,i)=>{

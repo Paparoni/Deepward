@@ -23,26 +23,72 @@ function advancedNodes(route){
   ];
 }
 
+function expansionNodes(route){
+  const elementalSkill = [...route.nodes].reverse().find(node=>node.forcedElement);
+  const element = elementalSkill?.forcedElement || 'physical';
+  const magic = route.nodes.some(node=>node.magic);
+  const power = magic ? 'matk' : 'atk';
+  const guard = magic ? 'mdef' : 'def';
+  const label = element[0].toUpperCase()+element.slice(1);
+  return [
+    P(`${route.name} Foundation`, {type:'statBonus', stat:power, value:4}, `+4 ${power.toUpperCase()}.`),
+    P(`${route.name} Footwork`, {type:'statBonus', stat:'spd', value:3}, '+3 SPD.'),
+    P(`${route.name} Wardcraft`, {type:'statBonus', stat:guard, value:5}, `+5 ${guard.toUpperCase()}.`),
+    P(`${route.name} Economy`, {type:'manaCostReduction', value:8}, 'Skills cost 8% less MP.'),
+    P(`${label} Resonance`, {type:'statBonus', stat:`${element}Dmg`, value:9}, `+9% ${element} damage.`),
+    P(`${route.name} Precision`, {type:'critChanceBonus', value:7}, '+7% critical-hit chance.'),
+    P(`${route.name} Recovery`, magic?{type:'manaOnHit',value:2}:{type:'hpOnKill',value:6}, magic?'Restore 2 MP on hit.':'Restore 6 HP on kill.'),
+    A(`${route.name} Breakthrough`, 14, 'nuke', `A focused 165% ${element} technique.`, {power:1.65, magic, forcedElement:element}),
+  ];
+}
+
+// Outer-ring specialization for every subclass. Names inherit the discipline,
+// while mechanics adapt to its physical/magical and elemental identity.
+function deepExpansionNodes(route){
+  const elementalSkill=[...route.nodes].reverse().find(node=>node.forcedElement);
+  const element=elementalSkill?.forcedElement||'physical';
+  const magic=route.nodes.some(node=>node.magic);
+  const power=magic?'matk':'atk';
+  const defense=magic?'mdef':'def';
+  return [
+    A(`${route.name} Onslaught`, 17, 'aoe', `Strike every enemy for 110% ${element} damage.`, {power:1.1,magic,forcedElement:element}),
+    P(`${route.name} Aftershock`, {type:'doubleHitChance',value:8}, '8% chance for attacks to strike twice.'),
+    A(`${route.name} Severance`, 13, 'debuff', `Break an enemy's ${defense.toUpperCase()} by 28%.`, {debuffStat:defense,debuffValue:28}),
+    P(`${route.name} Predation`, {type:'lifesteal',value:6}, 'Heal for 6% of damage dealt.'),
+    A(`${route.name} Exaltation`, 18, 'buff', `Gain +36% ${power.toUpperCase()} for the battle.`, {buffStat:power,buffValue:36}),
+    P(`${route.name} Defiance`, {type:'lowHpDamageBonus',value:18}, 'Deal 18% more damage below half HP.'),
+    P(`${route.name} Grand Ward`, {type:'statBonus',stat:defense,value:8}, `+8 ${defense.toUpperCase()}.`),
+    A(`${route.name} Final Art`, 26, 'nuke', `A devastating 225% ${element} capstone technique.`, {power:2.25,magic,forcedElement:element,executeThreshold:20}),
+  ];
+}
+
 function makeClass(id, name, icon, desc, statMods, routes, innate={}){
-  const choiceGroup = `${id}-discipline`;
+  const choiceGroup = null;
   const innatePassive = innate.passive ? {...innate.passive, id:`${id}_innate_passive`, kind:'passive'} : null;
   const innateActive = innate.active ? {...innate.active, id:`${id}_innate_active`, kind:'active'} : null;
   return {
     id, name, icon, desc, statMods, innatePassive, innateActive,
-    skillTree: routes.flatMap(route => [...route.nodes, ...advancedNodes(route)].map((node, index) => {
-      const cost = index >= 8 ? 3 : index >= 4 ? 2 : 1;
+    skillTree: routes.flatMap(route => [...route.nodes, ...advancedNodes(route), ...expansionNodes(route), ...deepExpansionNodes(route)].map((node, index) => {
+      const isBranch = index>=10;
+      const branchIndex = index-10;
+      const anchors = [1,2,3,4,5,6,7,8,2,3,4,5,6,7,8,9];
+      const outer = branchIndex>=8;
+      const cost = isBranch ? (outer?(branchIndex>=14?3:2):(branchIndex>=6?2:1)) : index >= 8 ? 3 : index >= 4 ? 2 : 1;
       return {
         ...node,
-        id: `${id}_${route.id}_${index + 1}`,
-        tier: index + 1,
+        id: isBranch ? `${id}_${route.id}_x${branchIndex+1}` : `${id}_${route.id}_${index + 1}`,
+        tier: isBranch ? anchors[branchIndex]+1 : index + 1,
         cost,
         // active skills go on cooldown after use (rounds) so the strongest
         // nuke in a build can't just be spammed every turn — deeper skills
         // hit harder but also sit out longer, forcing a rotation.
         cooldown: node.kind === 'active' ? U.clamp(2 + Math.floor((cost-1)/2), 2, 4) : undefined,
         branch: route.name,
-        requires: index ? `${id}_${route.id}_${index}` : null,
-        choiceGroup: index === 0 ? choiceGroup : null,
+        requires: isBranch ? (branchIndex%2 ? `${id}_${route.id}_x${branchIndex}` : outer ? `${id}_${route.id}_x${branchIndex-7}` : `${id}_${route.id}_${anchors[branchIndex]}`) : index ? `${id}_${route.id}_${index}` : null,
+        choiceGroup: null,
+        x:350 + routes.indexOf(route)*760 + (isBranch ? (Math.floor(branchIndex/2)%2===0?-1:1)*((outer?285:125)+(branchIndex%2)*30) : (index%2?28:-28)),
+        y:100 + (isBranch?anchors[branchIndex]:index)*120,
+        nodeRole:isBranch?(branchIndex===15?'capstone':node.kind==='active'?'notable':'minor'):index===9?'capstone':index===0?'root':'spine',
       };
     })),
   };

@@ -24,7 +24,7 @@ const BALANCE = {
   // reading telegraphs) before the game asks much of them. Only trims monster ATK/MATK
   // (how hard they hit), not HP/DEF, so early fights aren't shorter, just less punishing.
   // Fully fades out by dungeon level 12, at which point stats scale at full strength.
-  monsterEarlyMercy: dlvl => 1 - 0.22*U.clamp(1-(dlvl-1)/11, 0, 1),
+  monsterEarlyMercy: dlvl => 1 - 0.08*U.clamp(1-(dlvl-1)/9, 0, 1),
   roomCount: lvl => U.clamp(5 + Math.floor(lvl/4), 5, 10),
   // floor-generation pacing: guarantees a dungeon can't be cleared without fighting.
   // minCombatFraction = minimum share of non-boss rooms that must be combat rooms.
@@ -33,7 +33,7 @@ const BALANCE = {
   minCombatFraction: 0.32,
   maxNonCombatStreak: 2,
   difficulties: {
-    normal:   {label:'Normal',   monsterMult:1.00, lootBonus:0.0},
+    normal:   {label:'Normal',   monsterMult:1.08, lootBonus:0.0},
     hard:     {label:'Hard',     monsterMult:1.32, lootBonus:0.6},
     nightmare:{label:'Nightmare',monsterMult:1.75, lootBonus:1.3},
   },
@@ -43,6 +43,10 @@ const BALANCE = {
   // (and near-ties) aren't perfectly deterministic.
   initiativeJitter: 3,
   combatActionDelayMs: 430,
+  elementalStrongMult: 1.25,
+  elementalResistMult: 0.82,
+  // Each element preys on one other element. The reverse matchup is resisted.
+  elementalPreysOn: {fire:'ice', ice:'lightning', lightning:'poison', poison:'holy', holy:'dark', dark:'fire'},
   // 0 at dungeon level 1 → 1 by dungeon level 20. Drives how much tactical
   // pressure a fight applies: early dungeons see monsters attack plainly most
   // of the time, so a new run can learn targeting/guard/cooldowns without being
