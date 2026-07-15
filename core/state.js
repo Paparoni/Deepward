@@ -24,6 +24,7 @@ function newGame(name, classId){
 
 function descend(difficultyId){
   const s = STATE;
+  Metrics.dungeonStarted(difficultyId);
   s.player._revivedThisDungeon = false;
   s.dungeon = Generators.generateDungeon(s.player.level, difficultyId);
   s.screen='dungeon';

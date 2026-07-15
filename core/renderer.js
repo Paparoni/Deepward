@@ -508,11 +508,13 @@ function renderCharacterOverlay(s){
 function renderSystemOverlay(s){
   if(!s.ui.systemOpen) return '';
   const pace=s.settings?.combatPace||'normal';
+  const metrics=Metrics.summary();
   return `<div class="overlay dashboard-overlay" onclick="if(event.target===this) toggleSystemMenu()"><div class="panel system-panel">
     <div class="panel-title"><span>Deepward Menu</span><button class="icon-close" onclick="toggleSystemMenu()">×</button></div>
     <div class="system-body"><h3>Combat Presentation</h3><div class="segmented">${['fast','normal','cinematic'].map(p=>`<button class="${pace===p?'selected':''}" onclick="setCombatPace('${p}')">${p}</button>`).join('')}</div>
     <label class="setting-toggle"><span><b>Reduce motion</b><small>Disables interface animations and pulsing effects.</small></span><input type="checkbox" ${s.settings?.reduceMotion?'checked':''} onchange="toggleReduceMotion()"></label>
     <h3>Save Management</h3><div class="menu-actions"><button class="btn" onclick="saveGame()">Save locally</button><button class="btn" onclick="exportSave()">Export JSON</button><button class="btn" onclick="chooseSaveImport()">Import JSON</button></div>
+    <details class="developer-options"><summary>Developer Options</summary><div class="developer-body"><p>Balance telemetry is stored only in this browser.</p><div class="metric-grid"><span><b>${metrics.battles}</b>Battles</span><span><b>${metrics.winRate}%</b>Win rate</span><span><b>${metrics.avgRounds}</b>Avg. rounds</span><span><b>${metrics.damageDealt}</b>Damage dealt</span><span><b>${metrics.damageTaken}</b>Damage taken</span><span><b>${metrics.deaths}</b>Deaths</span><span><b>${metrics.items}</b>Items seen</span></div><div class="menu-actions"><button class="btn btn-primary" onclick="exportMetrics()">Export Metrics</button><button class="btn btn-danger" onclick="resetMetrics()">Reset Metrics</button></div></div></details>
     <div class="system-note">Combat settings and character progress are included in your save.</div></div>
   </div></div>`;
 }

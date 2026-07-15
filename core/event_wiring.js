@@ -20,6 +20,8 @@ function toggleCharacter(){ STATE.ui.characterOpen=!STATE.ui.characterOpen; rend
 function toggleSystemMenu(){ STATE.ui.systemOpen=!STATE.ui.systemOpen; render(); }
 function setCombatPace(pace){ if(['fast','normal','cinematic'].includes(pace)) STATE.settings.combatPace=pace; render(); }
 function toggleReduceMotion(){ STATE.settings.reduceMotion=!STATE.settings.reduceMotion; render(); }
+function exportMetrics(){ Metrics.export(); }
+function resetMetrics(){ Metrics.reset(); }
 function onUnlockSkill(skillId){ Engine.unlockSkill(STATE, skillId); render(); }
 function onUseSkill(skillId){ Engine.useSkill(STATE, skillId); render(); }
 function toggleCombatSkills(){

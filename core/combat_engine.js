@@ -73,7 +73,9 @@ const SKILL_ACTION_HANDLERS = {
   },
   heal(state, skill){
     const amt = Math.round(state.derived.maxHp*(skill.healPct||0)/100);
+    const actual=Math.min(amt,state.derived.maxHp-state.player.hp);
     state.player.hp = Math.min(state.derived.maxHp, state.player.hp+amt);
+    Metrics.addTotal('healing',actual);
     Engine.log(state, `${skill.name} restores <b>${amt} HP</b>.`, 'good');
   },
   buff(state, skill){
@@ -308,6 +310,7 @@ const Engine = {
       // often monsters charge/use their utility move, and how tight the boss's pattern is.
       chargeChance, utilityChance, bossCadence,
     };
+    Metrics.battleStarted(state,monsters);
   },
 
   // reads a stat with any active combat buffs (from skills) layered on top
@@ -363,6 +366,7 @@ const Engine = {
   playerAction(state, kind){
     const c = state.combat;
     if(!c || c.resolving || state.player.hp<=0) return;
+    Metrics.count('actions',kind);
     if(kind==='flee'){
       // faster delvers slip away more easily than slower ones
       const fastestFoe = Math.max(0, ...c.monsters.filter(m=>m.hp>0).map(m=>m.spd));
@@ -398,6 +402,7 @@ const Engine = {
     const manaReduction = Math.min(75,state.derived.traits.filter(t=>t.type==='manaCostReduction').reduce((sum,t)=>sum+t.value,0));
     const cost = Math.max(0, Math.round(skill.manaCost*(1-manaReduction/100)));
     if(state.player.mp < cost){ this.log(state, "Not enough MP for that.", 'bad'); return; }
+    Metrics.count('actions','skill'); Metrics.count('skills',skillId);
     c.skillMenuOpen = false;
     this.resolveRound(state, {kind:'skill', skill, cost});
   },
@@ -644,6 +649,7 @@ const Engine = {
     const ctxBase = {notes:[], combat:c, player:state.player, derived:state.derived, maxHp: state.derived.maxHp, maxMp: state.derived.maxMp, combo: (c._combo||0)};
 
     if(Math.random()*100 > hitChance){
+      if(isPlayer) Metrics.addTotal('misses');
       this.log(state, isPlayer ? `Your attack misses!` : `${monsterObj.name}'s attack misses!`, 'flavor');
       return {hit:false};
     }
@@ -660,6 +666,7 @@ const Engine = {
       if(t.type==='firstHitCrit' && !c._firstAttackResolved) critChance += t.value;
     }
     const isCrit = Math.random()*100 < critChance;
+    if(isPlayer && isCrit) Metrics.addTotal('crits');
     if(isPlayer) c._firstAttackResolved = true;
 
     let dmg = Math.max(1, Math.round((atkStat*1.0 - relevantDef*0.5) * U.rand(0.85,1.15)));
@@ -667,9 +674,9 @@ const Engine = {
     let matchupNote='';
     if(isPlayer && element!=='physical' && targetRef.element && targetRef.element!=='physical'){
       if(BALANCE.elementalPreysOn[element]===targetRef.element){
-        dmg=Math.round(dmg*BALANCE.elementalStrongMult); matchupNote='Elemental weakness!';
+        dmg=Math.round(dmg*BALANCE.elementalStrongMult); matchupNote='Elemental weakness!'; Metrics.count('elemental','strong');
       } else if(BALANCE.elementalPreysOn[targetRef.element]===element){
-        dmg=Math.round(dmg*BALANCE.elementalResistMult); matchupNote=`${targetRef.name} resists the element.`;
+        dmg=Math.round(dmg*BALANCE.elementalResistMult); matchupNote=`${targetRef.name} resists the element.`; Metrics.count('elemental','resisted');
       }
     }
     if(isCrit) dmg = Math.round(dmg*critMult);
@@ -694,14 +701,17 @@ const Engine = {
     // apply to defender, with incoming-direction defensive traits if defender is player
     if(isPlayer){
       targetRef.hp = Math.max(0, targetRef.hp - dmg);
+      Metrics.addTotal('damageDealt',dmg);
       this.log(state, `You ${verb} ${targetRef.name} for <b>${dmg}</b>${isCrit?' (critical!)':''} damage.${ctx.notes.length? ' '+ctx.notes.join(' '):''}`, 'combat');
       if(ctx.extraHit){
         const extra = Math.max(1, Math.round(dmg*0.5));
         targetRef.hp = Math.max(0, targetRef.hp-extra);
+        Metrics.addTotal('damageDealt',extra);
         this.log(state, `A twinned strike lands for another <b>${extra}</b> damage!`, 'combat');
       }
       if(ctx.echo){
         targetRef.hp = Math.max(0, targetRef.hp-ctx.echo);
+        Metrics.addTotal('damageDealt',ctx.echo);
         this.log(state, `An echo of the strike deals <b>${ctx.echo}</b> more damage.`, 'combat');
       }
       c._combo = (c._combo||0)+1;
@@ -721,6 +731,7 @@ const Engine = {
         incomingCtx.notes.push('Your guard absorbs much of the blow.');
       }
       state.player.hp = Math.max(0, state.player.hp - finalDmg);
+      Metrics.addTotal('damageTaken',finalDmg);
       const monsterVerb = opts.skillName ? `uses ${opts.skillName} on` : (useMagic?'casts a spell at':(opts.charged?'unleashes a charged blow on':'strikes'));
       this.log(state, `${monsterObj.name} ${monsterVerb} you for <b>${finalDmg}</b>${isCrit?' (critical!)':''} damage.${incomingCtx.notes.length? ' '+incomingCtx.notes.join(' '):''}`, 'bad');
       return {hit:!incomingCtx.dodged, damage:finalDmg, crit:isCrit};
@@ -729,6 +740,8 @@ const Engine = {
 
   endCombat(state, result){
     const c = state.combat;
+    Metrics.battleEnded(state,result,c);
+    if(result==='defeat'||result==='fled'||(result==='victory'&&c.isBoss)) Metrics.dungeonOutcome(state.dungeon?.difficultyId,result);
     if(result==='victory'){
       let gold=0, xp=0;
       for(const m of c.monsters){ gold+=m.goldDrop; xp+=m.xpDrop; }
@@ -739,6 +752,7 @@ const Engine = {
       xp = Math.round(xp*(1+xpBonus/100));
       state.player.gold += gold;
       state.player.xp += xp;
+      Metrics.reward(gold,xp);
       this.log(state, `Victory! You gain <b>${gold} gold</b> and <b>${xp} XP</b>.`, 'good');
       this.checkLevelUp(state);
       const isBoss = c.isBoss;
@@ -784,15 +798,18 @@ const Engine = {
 
   // shows an item card with Pick up / Leave choices; afterFn(state) runs once resolved
   presentItemDrop(state, item, afterFn){
+    Metrics.loot(item,'offered');
     state.ui.pendingItem = item;
     state.ui.choices = [
       {label:'Pick it up', act:(s)=>{
+        Metrics.loot(item,'taken');
         this.grantItem(s, item);
         this.log(s, `You take the <b style="color:${TIER_BY_ID[item.tier].color}">${item.name}</b> (${TIER_BY_ID[item.tier].name}).`, 'good');
         s.ui.pendingItem = null;
         afterFn(s);
       }},
       {label:'Leave it behind', act:(s)=>{
+        Metrics.loot(item,'left');
         this.log(s, `You leave the ${item.name} where it lies.`, 'flavor');
         s.ui.pendingItem = null;
         afterFn(s);
@@ -861,6 +878,7 @@ const Engine = {
       state.player.xp -= BALANCE.xpToNext(state.player.level);
       state.player.level++;
       state.player.skillPoints += 2;
+      Metrics.addTotal('levelsGained');
       leveled=true;
     }
     this.refreshDerived(state);

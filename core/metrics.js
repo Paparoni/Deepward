@@ -1,0 +1,21 @@
+/* Local-only balance telemetry. No data leaves the browser unless exported. */
+const Metrics = {
+  key:'deepward-balance-metrics-v1', version:1,
+  fresh(){return {version:this.version,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
+    totals:{dungeonsStarted:0,battlesStarted:0,battlesWon:0,battlesFled:0,deaths:0,rounds:0,damageDealt:0,damageTaken:0,healing:0,crits:0,misses:0,goldEarned:0,xpEarned:0,levelsGained:0,itemsOffered:0,itemsTaken:0,itemsLeft:0},
+    actions:{},skills:{},classes:{},levels:{},difficulties:{},enemyEncounters:{},enemyKills:{},lootTiers:{},elemental:{strong:0,resisted:0},combatRounds:[]};},
+  read(){try{return {...this.fresh(),...JSON.parse(localStorage.getItem(this.key)||'null')};}catch(_){return this.fresh();}},
+  write(data){try{data.updatedAt=new Date().toISOString();localStorage.setItem(this.key,JSON.stringify(data));}catch(_){}},
+  mutate(fn){const data=this.read();fn(data);this.write(data);},
+  addTotal(name,value=1){this.mutate(d=>d.totals[name]=(d.totals[name]||0)+value);},
+  count(group,key,value=1){if(!key)return;this.mutate(d=>{d[group]||={};d[group][key]=(d[group][key]||0)+value;});},
+  dungeonStarted(difficulty){this.mutate(d=>{d.totals.dungeonsStarted++;d.difficulties[difficulty]||={started:0,won:0,deaths:0,fled:0};d.difficulties[difficulty].started++;});},
+  dungeonOutcome(difficulty,result){if(!difficulty)return;this.mutate(d=>{d.difficulties[difficulty]||={started:0,won:0,deaths:0,fled:0};if(result==='victory')d.difficulties[difficulty].won++;if(result==='defeat')d.difficulties[difficulty].deaths++;if(result==='fled')d.difficulties[difficulty].fled++;});},
+  battleStarted(state,monsters){this.mutate(d=>{d.totals.battlesStarted++;const cls=state.player.classId;d.classes[cls]||={battles:0,wins:0,deaths:0,fled:0};d.classes[cls].battles++;d.levels[state.player.level]=(d.levels[state.player.level]||0)+1;for(const m of monsters)d.enemyEncounters[m.tplId]=(d.enemyEncounters[m.tplId]||0)+1;});},
+  battleEnded(state,result,combat){this.mutate(d=>{const rounds=Math.max(1,combat?.round||1),cls=state.player.classId;d.totals.rounds+=rounds;d.combatRounds.push(rounds);if(d.combatRounds.length>500)d.combatRounds.shift();d.classes[cls]||={battles:0,wins:0,deaths:0,fled:0};if(result==='victory'){d.totals.battlesWon++;d.classes[cls].wins++;for(const m of combat.monsters)d.enemyKills[m.tplId]=(d.enemyKills[m.tplId]||0)+1;}if(result==='fled'){d.totals.battlesFled++;d.classes[cls].fled++;}if(result==='defeat'){d.totals.deaths++;d.classes[cls].deaths++;}});},
+  reward(gold,xp){this.mutate(d=>{d.totals.goldEarned+=gold;d.totals.xpEarned+=xp;});},
+  loot(item,decision){this.mutate(d=>{if(decision==='offered'){d.totals.itemsOffered++;d.lootTiers[item.tier]=(d.lootTiers[item.tier]||0)+1;}if(decision==='taken')d.totals.itemsTaken++;if(decision==='left')d.totals.itemsLeft++;});},
+  summary(){const d=this.read(),t=d.totals;return {battles:t.battlesStarted,winRate:t.battlesStarted?Math.round(t.battlesWon/t.battlesStarted*100):0,avgRounds:t.battlesWon?Math.round(t.rounds/Math.max(1,t.battlesWon+t.battlesFled+t.deaths)*10)/10:0,damageDealt:t.damageDealt,damageTaken:t.damageTaken,deaths:t.deaths,items:t.itemsOffered};},
+  export(){const data=JSON.stringify(this.read(),null,2),blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`deepward-metrics-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);},
+  reset(){if(confirm('Reset all locally stored balance metrics?')){localStorage.removeItem(this.key);render();}},
+};
