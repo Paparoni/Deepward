@@ -6,7 +6,7 @@
 // traitValueMult scales unique/mythic trait magnitudes so a Legendary's traits hit
 // harder than a Unique's, and a Mythic's harder still, at the same item level.
 const TIERS = [
-  {id:'common',           name:'Common',           color:'var(--t-common)',    statCount:1, uniqueTraits:1, mythicTraits:0, mult:1.00, weight:100,  rollRange:[0.90,1.08], traitValueMult:.72},
+  {id:'common',           name:'Common',           color:'var(--t-common)',    statCount:1, uniqueTraits:0, mythicTraits:0, mult:1.00, weight:100,  rollRange:[0.90,1.08], traitValueMult:.72},
   {id:'uncommon',         name:'Uncommon',         color:'var(--t-uncommon)',  statCount:2, uniqueTraits:1, mythicTraits:0, mult:1.38, weight:55,   rollRange:[0.94,1.12], traitValueMult:.82},
   {id:'rare',             name:'Rare',             color:'var(--t-rare)',      statCount:3, uniqueTraits:1, mythicTraits:0, mult:1.88, weight:26,   rollRange:[0.98,1.16], traitValueMult:.92},
   {id:'ultra_rare',       name:'Ultra Rare',       color:'var(--t-ultra)',     statCount:4, uniqueTraits:1, mythicTraits:0, mult:2.52, weight:11,   rollRange:[1.02,1.20], traitValueMult:1.00},
