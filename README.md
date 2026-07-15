@@ -13,14 +13,12 @@ The project is actively developed in my spare time and will continue to grow wit
 
 ## Features
 
-- Staged turn-based combat with speed-based initiative
-- Animated HP, MP, XP, and enemy health changes
+- Turn-based battle system
 - Six playable classes with four subclasses each
 - 104-node constellation skill tree per class, 624 nodes total
 - Active skills, passives, branching paths, notables, and capstones
 - Inventory and ten equipment slots
 - Randomized loot with seven rarity tiers
-- Elemental damage, advantages, and resistances
 - Experience, leveling, gold, and stat progression
 - Procedurally generated dungeon encounters and events
 - Normal, Hard, and Nightmare difficulty
@@ -32,21 +30,32 @@ The project is actively developed in my spare time and will continue to grow wit
 - Modular architecture for adding new content
 - Runs entirely in the browser
 
----
+## Roadmap
 
-## Planned Features
-
-- Additional classes
-- Advanced crafting and enchanting
-- Pets and companions
-- Prestige system
-- Dynamic events
-- Additional difficulty modifiers
-- Seasonal content
-- Achievements
-- Story campaigns
-- Localization
-- Multiplayer-inspired asynchronous features
+- [ ] Achievements
+- [ ] Additional classes
+- [ ] Additional difficulty modifiers
+- [ ] Advanced crafting and enchanting
+- [x] Boss fights
+- [x] Classes
+- [x] Core combat system
+- [x] Crafting
+- [ ] Dynamic events
+- [ ] Endgame content
+- [x] Equipment
+- [x] Inventory
+- [ ] Localization
+- [x] Loot generation
+- [x] Merchants
+- [ ] Multiplayer-inspired asynchronous features
+- [ ] Pets and companion system
+- [ ] Prestige system
+- [x] Procedural dungeons
+- [ ] Quests
+- [x] Save system
+- [ ] Seasonal content
+- [x] Skill trees
+- [ ] Story campaign
 
 ---
 
@@ -161,26 +170,6 @@ Ideas include:
 - Performance improvements
 
 Feel free to open an issue or submit a pull request.
-
----
-
-## Roadmap
-
-- [x] Core combat system
-- [x] Inventory
-- [x] Equipment
-- [x] Classes
-- [x] Skill trees
-- [x] Loot generation
-- [x] Merchants
-- [ ] Quests
-- [x] Save system
-- [x] Procedural dungeons
-- [x] Boss fights
-- [x] Crafting
-- [ ] Pets and companion system
-- [ ] Story campaign
-- [ ] Endgame content
 
 ---
 
