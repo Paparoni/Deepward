@@ -245,8 +245,9 @@ function renderScene(s){
   let inner='';
   if(s.mode==='combat') inner = renderCombat(s);
   else if(s.mode==='defeat'){
-    const p=s.ui.deathPenalty||{goldLost:0,xpLost:0,itemName:null};
-    inner=`${renderLog(s)}<div class="choices"><div class="death-penalty"><b>THE DEPTHS TAKE THEIR DUE</b><p>Defeat costs <strong>${p.goldLost} gold</strong> and <strong>${p.xpLost} current-level XP</strong>.</p>${p.itemName?`<p>One unprotected carried item will also be lost: <strong>${U.escapeHtml(p.itemName)}</strong>.</p>`:`<p>No eligible carried item can be claimed. Equipped, crafted, and Mythic Legendary gear is protected.</p>`}<small>Equipped gear, Soulforge creations, and Mythic Legendary items are never lost.</small></div><button class="btn btn-danger" onclick="onDefeatContinue()">Accept the Loss and Return</button></div>`;
+    const p=s.ui.deathPenalty||{goldLost:0,xpLost:0,itemName:null,materialLosses:{}};
+    const materialLosses=Object.entries(p.materialLosses||{}).map(([id,count])=>`${MATERIAL_BY_ID[id]?.name||id}${count>1?` ×${count}`:''}`);
+    inner=`${renderLog(s)}<div class="choices"><div class="death-penalty"><b>THE DEPTHS TAKE THEIR DUE</b><p>Defeat costs <strong>${p.goldLost} gold</strong> and <strong>${p.xpLost} current-level XP</strong>.</p>${materialLosses.length?`<p>${p.bossDefeat?'A boss defeat':'The defeat'} also costs: <strong>${materialLosses.map(U.escapeHtml).join(', ')}</strong>.</p>`:`<p>You have no crafting materials for the depths to claim.</p>`}${p.itemName?`<p>One unprotected carried item will also be lost: <strong>${U.escapeHtml(p.itemName)}</strong>.</p>`:`<p>No eligible carried item can be claimed. Equipped, crafted, and Mythic Legendary gear is protected.</p>`}<small>Normal defeats claim 1–4 material units; boss defeats claim 2–5. Equipped gear, Soulforge creations, and Mythic Legendary items are never lost.</small></div><button class="btn btn-danger" onclick="onDefeatContinue()">Accept the Loss and Return</button></div>`;
   }
   else if(s.mode==='complete') inner = `${renderLog(s)}<div class="choices"><p class="log-good">The dungeon falls silent. You've cleared it.</p><button class="btn btn-primary" onclick="onDungeonComplete()">Return to Town</button></div>`;
   else inner = renderChoices(s);

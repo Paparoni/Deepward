@@ -90,6 +90,8 @@ function onDefeatContinue(){
   if(penalty){
     const losses=[`${penalty.goldLost} gold`,`${penalty.xpLost} XP`];
     if(penalty.itemName)losses.push(penalty.itemName);
+    const materialCount=Object.values(penalty.materialLosses||{}).reduce((sum,count)=>sum+count,0);
+    if(materialCount)losses.push(`${materialCount} crafting material${materialCount===1?'':'s'}`);
     Engine.log(STATE,`The depths claim ${losses.join(', ')}.`,'bad');
   }
   returnToTown();

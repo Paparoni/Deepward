@@ -889,11 +889,21 @@ const Engine = {
       state.combat=null; state.mode='defeat';
       const eligible=state.inventory.filter(item=>!item.crafted&&item.tier!=='mythic_legendary');
       const lostItem=eligible.length?U.pick(eligible):null;
+      const materialPool=[];
+      for(const [id,count] of Object.entries(state.player.materials||{}))for(let i=0;i<count;i++)materialPool.push(id);
+      const materialLossCount=Math.min(materialPool.length,U.randInt(c.isBoss?2:1,c.isBoss?5:4));
+      const materialLosses={};
+      for(let i=0;i<materialLossCount;i++){
+        const index=U.randInt(0,materialPool.length-1),id=materialPool.splice(index,1)[0];
+        materialLosses[id]=(materialLosses[id]||0)+1;
+      }
       state.ui.deathPenalty={
         goldLost:Math.floor(state.player.gold*.25),
         xpLost:Math.floor(state.player.xp*.20),
         itemUid:lostItem?.uid||null,
         itemName:lostItem?.name||null,
+        materialLosses,
+        bossDefeat:!!c.isBoss,
       };
     }
   },
@@ -904,9 +914,11 @@ const Engine = {
     state.player.gold=Math.max(0,state.player.gold-penalty.goldLost);
     state.player.xp=Math.max(0,state.player.xp-penalty.xpLost);
     if(penalty.itemUid)state.inventory=state.inventory.filter(item=>item.uid!==penalty.itemUid);
+    for(const [id,count] of Object.entries(penalty.materialLosses||{}))state.player.materials[id]=Math.max(0,(state.player.materials[id]||0)-count);
     Metrics.count('deathPenalties','goldLost',penalty.goldLost);
     Metrics.count('deathPenalties','xpLost',penalty.xpLost);
     if(penalty.itemUid)Metrics.count('deathPenalties','itemsLost');
+    for(const [id,count] of Object.entries(penalty.materialLosses||{}))Metrics.count('deathMaterialLosses',id,count);
     state.ui.deathPenalty=null;
     return penalty;
   },
