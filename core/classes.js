@@ -62,18 +62,35 @@ function deepExpansionNodes(route){
   ];
 }
 
+// A final ailment branch turns each discipline's damage type into its own build
+// engine: reliable application, stronger secondary effects, and dedicated skills.
+function elementalNodes(route){
+  const elementalSkill=[...route.nodes].reverse().find(node=>node.forcedElement);
+  const element=elementalSkill?.forcedElement||'physical';
+  const magic=route.nodes.some(node=>node.magic);
+  const label=element[0].toUpperCase()+element.slice(1);
+  const ailment=ELEMENTAL_AILMENTS[element].name;
+  return [
+    P(`${label} Catalyst`,{type:'elementProcChance',element,value:10},`+10% chance to trigger ${ailment}.`),
+    P(`${ailment} Savant`,{type:'elementStatusPower',element,value:30},`${ailment} effects are 30% stronger.`),
+    A(`${route.name} Affliction`,18,'nuke',`Deal 145% ${element} damage and guarantee ${ailment}.`,{power:1.45,magic,forcedElement:element,guaranteedStatus:true}),
+    A(`${route.name} Cataclysm`,29,'aoe',`Deal 125% ${element} damage to all enemies and guarantee ${ailment}.`,{power:1.25,magic,forcedElement:element,guaranteedStatus:true}),
+  ];
+}
+
 function makeClass(id, name, icon, desc, statMods, routes, innate={}){
   const choiceGroup = null;
   const innatePassive = innate.passive ? {...innate.passive, id:`${id}_innate_passive`, kind:'passive'} : null;
   const innateActive = innate.active ? {...innate.active, id:`${id}_innate_active`, kind:'active'} : null;
   return {
     id, name, icon, desc, statMods, innatePassive, innateActive,
-    skillTree: routes.flatMap(route => [...route.nodes, ...advancedNodes(route), ...expansionNodes(route), ...deepExpansionNodes(route)].map((node, index) => {
+    skillTree: routes.flatMap(route => [...route.nodes, ...advancedNodes(route), ...expansionNodes(route), ...deepExpansionNodes(route), ...elementalNodes(route)].map((node, index) => {
       const isBranch = index>=10;
       const branchIndex = index-10;
-      const anchors = [1,2,3,4,5,6,7,8,2,3,4,5,6,7,8,9];
+      const anchors = [1,2,3,4,5,6,7,8,2,3,4,5,6,7,8,9,4,5,7,8];
       const outer = branchIndex>=8;
-      const cost = isBranch ? (outer?(branchIndex>=14?3:2):(branchIndex>=6?2:1)) : index >= 8 ? 3 : index >= 4 ? 2 : 1;
+      const ailmentBranch=branchIndex>=16;
+      const cost = isBranch ? (ailmentBranch?(branchIndex===19?3:2):outer?(branchIndex>=14?3:2):(branchIndex>=6?2:1)) : index >= 8 ? 3 : index >= 4 ? 2 : 1;
       return {
         ...node,
         id: isBranch ? `${id}_${route.id}_x${branchIndex+1}` : `${id}_${route.id}_${index + 1}`,
@@ -84,11 +101,11 @@ function makeClass(id, name, icon, desc, statMods, routes, innate={}){
         // hit harder but also sit out longer, forcing a rotation.
         cooldown: node.kind === 'active' ? U.clamp(2 + Math.floor((cost-1)/2), 2, 4) : undefined,
         branch: route.name,
-        requires: isBranch ? (branchIndex%2 ? `${id}_${route.id}_x${branchIndex}` : outer ? `${id}_${route.id}_x${branchIndex-7}` : `${id}_${route.id}_${anchors[branchIndex]}`) : index ? `${id}_${route.id}_${index}` : null,
+        requires: isBranch ? (branchIndex%2 ? `${id}_${route.id}_x${branchIndex}` : ailmentBranch ? `${id}_${route.id}_x${branchIndex-7}` : outer ? `${id}_${route.id}_x${branchIndex-7}` : `${id}_${route.id}_${anchors[branchIndex]}`) : index ? `${id}_${route.id}_${index}` : null,
         choiceGroup: null,
-        x:350 + routes.indexOf(route)*760 + (isBranch ? (Math.floor(branchIndex/2)%2===0?-1:1)*((outer?285:125)+(branchIndex%2)*30) : (index%2?28:-28)),
+        x:430 + routes.indexOf(route)*900 + (isBranch ? (Math.floor(branchIndex/2)%2===0?-1:1)*((ailmentBranch?390:outer?285:125)+(branchIndex%2)*30) : (index%2?28:-28)),
         y:100 + (isBranch?anchors[branchIndex]:index)*120,
-        nodeRole:isBranch?(branchIndex===15?'capstone':node.kind==='active'?'notable':'minor'):index===9?'capstone':index===0?'root':'spine',
+        nodeRole:isBranch?([15,19].includes(branchIndex)?'capstone':node.kind==='active'?'notable':'minor'):index===9?'capstone':index===0?'root':'spine',
       };
     })),
   };

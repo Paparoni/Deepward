@@ -161,6 +161,7 @@ function renderCombat(s){
     const clickable = m.hp>0;
     const classes = ['combatant', m.hp<=0?'dead':'', targeted?'targeted':'', m._charging?'charging':'', c.activeActor===m.uid?'acting':''].filter(Boolean).join(' ');
     const chargeName = m._chargingMove ? m._chargingMove.name : 'a heavy blow';
+    const ailments=Object.entries(m._ailments||{}).map(([key,a])=>`<span class="enemy-ailment ailment-${key}" title="${U.escapeHtml(ELEMENTAL_AILMENTS[key==='bleed'?'physical':key==='chill'?'ice':key==='toxin'?'poison':key==='doom'?'dark':key]?.desc||a.name)}">${U.escapeHtml(a.name)}${a.stacks?` ${a.stacks}`:''}${a.turns?` · ${a.turns}r`:''}</span>`).join('');
     return `
     <div class="${classes}" ${clickable?`onclick="onSelectTarget('${m.uid}')" title="Target ${m.name}"`:''}>
       <div class="combatant-name">${m.icon} ${m.name}${targeted?' <span class="target-mark">🎯</span>':''}</div>
@@ -168,6 +169,7 @@ function renderCombat(s){
       <div class="enemy-identity" title="${U.escapeHtml(m.identityDesc||m.flavor)}">${U.escapeHtml(m.identity||'Skirmisher')}</div>
       <div class="bar-track" style="margin-top:4px;">${animatedBar(s,`monster-${m.uid}`,m.hp/m.maxHp*100,'bar-hp')}</div>
       <div class="combatant-hp-num">${Math.max(0,m.hp)}/${m.maxHp} HP</div>
+      ${ailments?`<div class="enemy-ailments">${ailments}</div>`:''}
       ${m._charging? `<div class="charge-tag">⚡ Channeling <b>${U.escapeHtml(chargeName)}</b> — Defend or burst it down!</div>` : ''}
     </div>`;
   }).join('');
@@ -184,7 +186,8 @@ function renderCombat(s){
   // player-facing affliction tags: negative buffs (monster debuffs) plus active DoTs
   const debuffTags = c.buffs.filter(b=>b.pct<0).map(b=>`<span class="affliction-tag bad-tag">${U.escapeHtml(b.name)}: ${b.pct}% ${STAT_BY_ID[b.stat]?.short||b.stat}</span>`);
   const dotTags = c.playerDots.map(d=>`<span class="affliction-tag bad-tag">${U.escapeHtml(d.name)}: ${d.dmgPerTurn}/turn (${d.turnsLeft} left)</span>`);
-  const afflictionRow = (debuffTags.length||dotTags.length) ? `<div class="affliction-row">${debuffTags.join('')}${dotTags.join('')}</div>` : '';
+  const wardTags=c.elementalWard>0?[`<span class="affliction-tag ward-tag" title="Absorbs incoming damage before HP is lost.">Radiant Ward: ${c.elementalWard}</span>`]:[];
+  const afflictionRow = (debuffTags.length||dotTags.length||wardTags.length) ? `<div class="affliction-row">${debuffTags.join('')}${dotTags.join('')}${wardTags.join('')}</div>` : '';
 
   const cls = CLASS_BY_ID[s.player.classId];
   const activeSkills = [
@@ -397,7 +400,7 @@ function renderTitle(){
 }
 
 function renderSkillGraph(s, cls){
-  const width=3050, height=1260;
+  const width=3600, height=1260;
   const byId=Object.fromEntries(cls.skillTree.map(node=>[node.id,node]));
   const lines=cls.skillTree.filter(node=>node.requires&&byId[node.requires]).map(node=>{
     const parent=byId[node.requires];

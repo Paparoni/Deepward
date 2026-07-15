@@ -15,7 +15,7 @@ The project is actively developed in my spare time and will continue to grow wit
 
 - Turn-based battle system
 - Six playable classes with four subclasses each
-- 104-node constellation skill tree per class, 624 nodes total
+- 120-node constellation skill tree per class, 720 nodes total
 - Active skills, passives, branching paths, notables, and capstones
 - Inventory and ten equipment slots
 - Randomized loot with seven rarity tiers

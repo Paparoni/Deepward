@@ -41,16 +41,16 @@ const Generators = {
     return stats;
   },
 
-  rollTraits(tier, dungeonLevel, pool){
+  rollTraits(tier, dungeonLevel, pool, slot=null){
     const count = tier.uniqueTraits ?? 0;
     const picked = [];
-    const avail = [...pool];
+    const avail = pool.filter(t=>(!t.tier||t.tier===tier.id)&&(!t.allowedSlots||t.allowedSlots.includes(slot?.id)));
     const tvm = tier.traitValueMult ?? 1;
     for(let i=0;i<count && avail.length;i++){
       const t = U.pick(avail);
       avail.splice(avail.indexOf(t),1);
       const value = Math.round((t.base + t.perLvl*dungeonLevel)*tvm*10)/10;
-      picked.push({id:t.id, name:t.name, type:t.type, value, desc:t.desc(value), source:t.source, target:t.target});
+      picked.push({id:t.id, name:t.name, type:t.type, value, desc:t.desc(value), source:t.source, target:t.target, element:t.element});
     }
     return picked;
   },
@@ -82,7 +82,7 @@ const Generators = {
         : this.rollTier(opts.lootBonus||0);
     const slot = opts.forcedSlot ? SLOTS.find(s=>s.id===opts.forcedSlot) : this.pickSlot();
     const stats = this.rollStatsForSlot(slot, tier, dungeonLevel, opts.affinities||{});
-    const uniqueTraits = this.rollTraits(tier, dungeonLevel, UNIQUE_TRAITS);
+    const uniqueTraits = this.rollTraits(tier, dungeonLevel, GEAR_TRAITS, slot);
     const mythicTrait = this.rollMythicTrait(tier, dungeonLevel);
     // weapon element flavor = strongest elemental stat rolled, else physical
     let element = 'physical';

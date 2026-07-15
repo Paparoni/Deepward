@@ -47,6 +47,20 @@ const EFFECT_HANDLERS = {
   damageReductionFromPower:(ctx,v)=>{ if(ctx.direction==='incoming'){ const power=Math.max(ctx.derived.atk,ctx.derived.matk); ctx.damage=Math.round(ctx.damage*(1-Math.min(25,Math.floor(power/v))/100)); } },
   glassCannon:(ctx,v)=>{ ctx.damage=Math.round(ctx.damage*(ctx.direction==='outgoing'?1+v/100:1.12)); },
   goldAndXp:()=>{},
+  openingForce:(ctx,v)=>{if(ctx.direction==='outgoing'&&!ctx.combat._openingForceUsed){ctx.combat._openingForceUsed=true;ctx.damage=Math.round(ctx.damage*(1+v/100));ctx.notes.push('First Motion surges.');}},
+  firstImpactGuard:(ctx,v)=>{if(ctx.direction==='incoming'&&!ctx.combat._firstImpactTaken){ctx.combat._firstImpactTaken=true;ctx.damage=Math.round(ctx.damage*(1-v/100));ctx.notes.push('The first impact is blunted.');}},
+  killHarvest:(ctx,v)=>{if(ctx.direction==='outgoing'&&ctx.target.hp<=ctx.damage){const hp=Math.round(ctx.maxHp*v/100),mp=Math.round(ctx.maxMp*v/100);ctx.player.hp=Math.min(ctx.maxHp,ctx.player.hp+hp);ctx.player.mp=Math.min(ctx.maxMp,ctx.player.mp+mp);ctx.notes.push('The kill feeds your reserves.');}},
+  retaliationCharge:(ctx,v)=>{if(ctx.direction==='incoming'&&ctx.damage>0)ctx.combat._retaliation=Math.min(3,(ctx.combat._retaliation||0)+1);else if(ctx.direction==='outgoing'&&ctx.combat._retaliation){ctx.damage=Math.round(ctx.damage*(1+ctx.combat._retaliation*v/100));ctx.notes.push(`Vengeance releases (${ctx.combat._retaliation}).`);ctx.combat._retaliation=0;}},
+  critWard:(ctx,v)=>{if(ctx.direction==='outgoing'&&ctx.isCrit){const ward=Math.round(ctx.maxHp*v/100),cap=Math.round(ctx.maxHp*.3);ctx.combat.elementalWard=Math.min(cap,(ctx.combat.elementalWard||0)+ward);ctx.notes.push(`Critical Shelter grants ${ward} ward.`);}},
+  guardedFury:(ctx,v)=>{if(ctx.direction==='outgoing'&&ctx.player.hp/ctx.maxHp<.5){ctx.combat._painStacks=Math.min(5,(ctx.combat._painStacks||0)+1);ctx.damage=Math.round(ctx.damage*(1+ctx.combat._painStacks*v/100));}},
+  ailmentOnCrit:(ctx)=>{if(ctx.direction==='outgoing'&&ctx.isCrit)ctx.forceAilment=true;},
+  overkillSplash:(ctx,v)=>{if(ctx.direction==='outgoing')ctx.overkillSplash=v;},
+  alternatingPower:(ctx,v)=>{if(ctx.direction==='outgoing'&&ctx.combat.round%2===1)ctx.damage=Math.round(ctx.damage*(1+v/100));if(ctx.direction==='incoming'&&ctx.combat.round%2===0)ctx.damage=Math.round(ctx.damage*(1-v/100));},
+  resourceWeave:(ctx,v)=>{if(ctx.direction==='outgoing'){const mp=Math.max(1,Math.round((ctx.maxMp-ctx.player.mp)*v/100));ctx.player.mp=Math.min(ctx.maxMp,ctx.player.mp+mp);if(ctx.kind==='skill')ctx.player.hp=Math.min(ctx.maxHp,ctx.player.hp+mp);}},
+  damageBank:(ctx,v)=>{if(ctx.direction==='incoming'&&ctx.damage>0)ctx.combat._damageBank=(ctx.combat._damageBank||0)+Math.round(ctx.damage*v/100);else if(ctx.direction==='outgoing'&&ctx.combat._damageBank){ctx.damage+=ctx.combat._damageBank;ctx.notes.push(`Stored Vengeance releases ${ctx.combat._damageBank} damage.`);ctx.combat._damageBank=0;}},
+  cooldownOnKill:(ctx,v)=>{if(ctx.direction==='outgoing'&&ctx.target.hp<=ctx.damage)for(const id of Object.keys(ctx.player.skillCooldowns))ctx.player.skillCooldowns[id]=Math.max(0,ctx.player.skillCooldowns[id]-v);},
+  fateMomentum:()=>{},
+  statusEcho:(ctx,v)=>{if(ctx.direction==='outgoing'&&Math.random()*100<v)ctx.statusEcho=true;},
 };
 
 // -- active-skill action types (used by class skill trees, see [1] CLASSES) --------
@@ -58,7 +72,7 @@ const SKILL_ACTION_HANDLERS = {
     const target = Engine.getTarget(state);
     if(!target) return;
     Engine.resolveAttack(state, state.derived, target, 'skill', true, null, {
-      powerMult:skill.power||1, forcedElement:skill.forcedElement, executeThreshold:skill.executeThreshold, skillName:skill.name, magic:!!skill.magic,
+      powerMult:skill.power||1, forcedElement:skill.forcedElement, executeThreshold:skill.executeThreshold, skillName:skill.name, magic:!!skill.magic, guaranteedStatus:!!skill.guaranteedStatus,
     });
     if(target.hp<=0) Engine.log(state, `${target.name} falls.`, 'good');
   },
@@ -66,7 +80,7 @@ const SKILL_ACTION_HANDLERS = {
     const targets = state.combat.monsters.filter(m=>m.hp>0);
     for(const t of targets){
       Engine.resolveAttack(state, state.derived, t, 'skill', true, null, {
-        powerMult:skill.power||1, forcedElement:skill.forcedElement, skillName:skill.name, magic:!!skill.magic,
+        powerMult:skill.power||1, forcedElement:skill.forcedElement, skillName:skill.name, magic:!!skill.magic, guaranteedStatus:!!skill.guaranteedStatus,
       });
       if(t.hp<=0) Engine.log(state, `${t.name} falls.`, 'good');
     }
@@ -149,7 +163,7 @@ const Engine = {
       if(skill.effect.type==='statBonus'){
         totals[skill.effect.stat] = (totals[skill.effect.stat]||0) + skill.effect.value;
       } else {
-        allTraits.push({id:skill.id, name:skill.name, type:skill.effect.type, value:skill.effect.value, desc:skill.desc});
+        allTraits.push({id:skill.id,name:skill.name,desc:skill.desc,...skill.effect});
       }
     }
     // class-innate passive: baked into the discipline itself, active regardless of which
@@ -159,7 +173,7 @@ const Engine = {
       if(ip.effect.type==='statBonus'){
         totals[ip.effect.stat] = (totals[ip.effect.stat]||0) + ip.effect.value;
       } else {
-        allTraits.push({id:ip.id, name:ip.name, type:ip.effect.type, value:ip.effect.value, desc:ip.desc});
+        allTraits.push({id:ip.id,name:ip.name,desc:ip.desc,...ip.effect});
       }
     }
     // generic dungeon-wide flat stat buffs (bonfire, deep_pool, etc. push onto this);
@@ -547,6 +561,46 @@ const Engine = {
     this.resolveAttack(state, m, {hp:state.player.hp}, 'attack', false, m);
   },
 
+  elementalProcChance(state,element){
+    const bonus=state.derived[`${element}Dmg`]||0;
+    const traitBonus=state.derived.traits.filter(t=>t.type==='elementProcChance'&&(t.element===element||t.element==='all')).reduce((sum,t)=>sum+t.value,0);
+    return U.clamp(12+bonus*.18+traitBonus,12,65);
+  },
+
+  elementalStatusPower(state,element){
+    return 1+state.derived.traits.filter(t=>t.type==='elementStatusPower'&&(t.element===element||t.element==='all')).reduce((sum,t)=>sum+t.value,0)/100;
+  },
+
+  applyElementalAilment(state,target,element,hitDamage,guaranteed=false){
+    if(!target||target.hp<=0||(!guaranteed&&Math.random()*100>=this.elementalProcChance(state,element)))return false;
+    Metrics.count('elementalAilments',element);
+    target._ailments||={}; const power=this.elementalStatusPower(state,element), name=ELEMENTAL_AILMENTS[element].name;
+    if(element==='physical'||element==='fire'){
+      const key=element==='fire'?'burn':'bleed',base=Math.max(1,Math.round(hitDamage*(element==='fire'?.12:.1)*power));
+      const a=target._ailments[key]||={name,stacks:0,turns:3,damage:0};a.stacks=Math.min(3,a.stacks+1);a.turns=3;a.damage=Math.max(a.damage,base);
+      this.log(state,`${target.name} suffers <b>${name}</b> (${a.stacks}).`,'good');
+    }else if(element==='ice'){
+      const a=target._ailments.chill||={name,stacks:0};a.stacks++;
+      if(a.stacks>=3){target._stunned=true;delete target._ailments.chill;this.log(state,`${target.name} is <b>frozen</b> solid!`,'good');}else this.log(state,`${target.name} gains Chill (${a.stacks}/3).`,'good');
+    }else if(element==='lightning'){
+      const other=state.combat.monsters.find(m=>m.hp>0&&m.uid!==target.uid),arc=Math.max(1,Math.round(hitDamage*.35*power));
+      if(other){other.hp=Math.max(0,other.hp-arc);Metrics.addTotal('damageDealt',arc);Metrics.combatFlow(state.combat,'dealt',arc,other);this.log(state,`Static arcs into ${other.name} for <b>${arc}</b>.`,'good');}
+      else{const soloArc=Math.round(arc*.6);target.hp=Math.max(0,target.hp-soloArc);Metrics.addTotal('damageDealt',soloArc);Metrics.combatFlow(state.combat,'dealt',soloArc,target);this.log(state,`Static discharges again for <b>${soloArc}</b>.`,'good');}
+    }else if(element==='poison'){
+      const a=target._ailments.toxin||={name,stacks:0,damage:0};a.stacks=Math.min(5,a.stacks+1);a.damage=Math.max(a.damage,Math.max(1,Math.round(hitDamage*.055*power)));this.log(state,`${target.name} gains Toxin (${a.stacks}/5).`,'good');
+    }else if(element==='holy'){
+      const ward=Math.max(1,Math.round(state.derived.maxHp*.055*power)),cap=Math.round(state.derived.maxHp*.25);state.combat.elementalWard=Math.min(cap,(state.combat.elementalWard||0)+ward);this.log(state,`Radiance grants a <b>${ward} HP ward</b>.`,'good');
+    }else if(element==='dark'){
+      const a=target._ailments.doom||={name,stacks:0};a.stacks++;
+      if(a.stacks>=5){const blast=Math.max(1,Math.round(hitDamage*.9*power));target.hp=Math.max(0,target.hp-blast);Metrics.addTotal('damageDealt',blast);Metrics.combatFlow(state.combat,'dealt',blast,target);delete target._ailments.doom;this.log(state,`Five Doom Marks detonate for <b>${blast}</b> dark damage!`,'good');}else this.log(state,`${target.name} gains a Doom Mark (${a.stacks}/5).`,'good');
+    }
+    return true;
+  },
+
+  tickEnemyAilments(state){
+    for(const m of state.combat.monsters){if(m.hp<=0||!m._ailments)continue;for(const key of ['burn','bleed']){const a=m._ailments[key];if(!a)continue;const dmg=a.damage*a.stacks;m.hp=Math.max(0,m.hp-dmg);Metrics.addTotal('damageDealt',dmg);Metrics.combatFlow(state.combat,'dealt',dmg,m);this.log(state,`${a.name} deals <b>${dmg}</b> to ${m.name}.`,'good');if(--a.turns<=0)delete m._ailments[key];}const toxin=m._ailments.toxin;if(toxin){const dmg=toxin.damage*toxin.stacks;m.hp=Math.max(0,m.hp-dmg);Metrics.addTotal('damageDealt',dmg);Metrics.combatFlow(state.combat,'dealt',dmg,m);this.log(state,`Toxin deals <b>${dmg}</b> to ${m.name}.`,'good');}}
+  },
+
   // resolves one full round: player's locked-in action plus every surviving
   // monster's turn, all ordered by SPD (with a little jitter for near-ties).
   resolveRound(state, action){
@@ -577,7 +631,8 @@ const Engine = {
         else this.executePlayerAction(state, action);
       } else if(combatant.ref.hp>0){
         c.activeActor = combatant.ref.uid;
-        this.monsterTurn(state, combatant.ref);
+        if(combatant.ref._stunned){combatant.ref._stunned=false;this.log(state,`${combatant.ref.name} is frozen and loses its action!`,'good');}
+        else this.monsterTurn(state, combatant.ref);
       }
       render();
       const pace={fast:.55,normal:1,cinematic:1.55}[state.settings?.combatPace]||1;
@@ -604,6 +659,7 @@ const Engine = {
       }
       c.playerDots = c.playerDots.filter(d=>d.turnsLeft>0);
     }
+    this.tickEnemyAilments(state);
     state.player.hp = U.clamp(state.player.hp, 0, state.derived.maxHp);
     c.playerGuarding = false;
     for(const id of Object.keys(state.player.skillCooldowns)){
@@ -671,6 +727,7 @@ const Engine = {
       if(t.type==='critChanceBonus') critChance += t.value;
       if(t.type==='critDmgBonus') critMult += t.value/100;
       if(t.type==='firstHitCrit' && !c._firstAttackResolved) critChance += t.value;
+      if(t.type==='fateMomentum') critChance += c._fateCrit||0;
     }
     const isCrit = Math.random()*100 < critChance;
     if(isPlayer && isCrit) Metrics.addTotal('crits');
@@ -689,7 +746,7 @@ const Engine = {
     if(isCrit) dmg = Math.round(dmg*critMult);
 
     const ctx = {...ctxBase, attacker:isPlayer?state.player:monsterObj, target:isPlayer?targetRef:state.player,
-      targetName:isPlayer?targetRef.name:'You', damage:dmg, direction:'outgoing', source:isPlayer?state.player:monsterObj, isCrit};
+      targetName:isPlayer?targetRef.name:'You', damage:dmg, direction:'outgoing', source:isPlayer?state.player:monsterObj, isCrit, element, kind};
     if(matchupNote) ctx.notes.push(matchupNote);
 
     // outgoing trait effects (only player has trait list currently)
@@ -707,10 +764,14 @@ const Engine = {
 
     // apply to defender, with incoming-direction defensive traits if defender is player
     if(isPlayer){
+      const defenderHpBefore=targetRef.hp;
       targetRef.hp = Math.max(0, targetRef.hp - dmg);
       Metrics.addTotal('damageDealt',dmg);
       Metrics.combatFlow(c,'dealt',dmg,targetRef);
       this.log(state, `You ${verb} ${targetRef.name} for <b>${dmg}</b>${isCrit?' (critical!)':''} damage.${ctx.notes.length? ' '+ctx.notes.join(' '):''}`, 'combat');
+      const afflicted=targetRef.hp>0&&this.applyElementalAilment(state,targetRef,element,dmg,!!opts.guaranteedStatus||!!ctx.forceAilment);
+      if(afflicted&&ctx.statusEcho){const echoTarget=c.monsters.find(m=>m.hp>0&&m.uid!==targetRef.uid);if(echoTarget){this.applyElementalAilment(state,echoTarget,element,dmg,true);this.log(state,`${ELEMENTAL_AILMENTS[element].name} echoes into ${echoTarget.name}.`,'good');}}
+      if(ctx.overkillSplash&&dmg>defenderHpBefore){const excess=dmg-defenderHpBefore,splashTarget=c.monsters.find(m=>m.hp>0&&m.uid!==targetRef.uid);if(splashTarget){const splash=Math.max(1,Math.round(excess*ctx.overkillSplash/100));splashTarget.hp=Math.max(0,splashTarget.hp-splash);Metrics.addTotal('damageDealt',splash);Metrics.combatFlow(c,'dealt',splash,splashTarget);this.log(state,`Violent Excess erupts into ${splashTarget.name} for <b>${splash}</b>.`,'good');}}
       if(ctx.extraHit){
         const extra = Math.max(1, Math.round(dmg*0.5));
         targetRef.hp = Math.max(0, targetRef.hp-extra);
@@ -725,6 +786,7 @@ const Engine = {
         this.log(state, `An echo of the strike deals <b>${ctx.echo}</b> more damage.`, 'combat');
       }
       c._combo = (c._combo||0)+1;
+      for(const t of traits)if(t.type==='fateMomentum')c._fateCrit=isCrit?0:Math.min(75,(c._fateCrit||0)+t.value);
       return {hit:true, damage:dmg, crit:isCrit};
     } else {
       const incomingCtx = {...ctxBase, direction:'incoming', damage:dmg, attacker:monsterObj, target:state.player, targetName:'You', source:monsterObj};
@@ -739,6 +801,12 @@ const Engine = {
         if(guardBonus) mit = Math.min(0.95, mit + guardBonus.value/100);
         finalDmg = Math.round(finalDmg*(1-mit));
         incomingCtx.notes.push('Your guard absorbs much of the blow.');
+      }
+      if(finalDmg>0 && c.elementalWard>0){
+        const absorbed=Math.min(c.elementalWard,finalDmg);
+        c.elementalWard-=absorbed;
+        finalDmg-=absorbed;
+        incomingCtx.notes.push(`Radiant Ward absorbs ${absorbed} damage.`);
       }
       state.player.hp = Math.max(0, state.player.hp - finalDmg);
       Metrics.addTotal('damageTaken',finalDmg);

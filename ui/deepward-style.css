@@ -167,6 +167,10 @@ body{
 .charge-tag{margin-top:6px;font-family:var(--font-mono);font-size:9.5px;color:#ff9d9d;animation:charge-pulse 1.1s ease-in-out infinite;}
 @keyframes charge-pulse{0%,100%{opacity:.65;}50%{opacity:1;}}
 .affliction-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.enemy-ailments{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin-top:6px;}
+.enemy-ailment{padding:2px 6px;border:1px solid #98642d;border-radius:999px;background:#21140e;color:#ffc76a;font:8px var(--font-mono);box-shadow:0 0 8px #ff7b2422;}
+.ailment-chill{border-color:#68c9ff;color:#bceaff}.ailment-toxin{border-color:#78bd45;color:#b8ef86}.ailment-doom{border-color:#9b6ee8;color:#d7baff}.ailment-bleed{border-color:#d35151;color:#ff9c91}
+.ward-tag{border-color:#e8d36f!important;color:#fff2a8!important;background:#29240d!important;box-shadow:0 0 10px #ffe66d33;}
 .affliction-tag{font-family:var(--font-mono);font-size:9.5px;border-radius:8px;padding:2px 8px;border:1px solid transparent;}
 .affliction-tag.bad-tag{color:#ff9d9d;border-color:#5c2b2b;background:rgba(120,40,40,.15);}
 .resolving-tag{color:var(--gold);animation:charge-pulse .8s ease-in-out infinite;}

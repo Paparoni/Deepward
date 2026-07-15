@@ -29,3 +29,13 @@ const ELEMENT_STATS = ELEMENTS.map(e => ({
 
 const ALL_STATS = [...CORE_STATS, ...ELEMENT_STATS];
 const STAT_BY_ID = Object.fromEntries(ALL_STATS.map(s=>[s.id,s]));
+
+const ELEMENTAL_AILMENTS = {
+  physical:{name:'Bleed',desc:'Deals stored physical damage for 3 rounds; stacks up to 3.'},
+  fire:{name:'Burn',desc:'Scorches the target for 3 rounds; stacks up to 3.'},
+  ice:{name:'Chill',desc:'At 3 Chill, the target freezes and loses its next action.'},
+  lightning:{name:'Static Arc',desc:'Arcs part of the hit into another living enemy.'},
+  poison:{name:'Toxin',desc:'Stacks up to 5 and deals escalating damage each round.'},
+  holy:{name:'Radiant Ward',desc:'Converts elemental force into a temporary damage shield.'},
+  dark:{name:'Doom Mark',desc:'At 5 marks, detonates for heavy dark damage.'},
+};

@@ -43,7 +43,7 @@ const Crafting = {
     const scaleStat = (stat,value) => Math.round(value + level*(stat.endsWith('Dmg') ? .7 : 1.25));
     const trait = definition => {
       const value = Math.round((definition.base + definition.perLvl*level)*10)/10;
-      return {id:definition.id, name:definition.name, type:definition.type, value, desc:definition.desc(value)};
+      return {...definition, value, desc:definition.desc(value)};
     };
     const slot = SLOTS.find(s=>s.id===recipe.slot);
     return {
