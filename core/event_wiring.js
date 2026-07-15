@@ -11,6 +11,10 @@ function toggleCrafting(){ STATE.ui.craftOpen = !STATE.ui.craftOpen; render(); }
 function toggleSkills(){ STATE.ui.skillsOpen = !STATE.ui.skillsOpen; render(); }
 function onUnlockSkill(skillId){ Engine.unlockSkill(STATE, skillId); render(); }
 function onUseSkill(skillId){ Engine.useSkill(STATE, skillId); render(); }
+function toggleCombatSkills(){
+  if(STATE.combat && !STATE.combat.resolving) STATE.combat.skillMenuOpen = !STATE.combat.skillMenuOpen;
+  render();
+}
 function onSlotClick(slotId){
   STATE.ui.slotOverlay = {slotId, mode:'view'};
   render();

@@ -39,7 +39,7 @@ function makeClass(id, name, icon, desc, statMods, routes, innate={}){
         // active skills go on cooldown after use (rounds) so the strongest
         // nuke in a build can't just be spammed every turn — deeper skills
         // hit harder but also sit out longer, forcing a rotation.
-        cooldown: node.kind === 'active' ? cost : undefined,
+        cooldown: node.kind === 'active' ? U.clamp(2 + Math.floor((cost-1)/2), 2, 4) : undefined,
         branch: route.name,
         requires: index ? `${id}_${route.id}_${index}` : null,
         choiceGroup: index === 0 ? choiceGroup : null,

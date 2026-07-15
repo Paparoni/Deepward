@@ -97,7 +97,8 @@ const SKILL_ACTION_HANDLERS = {
   },
   // Rogue innate: instantly clears every skill cooldown for another go at your rotation.
   resetCooldowns(state, skill){
-    for(const id of Object.keys(state.player.skillCooldowns)) state.player.skillCooldowns[id] = 0;
+    // The reset skill keeps its own recovery period, preventing a self-reset loop.
+    for(const id of Object.keys(state.player.skillCooldowns)) if(id!==skill.id) state.player.skillCooldowns[id] = 0;
     Engine.log(state, `${skill.name} resets your whole kit — everything is ready again.`, 'good');
   },
   // Necromancer innate: converts a sliver of your own life into mana.
@@ -275,6 +276,9 @@ const Engine = {
       buffs: [], // {stat, pct, name} — from player 'buff' skills OR monster debuffs (negative pct), lasts the whole fight
       playerDots: [], // {name, dmgPerTurn, turnsLeft} — poison/bleed-style damage over time on the player
       playerGuarding: false,
+      resolving: false,
+      skillMenuOpen: false,
+      activeActor: null,
       targetUid: monsters[0] ? monsters[0].uid : null,
       // resolved once per fight from the dungeon's strategy ramp (see BALANCE) — how
       // often monsters charge/use their utility move, and how tight the boss's pattern is.
@@ -319,7 +323,7 @@ const Engine = {
   // validates mana + cooldown) but both end up here to lock in the round.
   playerAction(state, kind){
     const c = state.combat;
-    if(!c || state.player.hp<=0) return;
+    if(!c || c.resolving || state.player.hp<=0) return;
     if(kind==='flee'){
       // faster delvers slip away more easily than slower ones
       const fastestFoe = Math.max(0, ...c.monsters.filter(m=>m.hp>0).map(m=>m.spd));
@@ -344,7 +348,7 @@ const Engine = {
 
   useSkill(state, skillId){
     const c = state.combat;
-    if(!c || state.player.hp<=0) return;
+    if(!c || c.resolving || state.player.hp<=0) return;
     const cls = CLASS_BY_ID[state.player.classId];
     const skill = this.findActiveSkill(state, skillId);
     if(!skill) return;
@@ -355,6 +359,7 @@ const Engine = {
     const manaTrait = state.derived.traits.find(t=>t.type==='manaCostReduction');
     const cost = manaTrait ? Math.max(1, Math.round(skill.manaCost*(1-manaTrait.value/100))) : skill.manaCost;
     if(state.player.mp < cost){ this.log(state, "Not enough MP for that.", 'bad'); return; }
+    c.skillMenuOpen = false;
     this.resolveRound(state, {kind:'skill', skill, cost});
   },
 
@@ -373,7 +378,7 @@ const Engine = {
       });
     } else if(action.kind==='skill'){
       state.player.mp -= action.cost;
-      state.player.skillCooldowns[action.skill.id] = action.skill.cooldown || 1;
+      state.player.skillCooldowns[action.skill.id] = (action.skill.cooldown || 2) + 1;
       const handler = SKILL_ACTION_HANDLERS[action.skill.action];
       if(handler) handler(state, action.skill);
       this.maybeExtraAction(state, ()=>{ if(handler) handler(state, action.skill); });
@@ -495,31 +500,38 @@ const Engine = {
   // monster's turn, all ordered by SPD (with a little jitter for near-ties).
   resolveRound(state, action){
     const c = state.combat;
-    if(!c) return;
+    if(!c || c.resolving) return;
+    c.resolving = true;
+    c.skillMenuOpen = false;
     c.playerGuarding = action.kind==='defend';
-    // tick down cooldowns from PRIOR rounds before this round's action executes,
-    // so a skill used this round is still on cooldown at the start of the next one.
-    for(const id of Object.keys(state.player.skillCooldowns)){
-      if(state.player.skillCooldowns[id]>0) state.player.skillCooldowns[id]--;
-    }
-
     const jitter = ()=> (Math.random()*2-1) * BALANCE.initiativeJitter;
     const combatants = [
       {type:'player', spd:this.effectiveStat(state,'spd')+jitter()},
       ...c.monsters.filter(m=>m.hp>0).map(m=>({type:'monster', ref:m, spd:m.spd+jitter()})),
     ].sort((a,b)=>b.spd-a.spd);
 
-    for(const combatant of combatants){
-      if(state.player.hp<=0) break;
-      if(c.monsters.every(m=>m.hp<=0)) break;
+    const runNext = index => {
+      if(state.combat!==c) return;
+      if(index>=combatants.length || state.player.hp<=0 || c.monsters.every(m=>m.hp<=0)){
+        c.activeActor = 'round-end';
+        this.endOfRound(state);
+        if(state.combat===c){ c.resolving=false; c.activeActor=null; }
+        render();
+        return;
+      }
+      const combatant = combatants[index];
       if(combatant.type==='player'){
+        c.activeActor = 'player';
         if(state.player._stunned){ state.player._stunned=false; this.log(state, "You're reeling and can't act this round!", 'bad'); }
         else this.executePlayerAction(state, action);
       } else if(combatant.ref.hp>0){
+        c.activeActor = combatant.ref.uid;
         this.monsterTurn(state, combatant.ref);
       }
-    }
-    this.endOfRound(state);
+      render();
+      setTimeout(()=>runNext(index+1), BALANCE.combatActionDelayMs);
+    };
+    setTimeout(()=>runNext(0), Math.round(BALANCE.combatActionDelayMs*.55));
   },
 
   // regen, DoT ticks, cooldown ticks, guard reset, retargeting, and the defeat/victory checks
@@ -541,6 +553,9 @@ const Engine = {
     }
     state.player.hp = U.clamp(state.player.hp, 0, state.derived.maxHp);
     c.playerGuarding = false;
+    for(const id of Object.keys(state.player.skillCooldowns)){
+      state.player.skillCooldowns[id] = Math.max(0, state.player.skillCooldowns[id]-1);
+    }
     for(const m of c.monsters){
       if(m.hp>0 && m._utilityCooldown>0) m._utilityCooldown--;
     }

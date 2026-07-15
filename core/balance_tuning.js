@@ -18,7 +18,7 @@ const BALANCE = {
   // slightly from 1.13: monster movepools (DoTs, debuffs, telegraphed charges, boss
   // phase triggers) add real effective damage on top of raw stats now, so the stat
   // curve itself doesn't need to carry quite as much of the late-game difficulty.
-  monsterLevelExponent: 1.10,
+  monsterLevelExponent: 1.14,
   // Early dungeon levels intentionally hit softer than the raw stat curve implies —
   // this is about giving new runs room to learn the systems (targeting, guard timing,
   // reading telegraphs) before the game asks much of them. Only trims monster ATK/MATK
@@ -42,6 +42,7 @@ const BALANCE = {
   // Initiative order each round is SPD-based with a little jitter so ties
   // (and near-ties) aren't perfectly deterministic.
   initiativeJitter: 3,
+  combatActionDelayMs: 430,
   // 0 at dungeon level 1 → 1 by dungeon level 20. Drives how much tactical
   // pressure a fight applies: early dungeons see monsters attack plainly most
   // of the time, so a new run can learn targeting/guard/cooldowns without being

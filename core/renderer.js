@@ -138,7 +138,7 @@ function renderCombat(s){
   const monsterHtml = c.monsters.map(m=>{
     const targeted = m.hp>0 && m.uid===c.targetUid;
     const clickable = m.hp>0;
-    const classes = ['combatant', m.hp<=0?'dead':'', targeted?'targeted':'', m._charging?'charging':''].filter(Boolean).join(' ');
+    const classes = ['combatant', m.hp<=0?'dead':'', targeted?'targeted':'', m._charging?'charging':'', c.activeActor===m.uid?'acting':''].filter(Boolean).join(' ');
     const chargeName = m._chargingMove ? m._chargingMove.name : 'a heavy blow';
     return `
     <div class="${classes}" ${clickable?`onclick="onSelectTarget('${m.uid}')" title="Target ${m.name}"`:''}>
@@ -170,24 +170,27 @@ function renderCombat(s){
   ];
   const skillButtons = activeSkills.map(sk=>{
     const cd = s.player.skillCooldowns[sk.id]||0;
-    const disabled = !alive || s.player.mp < sk.manaCost || cd>0;
-    const cdTag = cd>0 ? ` <span class="small">[CD ${cd}]</span>` : '';
-    return `<button class="btn" title="${sk.desc}" onclick="onUseSkill('${sk.id}')" ${disabled?'disabled':''}>${sk.name} <span class="small">(${sk.manaCost} MP)</span>${cdTag}</button>`;
+    const manaTrait = s.derived.traits.find(t=>t.type==='manaCostReduction');
+    const cost = manaTrait ? Math.max(1,Math.round(sk.manaCost*(1-manaTrait.value/100))) : sk.manaCost;
+    const disabled = !alive || s.player.mp < cost || cd>0 || c.resolving;
+    const status = cd>0 ? `Ready in ${cd} round${cd===1?'':'s'}` : s.player.mp<cost ? 'Not enough MP' : 'Ready';
+    return `<button class="skill-choice" title="${U.escapeHtml(sk.desc)}" onclick="onUseSkill('${sk.id}')" ${disabled?'disabled':''}><span><b>${sk.name}</b><small>${U.escapeHtml(sk.desc)}</small></span><span class="skill-cost">${cost} MP<br><em>${status}</em></span></button>`;
   }).join('');
   const buffNote = c.buffs.length ? `<div class="small" style="margin:6px 0;">Active this battle: ${c.buffs.map(b=>`+${b.pct}% ${STAT_BY_ID[b.stat].short} (${b.name})`).join(', ')}</div>` : '';
   return `
-    <div class="round-label">Round ${c.round}<span class="init-strip">${orderHtml}</span></div>
+    <div class="round-label">Round ${c.round}${c.resolving?'<span class="resolving-tag">Resolving…</span>':''}<span class="init-strip">${orderHtml}</span></div>
     <div class="combatants">${monsterHtml}</div>
     ${buffNote}
     ${afflictionRow}
     ${renderLog(s)}
     <div class="btn-row" style="margin-top:14px;">
-      <button class="btn btn-primary" onclick="onCombatAction('attack')" ${alive?'':'disabled'}>Attack</button>
-      <button class="btn" onclick="onCombatAction('cast')" ${alive?'':'disabled'}>Cast (Magic)</button>
-      <button class="btn" onclick="onCombatAction('defend')" ${alive?'':'disabled'} title="Sharply reduce all damage you take this round; restores a little MP.">Defend</button>
-      <button class="btn btn-danger" onclick="onCombatAction('flee')" ${alive?'':'disabled'}>Flee</button>
-      ${skillButtons}
-    </div>`;
+      <button class="btn btn-primary" onclick="onCombatAction('attack')" ${alive&&!c.resolving?'':'disabled'}>Attack</button>
+      <button class="btn" onclick="onCombatAction('cast')" ${alive&&!c.resolving?'':'disabled'}>Cast (Magic)</button>
+      <button class="btn skill-menu-btn" onclick="toggleCombatSkills()" ${alive&&!c.resolving&&activeSkills.length?'':'disabled'}>Skills <span class="small">(${activeSkills.length})</span></button>
+      <button class="btn" onclick="onCombatAction('defend')" ${alive&&!c.resolving?'':'disabled'} title="Sharply reduce all damage you take this round; restores a little MP.">Defend</button>
+      <button class="btn btn-danger" onclick="onCombatAction('flee')" ${alive&&!c.resolving?'':'disabled'}>Flee</button>
+    </div>
+    ${c.skillMenuOpen?`<div class="combat-skill-menu"><div class="skill-menu-head"><b>Choose a skill</b><button onclick="toggleCombatSkills()">×</button></div>${skillButtons||'<div class="empty-note">No active skills learned.</div>'}</div>`:''}`;
 }
 
 function renderMerchantPanel(s){

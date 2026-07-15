@@ -149,6 +149,7 @@ body{
 .combatant.dead{opacity:.35;cursor:default;}
 .combatant.targeted{border-color:var(--ember);box-shadow:0 0 0 1px var(--ember) inset;}
 .combatant.charging{border-color:var(--blood);}
+.combatant.acting{border-color:var(--gold);box-shadow:0 0 18px rgba(212,175,55,.28);transform:translateY(-2px);}
 .combatant-name{font-family:var(--font-display);font-size:13px;color:var(--ember);}
 .target-mark{font-size:11px;}
 .combatant-hp-num{font-family:var(--font-mono);font-size:10px;color:var(--ink-dim);}
@@ -157,6 +158,17 @@ body{
 .affliction-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
 .affliction-tag{font-family:var(--font-mono);font-size:9.5px;border-radius:8px;padding:2px 8px;border:1px solid transparent;}
 .affliction-tag.bad-tag{color:#ff9d9d;border-color:#5c2b2b;background:rgba(120,40,40,.15);}
+.resolving-tag{color:var(--gold);animation:charge-pulse .8s ease-in-out infinite;}
+.combat-skill-menu{margin-top:10px;border:1px solid var(--ember-dim);border-radius:7px;padding:10px;background:linear-gradient(180deg,#211b15,#171411);display:grid;gap:7px;box-shadow:0 8px 25px rgba(0,0,0,.35);}
+.skill-menu-head{display:flex;justify-content:space-between;align-items:center;color:var(--gold);font-family:var(--font-display);font-size:13px;padding:1px 3px 5px;}
+.skill-menu-head button{border:0;background:none;color:var(--ink-dim);font-size:20px;cursor:pointer;}
+.skill-choice{display:flex;justify-content:space-between;gap:14px;align-items:center;width:100%;padding:9px 11px;border:1px solid var(--stone);border-radius:5px;background:var(--bg-raised);color:var(--ink);text-align:left;cursor:pointer;}
+.skill-choice:hover{border-color:var(--ember);background:#2a2115;}
+.skill-choice:disabled{opacity:.42;cursor:not-allowed;}
+.skill-choice b{display:block;color:var(--ember);font-family:var(--font-display);font-size:12px;}
+.skill-choice small{display:block;color:var(--ink-dim);margin-top:3px;}
+.skill-cost{font-family:var(--font-mono);font-size:10px;text-align:right;white-space:nowrap;color:var(--mana);}
+.skill-cost em{color:var(--ink-dim);font-style:normal;}
 
 /* ---------- stat sheet ---------- */
 .statsheet{padding:10px 14px;}
