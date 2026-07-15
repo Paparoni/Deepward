@@ -23,19 +23,91 @@ function advancedNodes(route){
   ];
 }
 
-function makeClass(id, name, icon, desc, statMods, routes){
-  const choiceGroup = `${id}-discipline`;
+function expansionNodes(route){
+  const elementalSkill = [...route.nodes].reverse().find(node=>node.forcedElement);
+  const element = elementalSkill?.forcedElement || 'physical';
+  const magic = route.nodes.some(node=>node.magic);
+  const power = magic ? 'matk' : 'atk';
+  const guard = magic ? 'mdef' : 'def';
+  const label = element[0].toUpperCase()+element.slice(1);
+  return [
+    P(`${route.name} Foundation`, {type:'statBonus', stat:power, value:4}, `+4 ${power.toUpperCase()}.`),
+    P(`${route.name} Footwork`, {type:'statBonus', stat:'spd', value:3}, '+3 SPD.'),
+    P(`${route.name} Wardcraft`, {type:'statBonus', stat:guard, value:5}, `+5 ${guard.toUpperCase()}.`),
+    P(`${route.name} Economy`, {type:'manaCostReduction', value:8}, 'Skills cost 8% less MP.'),
+    P(`${label} Resonance`, {type:'statBonus', stat:`${element}Dmg`, value:9}, `+9% ${element} damage.`),
+    P(`${route.name} Precision`, {type:'critChanceBonus', value:7}, '+7% critical-hit chance.'),
+    P(`${route.name} Recovery`, magic?{type:'manaOnHit',value:2}:{type:'hpOnKill',value:6}, magic?'Restore 2 MP on hit.':'Restore 6 HP on kill.'),
+    A(`${route.name} Breakthrough`, 14, 'nuke', `A focused 165% ${element} technique.`, {power:1.65, magic, forcedElement:element}),
+  ];
+}
+
+// Outer-ring specialization for every subclass. Names inherit the discipline,
+// while mechanics adapt to its physical/magical and elemental identity.
+function deepExpansionNodes(route){
+  const elementalSkill=[...route.nodes].reverse().find(node=>node.forcedElement);
+  const element=elementalSkill?.forcedElement||'physical';
+  const magic=route.nodes.some(node=>node.magic);
+  const power=magic?'matk':'atk';
+  const defense=magic?'mdef':'def';
+  return [
+    A(`${route.name} Onslaught`, 17, 'aoe', `Strike every enemy for 110% ${element} damage.`, {power:1.1,magic,forcedElement:element}),
+    P(`${route.name} Aftershock`, {type:'doubleHitChance',value:8}, '8% chance for attacks to strike twice.'),
+    A(`${route.name} Severance`, 13, 'debuff', `Break an enemy's ${defense.toUpperCase()} by 28%.`, {debuffStat:defense,debuffValue:28}),
+    P(`${route.name} Predation`, {type:'lifesteal',value:6}, 'Heal for 6% of damage dealt.'),
+    A(`${route.name} Exaltation`, 18, 'buff', `Gain +36% ${power.toUpperCase()} for the battle.`, {buffStat:power,buffValue:36}),
+    P(`${route.name} Defiance`, {type:'lowHpDamageBonus',value:18}, 'Deal 18% more damage below half HP.'),
+    P(`${route.name} Grand Ward`, {type:'statBonus',stat:defense,value:8}, `+8 ${defense.toUpperCase()}.`),
+    A(`${route.name} Final Art`, 26, 'nuke', `A devastating 225% ${element} capstone technique.`, {power:2.25,magic,forcedElement:element,executeThreshold:20}),
+  ];
+}
+
+// A final ailment branch turns each discipline's damage type into its own build
+// engine: reliable application, stronger secondary effects, and dedicated skills.
+function elementalNodes(route){
+  const elementalSkill=[...route.nodes].reverse().find(node=>node.forcedElement);
+  const element=elementalSkill?.forcedElement||'physical';
+  const magic=route.nodes.some(node=>node.magic);
+  const label=element[0].toUpperCase()+element.slice(1);
+  const ailment=ELEMENTAL_AILMENTS[element].name;
+  return [
+    P(`${label} Catalyst`,{type:'elementProcChance',element,value:10},`+10% chance to trigger ${ailment}.`),
+    P(`${ailment} Savant`,{type:'elementStatusPower',element,value:30},`${ailment} effects are 30% stronger.`),
+    A(`${route.name} Affliction`,18,'nuke',`Deal 145% ${element} damage and guarantee ${ailment}.`,{power:1.45,magic,forcedElement:element,guaranteedStatus:true}),
+    A(`${route.name} Cataclysm`,29,'aoe',`Deal 125% ${element} damage to all enemies and guarantee ${ailment}.`,{power:1.25,magic,forcedElement:element,guaranteedStatus:true}),
+  ];
+}
+
+function makeClass(id, name, icon, desc, statMods, routes, innate={}){
+  const choiceGroup = null;
+  const innatePassive = innate.passive ? {...innate.passive, id:`${id}_innate_passive`, kind:'passive'} : null;
+  const innateActive = innate.active ? {...innate.active, id:`${id}_innate_active`, kind:'active'} : null;
   return {
-    id, name, icon, desc, statMods,
-    skillTree: routes.flatMap(route => [...route.nodes, ...advancedNodes(route)].map((node, index) => ({
-      ...node,
-      id: `${id}_${route.id}_${index + 1}`,
-      tier: index + 1,
-      cost: index >= 8 ? 3 : index >= 4 ? 2 : 1,
-      branch: route.name,
-      requires: index ? `${id}_${route.id}_${index}` : null,
-      choiceGroup: index === 0 ? choiceGroup : null,
-    }))),
+    id, name, icon, desc, statMods, innatePassive, innateActive,
+    skillTree: routes.flatMap(route => [...route.nodes, ...advancedNodes(route), ...expansionNodes(route), ...deepExpansionNodes(route), ...elementalNodes(route)].map((node, index) => {
+      const isBranch = index>=10;
+      const branchIndex = index-10;
+      const anchors = [1,2,3,4,5,6,7,8,2,3,4,5,6,7,8,9,4,5,7,8];
+      const outer = branchIndex>=8;
+      const ailmentBranch=branchIndex>=16;
+      const cost = isBranch ? (ailmentBranch?(branchIndex===19?3:2):outer?(branchIndex>=14?3:2):(branchIndex>=6?2:1)) : index >= 8 ? 3 : index >= 4 ? 2 : 1;
+      return {
+        ...node,
+        id: isBranch ? `${id}_${route.id}_x${branchIndex+1}` : `${id}_${route.id}_${index + 1}`,
+        tier: isBranch ? anchors[branchIndex]+1 : index + 1,
+        cost,
+        // active skills go on cooldown after use (rounds) so the strongest
+        // nuke in a build can't just be spammed every turn — deeper skills
+        // hit harder but also sit out longer, forcing a rotation.
+        cooldown: node.kind === 'active' ? U.clamp(2 + Math.floor((cost-1)/2), 2, 4) : undefined,
+        branch: route.name,
+        requires: isBranch ? (branchIndex%2 ? `${id}_${route.id}_x${branchIndex}` : ailmentBranch ? `${id}_${route.id}_x${branchIndex-7}` : outer ? `${id}_${route.id}_x${branchIndex-7}` : `${id}_${route.id}_${anchors[branchIndex]}`) : index ? `${id}_${route.id}_${index}` : null,
+        choiceGroup: null,
+        x:430 + routes.indexOf(route)*900 + (isBranch ? (Math.floor(branchIndex/2)%2===0?-1:1)*((ailmentBranch?390:outer?285:125)+(branchIndex%2)*30) : (index%2?28:-28)),
+        y:100 + (isBranch?anchors[branchIndex]:index)*120,
+        nodeRole:isBranch?([15,19].includes(branchIndex)?'capstone':node.kind==='active'?'notable':'minor'):index===9?'capstone':index===0?'root':'spine',
+      };
+    })),
   };
 }
 
@@ -69,7 +141,10 @@ const CLASSES = [
       P('Giant Slayer', {type:'bossDamageBonus', value:18}, '+18% damage to bosses.'),
       A('Conqueror\'s Banner', 18, 'buff', '+42% ATK for the battle.', {buffStat:'atk', buffValue:42}),
     ]},
-  ]),
+  ], {
+    passive: {name:'Unshakable Resolve', effect:{type:'guardFury', value:12}, desc:'Every time you Defend, also gain +12% ATK for the rest of the battle (stacks).'},
+    active: {name:"Warrior's Second Wind", manaCost:6, cooldown:4, action:'heal', healPct:22, desc:'Restore 22% of your maximum HP. Available regardless of discipline.'},
+  }),
   makeClass('mage', 'Mage', '🔮', 'A scholar of dangerous arcane disciplines.', {matk:5, mdef:2, spd:1}, [
     {id:'pyre', name:'Pyromancer', nodes:[
       A('Firebolt', 8, 'nuke', 'A fire bolt for 115% magic damage.', {power:1.15, magic:true, forcedElement:'fire'}),
@@ -99,7 +174,10 @@ const CLASSES = [
       P('Mana Loop', {type:'manaCostReduction', value:16}, 'Skills cost 16% less MP.'),
       A('Epoch Surge', 18, 'buff', '+45% MATK for the battle.', {buffStat:'matk', buffValue:45}),
     ]},
-  ]),
+  ], {
+    passive: {name:'Arcane Reservoir', effect:{type:'mpRegenPerTurn', value:6}, desc:'Regenerate 6 MP every round, in or out of your chosen discipline.'},
+    active: {name:'Arcane Surge', manaCost:5, cooldown:1, action:'nuke', power:0.9, magic:true, desc:'A quick 90% magic bolt in your weapon\'s element. Available regardless of discipline.'},
+  }),
   makeClass('rogue', 'Rogue', '🗡️', 'A quick killer who commits to a single lethal craft.', {spd:5, hitEff:3}, [
     {id:'duel', name:'Duelist', nodes:[
       A('Quick Strike', 5, 'nuke', 'A fast 95% weapon-damage attack.', {power:.95}),
@@ -129,7 +207,10 @@ const CLASSES = [
       P('Twinned Blades', {type:'doubleHitChance', value:14}, '14% chance to strike twice.'),
       A('Highwayman\'s Gambit', 17, 'buff', '+40% ATK for the battle.', {buffStat:'atk', buffValue:40}),
     ]},
-  ]),
+  ], {
+    passive: {name:"Predator's Instinct", effect:{type:'critChanceBonus', value:10}, desc:'+10% critical hit chance, always — no discipline required.'},
+    active: {name:'Second Chance', manaCost:10, cooldown:5, action:'resetCooldowns', desc:'Instantly clear every skill cooldown. Available regardless of discipline.'},
+  }),
   makeClass('paladin', 'Paladin', '🛡️', 'A holy warrior defined by one sacred oath.', {def:4, mdef:2, hitRes:2}, [
     {id:'devotion', name:'Devotion', nodes:[
       A('Smite', 7, 'nuke', 'A holy strike for 105% magic damage.', {power:1.05, magic:true, forcedElement:'holy'}),
@@ -159,7 +240,10 @@ const CLASSES = [
       P('Relentless Verdict', {type:'critDmgBonus', value:25}, '+25% critical damage.'),
       A('Final Inquisition', 20, 'nuke', 'A 190% holy sentence.', {power:1.9, magic:true, forcedElement:'holy', executeThreshold:24}),
     ]},
-  ]),
+  ], {
+    passive: {name:'Sanctified Guard', effect:{type:'guardMitigationBonus', value:15}, desc:'Defend mitigates an additional 15 percentage points of incoming damage, always.'},
+    active: {name:'Cleansing Light', manaCost:8, cooldown:4, action:'cleanse', desc:'Strip every debuff and damage-over-time effect off yourself. Available regardless of discipline.'},
+  }),
   makeClass('elementalist', 'Elementalist', '🌪️', 'A conduit who dedicates their craft to one element.', {matk:4, spd:2, hitEff:1}, [
     {id:'flame', name:'Flamecaller', nodes:[
       A('Ignite', 7, 'nuke', 'A 105% fire spell.', {power:1.05, magic:true, forcedElement:'fire'}),
@@ -189,7 +273,10 @@ const CLASSES = [
       P('Bulwark of Stone', {type:'thorns', value:12}, 'Reflect 12% of incoming damage.'),
       A('Worldbreaker', 19, 'nuke', 'A 175% earth spell.', {power:1.75, magic:true, forcedElement:'physical'}),
     ]},
-  ]),
+  ], {
+    passive: {name:'Arcane Momentum', effect:{type:'arcaneMomentum', value:3}, desc:'Each hit you land grants +3% MATK for the rest of the battle (stacks), regardless of discipline.'},
+    active: {name:'Elemental Shift', manaCost:7, cooldown:2, action:'nukeRandomElement', power:1.0, magic:true, desc:'A 100% magic bolt in a random element. Available regardless of discipline.'},
+  }),
   makeClass('necromancer', 'Necromancer', '☠️', 'A master of death who follows one forbidden art.', {matk:3, mdef:3, hitRes:2}, [
     {id:'blight', name:'Blight', nodes:[
       A('Curse', 7, 'nuke', 'A withering 100% dark spell.', {power:1, magic:true, forcedElement:'dark'}),
@@ -219,7 +306,10 @@ const CLASSES = [
       P('Undying Bond', {type:'reviveOncePerFight', value:30}, 'Survive one killing blow each battle at 30% HP.'),
       A('Bone Colossus', 18, 'buff', '+44% MATK for the battle.', {buffStat:'matk', buffValue:44}),
     ]},
-  ]),
+  ], {
+    passive: {name:"Death's Due", effect:{type:'manaOnKill', value:20}, desc:'Restore 20% of your max MP on every killing blow, regardless of discipline.'},
+    active: {name:'Soul Tap', manaCost:0, cooldown:3, action:'manaTap', hpCostPct:8, manaPct:30, desc:'Trade 8% of your max HP for 30% of your max MP. Available regardless of discipline.'},
+  }),
 ];
 
 const CLASS_BY_ID = Object.fromEntries(CLASSES.map(c=>[c.id,c]));

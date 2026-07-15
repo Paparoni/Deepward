@@ -17,7 +17,100 @@ const UNIQUE_TRAITS = [
   {id:'mana_eff',      name:'Mana Efficiency',  type:'manaCostReduction',base:12, perLvl:0.3, desc:v=>`Skills cost ${v}% less MP.`},
   {id:'momentum',      name:'Momentum',         type:'comboDamage',    base:4,  perLvl:0.15, desc:v=>`Each consecutive hit this battle deals ${v}% more damage (stacking).`},
   {id:'giant_slayer',  name:'Giant Slayer',     type:'bossDamageBonus',base:15, perLvl:0.4,  desc:v=>`+${v}% damage dealt to bosses.`},
+  {id:'mana_on_hit',   name:'Arcane Battery',   type:'manaOnHit',      base:2,  perLvl:0.08, desc:v=>`Restore ${v} MP whenever you land a hit.`},
+  {id:'reapers_bounty',name:"Reaper's Bounty",  type:'hpOnKill',       base:6,  perLvl:0.3,  desc:v=>`Restore ${v} HP whenever you land a killing blow.`},
+  {id:'armor_shred',   name:'Sundering Edge',   type:'defShred',       base:10, perLvl:0.3,  desc:v=>`Reduce target DEF by ${v}% on hit.`},
+  {id:'spell_shred',   name:'Ward Cracker',     type:'mdefShred',      base:10, perLvl:0.3,  desc:v=>`Reduce target MDEF by ${v}% on hit.`},
+  {id:'adrenaline',    name:'Adrenal Surge',    type:'adrenaline',     base:2,  perLvl:0.06, desc:v=>`Gain +${v}% SPD for the rest of the battle each time you hit (stacking).`},
+  {id:'bloodhunger',   name:'Bloodhunger',      type:'lifesteal',      base:9,  perLvl:0.2,  desc:v=>`Heals ${v}% of damage dealt as HP.`},
+  {id:'spiked_carapace',name:'Spiked Carapace', type:'thorns',         base:11, perLvl:0.35, desc:v=>`Reflects ${v}% of damage taken back to attacker.`},
+  {id:'wind_step',     name:'Wind Step',        type:'dodgeChance',    base:8,  perLvl:0.22, desc:v=>`${v}% chance to fully evade an incoming attack.`},
+  // Keystone-style conversions: these turn a pile of stats into an actual build.
+  {id:'bloodforged', name:'Bloodforged Might', type:'statConversion', source:'maxHp', target:'atk', base:4, perLvl:.05, desc:v=>`Gain ATK equal to ${v}% of maximum HP.`},
+  {id:'iron_rebuke', name:'Iron Rebuke', type:'statConversion', source:'def', target:'atk', base:24, perLvl:.25, desc:v=>`Gain ATK equal to ${v}% of DEF.`},
+  {id:'spellplate', name:'Spellplate Doctrine', type:'statConversion', source:'mdef', target:'matk', base:26, perLvl:.25, desc:v=>`Gain MATK equal to ${v}% of MDEF.`},
+  {id:'overflowing_mind', name:'Overflowing Mind', type:'statConversion', source:'maxMp', target:'matk', base:15, perLvl:.18, desc:v=>`Gain MATK equal to ${v}% of maximum MP.`},
+  {id:'velocity', name:'Velocity Is Violence', type:'statConversion', source:'spd', target:'atk', base:34, perLvl:.3, desc:v=>`Gain ATK equal to ${v}% of SPD.`},
+  {id:'arcane_velocity', name:'Thought at Lightspeed', type:'statConversion', source:'spd', target:'matk', base:34, perLvl:.3, desc:v=>`Gain MATK equal to ${v}% of SPD.`},
+  {id:'prismatic_oath', name:'Prismatic Oath', type:'elementMastery', base:18, perLvl:.2, desc:v=>`Your highest elemental damage bonus is amplified by ${v}%.`},
+  {id:'glass_throne', name:'The Glass Throne', type:'critFromPower', base:12, perLvl:.08, desc:v=>`Gain 1% critical chance per ${v} ATK or MATK, whichever is higher.`},
+  {id:'bulwark_mind', name:'Mind Behind the Wall', type:'statConversion', source:'def', target:'matk', base:20, perLvl:.22, desc:v=>`Gain MATK equal to ${v}% of DEF.`},
+  {id:'witchguard', name:'Witchguard Edge', type:'statConversion', source:'mdef', target:'atk', base:20, perLvl:.22, desc:v=>`Gain ATK equal to ${v}% of MDEF.`},
+  {id:'precision_engine', name:'Precision Engine', type:'statConversion', source:'hitEff', target:'critChance', base:18, perLvl:.12, desc:v=>`Gain critical chance equal to ${v}% of HIT EFF.`},
+  {id:'untouchable', name:'Untouchable Rhythm', type:'statConversion', source:'hitRes', target:'spd', base:28, perLvl:.25, desc:v=>`Gain SPD equal to ${v}% of HIT RES.`},
+  {id:'heavy_hands', name:'Heavy Hands', type:'statConversion', source:'atk', target:'def', base:16, perLvl:.16, desc:v=>`Gain DEF equal to ${v}% of ATK.`},
+  {id:'arcane_shell', name:'Arcane Shell', type:'statConversion', source:'matk', target:'mdef', base:16, perLvl:.16, desc:v=>`Gain MDEF equal to ${v}% of MATK.`},
+  {id:'redline', name:'Redline Doctrine', type:'missingHpPower', base:22, perLvl:.3, desc:v=>`Deal up to ${v}% more damage as HP is lost.`},
+  {id:'high_ground', name:'Claim the High Ground', type:'highHpDamage', base:16, perLvl:.25, desc:v=>`Deal ${v}% more damage while above 80% HP.`},
+  {id:'deep_reserves', name:'Deep Reserves', type:'highManaDamage', base:15, perLvl:.22, desc:v=>`Deal ${v}% more damage while above 70% MP.`},
+  {id:'empty_vessel', name:'Empty Vessel', type:'lowManaDamage', base:21, perLvl:.28, desc:v=>`Deal ${v}% more damage while below 30% MP.`},
+  {id:'critical_feast', name:'Critical Feast', type:'healOnCrit', base:3, perLvl:.1, desc:v=>`Critical hits restore ${v}% of maximum HP.`},
+  {id:'spellwell', name:'Spellwell', type:'manaOnCrit', base:5, perLvl:.14, desc:v=>`Critical hits restore ${v}% of maximum MP.`},
+  {id:'patient_edge', name:'Patient Edge', type:'firstHitCrit', base:24, perLvl:.3, desc:v=>`Your first attack each battle gains ${v}% critical chance.`},
+  {id:'duelist', name:"Duelist's Measure", type:'soloEnemyDamage', base:18, perLvl:.25, desc:v=>`Deal ${v}% more damage while only one enemy remains.`},
+  {id:'packbreaker', name:'Packbreaker', type:'crowdDamage', base:15, perLvl:.22, desc:v=>`Deal ${v}% more damage while three or more enemies live.`},
+  {id:'slow_burn', name:'Slow Burn', type:'roundDamage', base:3, perLvl:.08, desc:v=>`Deal ${v}% more damage per elapsed combat round.`},
+  {id:'swift_mercy', name:'Swift Mercy', type:'earlyRoundDamage', base:20, perLvl:.28, desc:v=>`Deal ${v}% more damage during the first two rounds.`},
+  {id:'counterweight', name:'Counterweight', type:'damageReductionFromPower', base:8, perLvl:.1, desc:v=>`Reduce incoming damage by 1% per ${v} ATK or MATK (maximum 25%).`},
+  {id:'mana_ward', name:'Mana Ward', type:'manaGuard', base:18, perLvl:.25, desc:v=>`Take ${v}% less damage while above 50% MP.`},
+  {id:'last_bastion', name:'Last Bastion', type:'lowHpReduction', base:24, perLvl:.3, desc:v=>`Take ${v}% less damage while below 35% HP.`},
+  {id:'titan_blood', name:'Titan Blood', type:'maxHpPercent', base:12, perLvl:.16, desc:v=>`Increase maximum HP by ${v}%.`},
+  {id:'astral_lung', name:'Astral Lung', type:'maxMpPercent', base:14, perLvl:.18, desc:v=>`Increase maximum MP by ${v}%.`},
+  {id:'monochrome', name:'Monochrome Devotion', type:'elementFromCore', base:20, perLvl:.2, desc:v=>`Add ${v}% of your highest ATK or MATK to your strongest elemental bonus.`},
+  {id:'balanced_blade', name:'Balanced Blade', type:'balancedPower', base:24, perLvl:.3, desc:v=>`If ATK and MATK are within 20%, increase both by ${v}%.`},
+  {id:'fortress_pair', name:'Twin Fortress', type:'balancedDefense', base:22, perLvl:.28, desc:v=>`If DEF and MDEF are within 20%, increase both by ${v}%.`},
+  {id:'jackal_trade', name:"The Jackal's Trade", type:'glassCannon', base:26, perLvl:.3, desc:v=>`Deal ${v}% more damage, but take 12% more damage.`},
+  {id:'bloodletter_rune',name:'Bloodletter Rune',type:'elementProcChance',element:'physical',base:9,perLvl:.12,desc:v=>`+${v}% chance to inflict Bleed.`},
+  {id:'wildfire_rune',name:'Wildfire Rune',type:'elementProcChance',element:'fire',base:9,perLvl:.12,desc:v=>`+${v}% chance to inflict Burn.`},
+  {id:'permafrost_rune',name:'Permafrost Rune',type:'elementProcChance',element:'ice',base:9,perLvl:.12,desc:v=>`+${v}% chance to inflict Chill.`},
+  {id:'stormglass_rune',name:'Stormglass Rune',type:'elementProcChance',element:'lightning',base:9,perLvl:.12,desc:v=>`+${v}% chance to trigger Static Arc.`},
+  {id:'toxicologist_rune',name:"Toxicologist's Rune",type:'elementProcChance',element:'poison',base:9,perLvl:.12,desc:v=>`+${v}% chance to add Toxin.`},
+  {id:'dawn_rune',name:'Dawn Rune',type:'elementProcChance',element:'holy',base:9,perLvl:.12,desc:v=>`+${v}% chance to create Radiant Ward.`},
+  {id:'doomscribe_rune',name:"Doomscribe's Rune",type:'elementProcChance',element:'dark',base:9,perLvl:.12,desc:v=>`+${v}% chance to add a Doom Mark.`},
+  {id:'affliction_engine',name:'Affliction Engine',type:'elementStatusPower',element:'all',base:22,perLvl:.2,desc:v=>`Elemental secondary effects are ${v}% stronger.`},
 ];
+
+// Random gear uses sealed slot-and-rarity pools. Each slot receives two authored
+// identities at every tier; higher rarities introduce new loops instead of merely
+// scaling the Common effect. Legacy UNIQUE_TRAITS remain for Soulforge recipes.
+const SLOT_TRAIT_NAMES={
+  weapon:['Edge','Conduit'],helmet:['Crown','Visor'],chest:['Heartplate','Mantle'],legs:['Greaves','Legplates'],arms:['Grasp','Bracers'],
+  offhand:['Aegis','Focus'],boots:['Treads','Sabatons'],accessory1:['Signet','Charm'],accessory2:['Band','Talisman'],artifact:['Idol','Reliquary'],
+};
+const SLOT_TRAIT_FLAVOR={weapon:'the Hunt',helmet:'Foresight',chest:'the Bastion',legs:'the March',arms:'Impact',offhand:'the Guard',boots:'Momentum',accessory1:'Fortune',accessory2:'Symmetry',artifact:'the Deep'};
+const TIER_TRAIT_ARCHETYPES={
+  common:[
+    ['openingForce','First Motion',12,.08,v=>`Your first hit each battle deals ${v}% more damage.`],
+    ['firstImpactGuard','Weather the First',14,.08,v=>`The first hit you take each battle deals ${v}% less damage.`],
+  ],
+  uncommon:[
+    ['killHarvest','Harvest Circuit',3,.04,v=>`Killing an enemy restores ${v}% maximum HP and MP.`],
+    ['retaliationCharge','Answering Blow',9,.07,v=>`Taking damage empowers your next hit by ${v}% (stacks up to 3).`],
+  ],
+  rare:[
+    ['critWard','Critical Shelter',4,.035,v=>`Critical hits build a ward equal to ${v}% maximum HP.`],
+    ['guardedFury','Pain Engine',10,.07,v=>`Below 50% HP, hits grant a stacking ${v}% damage charge for the battle (max 5).`],
+  ],
+  ultra_rare:[
+    ['ailmentOnCrit','Perfect Affliction',100,0,v=>`Critical hits always trigger their elemental secondary effect.`],
+    ['overkillSplash','Violent Excess',35,.1,v=>`${v}% of overkill damage erupts into another living enemy.`],
+  ],
+  unique:[
+    ['alternatingPower','Twin Rhythm',18,.08,v=>`Odd rounds empower attacks by ${v}%; even rounds reduce damage taken by ${v}%.`],
+    ['resourceWeave','Spellweave',4,.035,v=>`Hits restore ${v}% missing MP; skill use converts the restored flow into HP.`],
+  ],
+  legendary:[
+    ['damageBank','Stored Vengeance',45,.12,v=>`Store ${v}% of damage taken; your next hit releases it as bonus damage.`],
+    ['cooldownOnKill','Relentless Engine',1,0,v=>`Kills reduce every active skill cooldown by ${v} round.`],
+  ],
+  mythic_legendary:[
+    ['fateMomentum','Fate Cascade',22,.08,v=>`Every non-critical hit adds ${v}% critical chance to your next hit; a critical resets it.`],
+    ['statusEcho','Plague Mirror',55,.1,v=>`${v}% chance for an elemental secondary effect to also strike another enemy.`],
+  ],
+};
+const GEAR_TRAITS=Object.entries(SLOT_TRAIT_NAMES).flatMap(([slot,names])=>Object.entries(TIER_TRAIT_ARCHETYPES).flatMap(([tier,archetypes])=>archetypes.map((a,i)=>({
+  id:`${slot}_${tier}_${i+1}`,name:`${names[i]} of ${SLOT_TRAIT_FLAVOR[slot]}`,type:a[0],base:a[2],perLvl:a[3],desc:a[4],tier,allowedSlots:[slot],
+}))));
 
 // -- mythic traits (Mythic Legendary only) --------------------------------------
 const MYTHIC_TRAITS = [
@@ -31,18 +124,35 @@ const MYTHIC_TRAITS = [
   {id:'annihilate',   name:'Annihilation',      type:'critInstantKillChance', base:5, perLvl:0.15, desc:v=>`Critical hits have a ${v}% chance to instantly destroy non-boss enemies.`},
   {id:'undying',      name:'Undying Will',      type:'damageCapPct',     base:35, perLvl:0.3, desc:v=>`Incoming hits can never deal more than ${v}% of your max HP at once.`},
   {id:'godslayer',    name:"Godslayer's Mark",  type:'bonusDamagePct',   base:20, perLvl:0.5, desc:v=>`+${v}% damage dealt to all enemies.`},
+  {id:'mana_font',    name:'Mana Font',         type:'manaOnKill',       base:40, perLvl:0.3, desc:v=>`Restore ${v}% of max MP whenever you land a killing blow.`},
+  {id:'sundering',    name:'The Sundering',     type:'defShred',         base:22, perLvl:0.5, desc:v=>`Reduce target DEF by ${v}% on hit.`},
+  {id:'crown_unseen', name:'Crown of the Unseen',type:'damageImmuneChance',base:22,perLvl:0.35,desc:v=>`${v}% chance to take zero damage from any hit.`},
+  {id:'ruinous_strike',name:'Ruinous Strike',   type:'critInstantKillChance',base:8, perLvl:0.2, desc:v=>`Critical hits have a ${v}% chance to instantly destroy non-boss enemies.`},
+  {id:'tidebound',    name:'Tidebound Echo',    type:'echoStrike',       base:55, perLvl:0.5, desc:v=>`${v}% chance every attack is followed by a weaker echo hit.`},
+  {id:'worldroot', name:'Worldroot Incarnate', type:'statConversion', source:'maxHp', target:'atk', base:8, perLvl:.08, desc:v=>`Gain ATK equal to ${v}% maximum HP.`},
+  {id:'singularity_mind', name:'Singularity Mind', type:'statConversion', source:'maxMp', target:'matk', base:30, perLvl:.25, desc:v=>`Gain MATK equal to ${v}% maximum MP.`},
+  {id:'perfect_form', name:'Perfect Form', type:'allCorePercent', base:14, perLvl:.12, desc:v=>`Increase ATK, DEF, MATK, MDEF, SPD, HIT EFF, and HIT RES by ${v}%.`},
+  {id:'event_horizon', name:'Event Horizon', type:'missingHpPower', base:55, perLvl:.4, desc:v=>`Deal up to ${v}% more damage as HP is lost.`},
+  {id:'immortal_engine', name:'Immortal Engine', type:'lowHpReduction', base:42, perLvl:.3, desc:v=>`Take ${v}% less damage while below 35% HP.`},
+  {id:'sevenfold', name:'Sevenfold Crown', type:'elementAllPercent', base:30, perLvl:.3, desc:v=>`Increase every elemental damage bonus by ${v}%.`},
+  {id:'war_economy', name:'War Economy', type:'goldAndXp', base:28, perLvl:.25, desc:v=>`Gain ${v}% more gold and experience.`},
+  {id:'apex_predator', name:'Apex Predator', type:'bossDamageBonus', base:38, perLvl:.5, desc:v=>`Deal ${v}% more damage to bosses.`},
 ];
 
 // These traits belong only to Soulforge creations. They never enter the random
 const CRAFTED_MYTHIC_TRAITS = [
-  {id:'soulforge_fury', name:'Soulforge Fury', type:'comboDamage', base:9, perLvl:.25, desc:v=>`Each consecutive hit gains ${v}% damage.`},
-  {id:'dawnward', name:'Dawnward Aegis', type:'damageImmuneChance', base:10, perLvl:.18, desc:v=>`${v}% chance to take no damage.`},
-  {id:'tempest_step', name:'Tempest Step', type:'extraTurnChance', base:16, perLvl:.18, desc:v=>`${v}% chance to immediately act again.`},
-  {id:'grave_pact', name:'Grave Pact', type:'lifesteal', base:12, perLvl:.22, desc:v=>`Heal for ${v}% of damage dealt.`},
-  {id:'plague_crown', name:'Plague Crown', type:'stunChance', base:13, perLvl:.2, desc:v=>`${v}% chance to stun on hit.`},
-  {id:'phoenix_ward', name:'Phoenix Ward', type:'reviveOncePerFight', base:38, perLvl:.18, desc:v=>`Once per battle, survive a killing blow with ${v}% HP.`},
-  {id:'riftsong', name:'Riftsong', type:'echoStrike', base:48, perLvl:.3, desc:v=>`${v}% chance to echo an attack for 40% damage.`},
-  {id:'titan_oath', name:'Titan Oath', type:'damageCapPct', base:22, perLvl:.16, desc:v=>`Incoming hits cannot exceed ${v}% max HP.`},
-  {id:'void_hunger', name:'Void Hunger', type:'bonusDamagePct', base:24, perLvl:.35, desc:v=>`+${v}% damage dealt.`},
-  {id:'reaper_seal', name:'Reaper Seal', type:'executeThreshold', base:18, perLvl:.2, desc:v=>`Instantly finish enemies below ${v}% HP.`},
+  {id:'soulforge_fury',name:'Worldsplitter Protocol',type:'worldsplitter',base:12,perLvl:.18,desc:v=>`Hits gain ${v}% combo damage; every third hit tears through all other enemies for 60% of the hit.`},
+  {id:'dawnward',name:'Dawnkeep Dominion',type:'dawnkeep',base:12,perLvl:.12,desc:v=>`The first hit each round is negated and converted into a holy ward worth ${v}% maximum HP.`},
+  {id:'tempest_step',name:'Eye of the Tempest',type:'tempestStep',base:24,perLvl:.2,desc:v=>`${v}% chance to act again; extra actions guarantee Static Arc.`},
+  {id:'grave_pact',name:'Mourning Covenant',type:'mourningCovenant',base:14,perLvl:.16,desc:v=>`Heal for ${v}% of damage dealt and add a Doom Mark whenever you recover from an attack.`},
+  {id:'plague_crown',name:'Basilisk Apotheosis',type:'basiliskCrown',base:2,perLvl:0,desc:v=>`Every hit adds ${v} Toxin stacks; enemies at maximum Toxin are stunned.`},
+  {id:'phoenix_ward',name:'Phoenix Ascension',type:'phoenixAscension',base:45,perLvl:.12,desc:v=>`Once per battle, revive with ${v}% HP and gain +50% to every core stat for the rest of the battle.`},
+  {id:'riftsong',name:'Riftsong Chorus',type:'riftsong',base:55,perLvl:.18,desc:v=>`${v}% chance to echo attacks; echoes add Chill and deal 50% damage.`},
+  {id:'titan_oath',name:'Colossus Law',type:'colossusLaw',base:18,perLvl:.1,desc:v=>`No hit can exceed ${v}% maximum HP; prevented damage empowers your next attack.`},
+  {id:'void_hunger',name:'Abyssal Event Horizon',type:'abyssalHunger',base:9,perLvl:.08,desc:v=>`Deal ${v}% more damage per ailment on the target.`},
+  {id:'reaper_seal',name:'Final Destination',type:'reaperSeal',base:20,perLvl:.12,desc:v=>`Execute enemies below ${v}% HP; bosses instead suffer 35% more damage below that threshold.`},
+  {id:'voidwrought_haste',name:'Voidwrought Velocity',type:'voidwroughtHaste',base:5,perLvl:.05,desc:v=>`Each hit grants ${v}% SPD. Every fifth hit also primes an immediate extra action.`},
+  {id:'ember_communion',name:'Ember Communion',type:'emberCommunion',base:12,perLvl:.1,desc:v=>`Kills restore ${v}% HP and spread a three-stack Burn to every surviving enemy.`},
+  {id:'frostbite_ward',name:'Absolute Zero Plate',type:'absoluteZero',base:18,perLvl:.1,desc:v=>`Reduce incoming damage by ${v}%; every third hit taken freezes the attacker.`},
+  {id:'stormcaller_pact',name:"Stormcaller's Covenant",type:'stormcaller',base:5,perLvl:.05,desc:v=>`Hits restore ${v}% missing MP and launch a 45% lightning arc into another enemy.`},
 ];

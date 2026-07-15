@@ -6,12 +6,30 @@ function startFromTitle(){
   const val = document.getElementById('nameInput').value.trim();
   newGame(val || 'Wanderer', PENDING_CLASS);
 }
-function toggleInventory(){ STATE.ui.invOpen = !STATE.ui.invOpen; render(); }
+function saveGame(){
+  if(STATE && SaveSystem.save(STATE)){ STATE.ui.saveNotice='Saved locally.'; render(); }
+}
+function loadGame(){ SaveSystem.loadLocal(); }
+function exportSave(){ if(STATE) SaveSystem.export(STATE); }
+function chooseSaveImport(){ document.getElementById('saveImportInput')?.click(); }
+function importSave(input){ SaveSystem.importFile(input.files?.[0]); input.value=''; }
+function toggleInventory(){ if(STATE.mode!=='combat' || STATE.ui.invOpen) STATE.ui.invOpen = !STATE.ui.invOpen; render(); }
 function toggleCrafting(){ STATE.ui.craftOpen = !STATE.ui.craftOpen; render(); }
-function toggleSkills(){ STATE.ui.skillsOpen = !STATE.ui.skillsOpen; render(); }
+function toggleSkills(){ if(STATE.mode!=='combat' || STATE.ui.skillsOpen) STATE.ui.skillsOpen = !STATE.ui.skillsOpen; render(); }
+function toggleCharacter(){ STATE.ui.characterOpen=!STATE.ui.characterOpen; render(); }
+function toggleSystemMenu(){ STATE.ui.systemOpen=!STATE.ui.systemOpen; render(); }
+function setCombatPace(pace){ if(['fast','normal','cinematic'].includes(pace)) STATE.settings.combatPace=pace; render(); }
+function toggleReduceMotion(){ STATE.settings.reduceMotion=!STATE.settings.reduceMotion; render(); }
+function exportMetrics(){ Metrics.export(); }
+function resetMetrics(){ Metrics.reset(); }
 function onUnlockSkill(skillId){ Engine.unlockSkill(STATE, skillId); render(); }
 function onUseSkill(skillId){ Engine.useSkill(STATE, skillId); render(); }
+function toggleCombatSkills(){
+  if(STATE.combat && !STATE.combat.resolving) STATE.combat.skillMenuOpen = !STATE.combat.skillMenuOpen;
+  render();
+}
 function onSlotClick(slotId){
+  if(STATE.mode==='combat'){ Engine.log(STATE,'Equipment cannot be changed during combat.','bad'); render(); return; }
   STATE.ui.slotOverlay = {slotId, mode:'view'};
   render();
 }
@@ -55,6 +73,7 @@ function onChoiceClick(i){
   render();
 }
 function onCombatAction(kind){ Engine.playerAction(STATE, kind); render(); }
+function onSelectTarget(monsterUid){ Engine.setTarget(STATE, monsterUid); render(); }
 function onBuyItem(i, price){
   const s = STATE;
   const item = s.ui.merchantStock[i];
@@ -67,7 +86,14 @@ function onBuyItem(i, price){
 }
 function onLeaveMerchant(){ Engine.finishRoom(STATE); render(); }
 function onDefeatContinue(){
-  STATE.player.gold = Math.floor(STATE.player.gold*0.7);
+  const penalty=Engine.applyDeathPenalty(STATE);
+  if(penalty){
+    const losses=[`${penalty.goldLost} gold`,`${penalty.xpLost} XP`];
+    if(penalty.itemName)losses.push(penalty.itemName);
+    const materialCount=Object.values(penalty.materialLosses||{}).reduce((sum,count)=>sum+count,0);
+    if(materialCount)losses.push(`${materialCount} crafting material${materialCount===1?'':'s'}`);
+    Engine.log(STATE,`The depths claim ${losses.join(', ')}.`,'bad');
+  }
   returnToTown();
 }
 function onDungeonComplete(){ returnToTown(); }

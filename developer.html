@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Deepward Developer Codex</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=EB+Garamond:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ui/deepward-style.css">
+<style>
+body{overflow:auto;background:#090806;color:var(--ink);line-height:1.62}.docs{display:grid;grid-template-columns:270px minmax(0,900px);gap:34px;max-width:1240px;margin:auto;padding:28px}.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow:auto;padding:18px;border:1px solid var(--stone);background:var(--bg-raised);border-radius:7px}.toc h2{margin:0 0 12px;color:var(--gold);font:17px var(--font-display)}.toc a{display:block;padding:5px 7px;color:var(--ink-dim);font:9px var(--font-mono);text-decoration:none;border-left:2px solid transparent}.toc a:hover{color:var(--gold);border-color:var(--gold)}main{min-width:0}.hero,section{border:1px solid var(--stone);border-radius:8px;background:#11100d}.hero{padding:35px;background:radial-gradient(circle at 80% 0,#49351855,transparent 45%),var(--bg-raised)}.hero h1{margin:0;color:var(--gold);font:32px var(--font-display)}.hero p{max-width:700px;color:var(--ink-dim)}section{scroll-margin-top:18px;margin-top:28px;padding:25px}h2{margin:0 0 13px;color:var(--gold);font:22px var(--font-display)}h3{margin:22px 0 8px;color:#e6cf91;font:15px var(--font-display)}p,li{font-size:15px}code{color:#e8bd6b;background:#080705;padding:1px 4px;border-radius:3px;font:12px var(--font-mono)}pre{overflow:auto;padding:14px;border:1px solid #332b1d;border-radius:5px;background:#070605;color:#d9c9a7;font:11px/1.55 var(--font-mono)}pre code{padding:0;background:none}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:8px;border-bottom:1px solid #302a20;text-align:left;vertical-align:top}th{color:var(--gold);font-family:var(--font-mono)}.callout{padding:12px 14px;border-left:3px solid var(--gold);background:#201a0e;color:var(--ink-dim)}.back{color:var(--gold)}@media(max-width:850px){.docs{display:block;padding:14px}.toc{position:relative;top:0;max-height:none;margin-bottom:20px}.hero,section{padding:18px}}
+.api-divider{margin:30px -4px 18px;padding:9px 12px;border-top:1px solid var(--gold);border-bottom:1px solid #44361d;color:var(--gold);background:#1d170c;font:10px var(--font-mono);letter-spacing:.12em;text-transform:uppercase}
+</style>
+</head>
+<body><div class="docs">
+<nav class="toc"><h2>Developer Codex</h2>
+<a href="#start">1. Start here</a><a href="#runtime">2. Runtime</a><a href="#state">3. State</a><a href="#balance">4. Stats & balance</a><a href="#loot">5. Gear & loot</a><a href="#traits">6. Traits</a><a href="#crafting">7. Crafting</a><a href="#skills">8. Classes & skills</a><a href="#elements">9. Elements</a><a href="#enemies">10. Enemies</a><a href="#combat">11. Combat</a><a href="#dungeons">12. Dungeons</a><a href="#ui">13. UI</a><a href="#saves">14. Saving</a><a href="#metrics">15. Metrics</a><a href="#testing">16. Testing</a><a href="#workflow">17. Workflow</a><a href="#reference">18. Reference</a><a href="#schemas">19. Schema API</a><a href="#engine-api">20. Engine API</a><a href="#generator-api">21. Generator API</a><a href="#service-api">22. Service APIs</a><a href="#recipes-api">23. Creation recipes</a><a href="#cookbook">24. Example cookbook</a><a class="back" href="index.html">← Return to game</a>
+</nav>
+<main>
+<header class="hero"><h1>Deepward Developer Codex</h1><p>The complete code-level guide to extending, balancing, testing, and maintaining Deepward. Deepward is a dependency-free browser RPG built with ordered global JavaScript modules, HTML-string rendering, local storage, and CSS.</p><div class="callout">IDs are permanent API. A renamed trait, node, class, enemy, recipe, slot, or stat can break saves, prerequisites, crafting, and balance metrics.</div></header>
+
+<section id="start"><h2>1. Start here</h2><p>Open <code>index.html</code> directly or serve the repository through any static HTTP server. There is no build step, dependency install, framework, database, or backend.</p><h3>Repository</h3><ul><li><code>index.html</code>: document shell and ordered script loader.</li><li><code>ui/deepward-style.css</code>: complete visual system, layout, responsive behavior, and animation.</li><li><code>core/*.js</code>: game definitions, generators, state, systems, UI, saving, and telemetry.</li><li><code>README.md</code>: player-facing overview.</li><li><code>developer.html</code>: this technical guide.</li></ul><h3>Architecture rules</h3><ul><li>Definitions are plain objects and arrays. Systems interpret those definitions.</li><li><code>STATE</code> is the single live model.</li><li>Gameplay mutations belong in Engine or another owning system.</li><li>UI callbacks translate browser input, call a system, and render.</li><li>Combat-only data belongs under <code>state.combat</code>; run-only data belongs under <code>state.dungeon</code>.</li><li>Call <code>render()</code> after user-visible state changes.</li></ul></section>
+
+<section id="runtime"><h2>2. Runtime and load order</h2><p>Scripts expose globals instead of ES modules, so <code>index.html</code> loads them sequentially. A module must appear after everything it reads during evaluation.</p><pre><code>utilities → balance_tuning → stats → gear → traits → crafting
+→ mobs → naming → classes → state → generators → event_handlers
+→ metrics → combat_engine → save_system → renderer → event_wiring</code></pre><table><tr><th>File</th><th>Ownership</th></tr><tr><td>utilities.js</td><td>Random picks, weighted picks, clamps, IDs, formatting, escaping.</td></tr><tr><td>balance_tuning.js</td><td>Progression, difficulty, pacing, and combat constants.</td></tr><tr><td>stats.js / gear.js</td><td>Stats, elements, rarities, and equipment slots.</td></tr><tr><td>traits.js / crafting.js</td><td>Trait registries, materials, recipes, crafted item creation.</td></tr><tr><td>mobs.js / classes.js</td><td>Enemy content and player-class content.</td></tr><tr><td>generators.js</td><td>Items, enemies, encounters, and dungeons.</td></tr><tr><td>combat_engine.js</td><td>Derived stats, gear operations, progression, rooms, and battle.</td></tr><tr><td>renderer.js / event_wiring.js</td><td>HTML views, tooltips, and global browser callbacks.</td></tr></table><p>When introducing a module, place it after its definition dependencies and before its consumers.</p></section>
+
+<section id="state"><h2>3. State model</h2><pre><code>{
+ screen: 'town' | 'dungeon', mode: 'explore' | 'combat' | 'defeat' | 'complete',
+ player: { name, classId, level, xp, gold, hp, mp, skillPoints,
+           unlockedSkills, recipes, materials, skillCooldowns },
+ equipment: { weapon, helmet, chest, legs, arms, offhand, boots,
+              accessory1, accessory2, artifact },
+ inventory: [], dungeon: null | Dungeon, combat: null | Combat,
+ derived: { ...stats, maxHp, maxMp, traits }, log: [], settings: {}, ui: {}
+}</code></pre><p><code>newGame</code> creates a player, starter equipment, UI state, and derived sheet. <code>descend</code> creates a run and enters its first room. <code>returnToTown</code> clears run state and restores resources.</p><h3>Lifetime boundaries</h3><table><tr><th>Lifetime</th><th>Examples</th></tr><tr><td>Permanent</td><td>Level, XP, gold, inventory, equipment, known recipes, materials, unlocked nodes.</td></tr><tr><td>Dungeon</td><td>Room sequence, current room, difficulty, dungeon buffs, altar pacts.</td></tr><tr><td>Battle</td><td>Enemies, round, target, temporary buffs, ailments, ward, initiative, trait counters.</td></tr><tr><td>Render only</td><td>Tooltip DOM, animated bar history, open overlays, pending comparison.</td></tr></table></section>
+
+<section id="balance"><h2>4. Stats and balance</h2><p><code>stats.js</code> defines <code>CORE_STATS</code>, <code>ELEMENTS</code>, generated elemental stats, and lookup tables. Every item stat must exist in <code>STAT_BY_ID</code>.</p><table><tr><th>Stats</th><th>Purpose</th></tr><tr><td>ATK / MATK</td><td>Physical and magical attack inputs.</td></tr><tr><td>DEF / MDEF</td><td>Physical and magical defense inputs.</td></tr><tr><td>SPD</td><td>Initiative and fleeing.</td></tr><tr><td>HIT EFF / HIT RES</td><td>Hit chance, avoidance pressure, and critical contribution.</td></tr><tr><td>HP / MP</td><td>Flat equipment resource-cap additions.</td></tr><tr><td>Element Dmg</td><td>Percentage bonus for its damage type.</td></tr></table><p><code>Engine.computeDerived</code> combines base formulas, level growth, class modifiers, item stats, skill passives, conversions, and dungeon modifiers. <code>Engine.effectiveStat</code> layers temporary combat percentages on the sheet. <code>Engine.statModifiers</code> supplies visible temporary-source tooltips.</p><p>Put adjustable numbers in <code>BALANCE</code>. Test early, middle, and late levels whenever changing a curve. Balance against exported samples, not one unusually lucky run.</p></section>
+
+<section id="loot"><h2>5. Gear and loot</h2><pre><code>{ uid, name, slot, slotLabel, tier, ilvl, stats,
+  uniqueTraits: [], mythicTrait: null, element, crafted? }</code></pre><p><code>TIERS</code> defines stat count, trait count, rarity weight, stat multiplier, roll range, and trait multiplier. Traits begin at Ultra Rare. <code>SLOTS</code> defines the ten equip positions and their favored stat rolls.</p><h3>Item generation</h3><ol><li><code>rollTier</code> applies base and difficulty-adjusted rarity weights.</li><li><code>pickSlot</code> selects an equipment position.</li><li><code>rollStatsForSlot</code> makes distinct weighted stat picks.</li><li><code>lootAffinities</code> favors class stats and learned route damage types.</li><li><code>rollTraits</code> filters the pool by exact tier and allowed slot.</li><li><code>nameItem</code> combines tier prefix, slot noun, and high-tier suffix.</li></ol><p>Adding a slot requires changes to <code>SLOTS</code>, initial equipment state, save restoration, naming data, exclusive trait pools, and equipment UI assumptions.</p></section>
+
+<section id="traits"><h2>6. Traits and effects</h2><pre><code>{ id, name, type, base, perLvl, tier?, allowedSlots?,
+  source?, target?, element?, desc: value =&gt; 'description' }</code></pre><p>Random drops use <code>GEAR_TRAITS</code>; random Mythics use <code>MYTHIC_TRAITS</code>; Soulforge gear uses <code>CRAFTED_MYTHIC_TRAITS</code>. Legacy <code>UNIQUE_TRAITS</code> also supplies fixed crafted properties.</p><p>A trait is functional only if its type is consumed by derived-stat calculation, rewards, a dedicated engine check, or <code>EFFECT_HANDLERS</code>.</p><h3>Combat effect context</h3><pre><code>{ direction, damage, attacker, target, targetName, source,
+  player, derived, maxHp, maxMp, combat, combo, isCrit,
+  element, kind, notes }</code></pre><ul><li>Always check <code>direction</code> before applying offensive or defensive logic.</li><li>Cap permanent battle stacks and define reset/consumption rules.</li><li>Use combat fields for battle-only counters.</li><li>Account for bosses, multi-target fights, misses, overkill, and death.</li><li>Record secondary damage and healing in metrics.</li><li>Make the tooltip match the actual order, cap, scope, and duration.</li></ul></section>
+
+<section id="crafting"><h2>7. Soulforge crafting</h2><p><code>CRAFTING_MATERIALS</code> is the material registry. <code>MYTHIC_RECIPES</code> describes discovery IDs, costs, slots, elements, fixed stats, Unique properties, and one exclusive Mythic effect.</p><pre><code>{ id, name, slot, element, mythicTrait,
+  uniqueTraits: ['trait_id'], requirements: { material_id: count },
+  stats: { atk: 29, physicalDmg: 14 } }</code></pre><p><code>Crafting.createItem</code> scales fixed stats by character level and materializes trait descriptions. Crafted Mythic effects never enter random pools.</p><h3>New-recipe checklist</h3><ol><li>Add or reuse material IDs and ensure they can drop.</li><li>Add a recipe with a stable unique ID.</li><li>Add its discovery route through boss/event rewards.</li><li>Add the exclusive trait definition.</li><li>Add its handler or inline engine consumer.</li><li>Test crafting costs, scaling, save/export, equip restrictions, and every combat trigger.</li></ol></section>
+
+<section id="skills"><h2>8. Classes, subclasses, and skill trees</h2><p><code>A</code> creates active nodes and <code>P</code> creates passive nodes. <code>makeClass</code> expands each of four routes into spine, mastery, expansion, outer-ring, and ailment branches, then assigns IDs, coordinates, prerequisites, costs, cooldowns, roles, and branch labels.</p><pre><code>A('Skill', 14, 'nuke', 'Deal 150% fire damage.', {
+  power: 1.5, magic: true, forcedElement: 'fire', guaranteedStatus: true
+})
+P('Passive', { type:'elementStatusPower', element:'fire', value:20 },
+  'Fire secondary effects are 20% stronger.')</code></pre><p>An active <code>action</code> needs a matching <code>SKILL_ACTION_HANDLERS</code> entry. A passive effect needs derived-stat or effect-handler support. Prerequisite IDs must resolve. Keep node centers separated and expand the renderer canvas when routes grow.</p><p>Route identity matters: its stats, resource loop, element, active skills, notables, and capstone should reinforce a build rather than become generically optimal.</p></section>
+
+<section id="elements"><h2>9. Elements and ailments</h2><table><tr><th>Type</th><th>Secondary effect</th></tr><tr><td>Physical</td><td>Bleed stacks timed physical damage.</td></tr><tr><td>Fire</td><td>Burn stacks timed fire damage.</td></tr><tr><td>Ice</td><td>Chill stacks into Freeze and a lost action.</td></tr><tr><td>Lightning</td><td>Static Arc chains damage.</td></tr><tr><td>Poison</td><td>Toxin stacks escalating persistent damage.</td></tr><tr><td>Holy</td><td>Radiant Ward absorbs damage before HP.</td></tr><tr><td>Dark</td><td>Five Doom Marks detonate.</td></tr></table><p><code>applyElementalAilment</code> owns proc and application logic. <code>tickEnemyAilments</code> owns periodic resolution. Adding an element requires its stat, visuals, matchup rule, ailment definition, application/tick behavior, status UI, loot affinity, skills, traits, metrics, and test coverage.</p></section>
+
+<section id="enemies"><h2>10. Enemies and bosses</h2><p><code>MONSTER_TEMPLATES</code> and <code>BOSS_TEMPLATES</code> define ratios, moves, elements, and flavor. Move helpers create strikes, buffs, heals, and debuffs. <code>ENEMY_IDENTITIES</code> adds an authored tactical role, stat modifiers, charge bias, and utility bias.</p><pre><code>{ id, name, icon, element, flavor, atk, def, matk, mdef, spd,
+  moves: [Strike('Move', 1.2, { dotPct: 5 })] }
+Identity('Tactical role', 'Player-facing explanation',
+  { atk:1.15, hp:.9, spd:1.1 }, chargeBias, utilityBias)</code></pre><p><code>monsterFromTemplate</code> combines level scaling, difficulty, early-game mercy, identity modifiers, and per-spawn variance. Every new enemy needs an identity. Test its minimum and maximum rolls, solo and pack behavior, charge/utility cadence, status pressure, elemental matchup, and boss phase.</p></section>
+
+<section id="combat"><h2>11. Combat lifecycle</h2><ol><li><code>startCombat</code> refreshes stats and creates encounter state.</li><li>The player locks an action.</li><li><code>resolveRound</code> sorts living actors by SPD plus bounded jitter.</li><li>Actors resolve sequentially with visible delays.</li><li><code>resolveAttack</code> handles hit, crit, defense, elements, traits, HP, ailments, and telemetry.</li><li><code>endOfRound</code> ticks regeneration, DoTs, ailments, cooldowns, statuses, retargeting, revival, and victory.</li><li><code>endCombat</code> records the result and advances room flow.</li></ol><h3>Damage order</h3><pre><code>attack power → defense → element bonus/matchup → critical
+→ outgoing traits → HP damage → ailments and secondary hits
+
+incoming roll → defensive traits → Defend mitigation → Radiant Ward → HP</code></pre><p>Ordering is part of balance. Document intentional changes. Gear changes and skill learning are forbidden in combat. Controls remain disabled while a round is resolving.</p></section>
+
+<section id="dungeons"><h2>12. Dungeons and events</h2><p><code>generateDungeon</code> chooses theme, difficulty, room count, weighted rooms, pacing corrections, and a boss. <code>enforceCombatPacing</code> limits non-combat streaks and enforces a minimum fight share.</p><p><code>EVENT_HANDLERS</code> covers battles, chests, merchants, gambling, traps, shrines, mysteries, bosses, ambushes, archives, wells, collapses, healers, altars, bonfires, black markets, puzzles, foraging, guarded caches, deep pools, and camps.</p><h3>Add an event</h3><ol><li>Add its room weight in the generator.</li><li>Add <code>EVENT_HANDLERS[type](state)</code>.</li><li>Log the event and set choices or begin combat.</li><li>Ensure all branches eventually finish the room or enter a terminal flow.</li><li>Choose the correct duration for rewards and penalties.</li><li>Test insufficient resources, repeated events, save boundaries, and defeat paths.</li></ol></section>
+
+<section id="ui"><h2>13. Rendering and UI</h2><p><code>renderer.js</code> builds HTML strings. <code>render()</code> chooses the scene, updates <code>#app</code>, applies theme classes, saves, animates bars, and upgrades title attributes into custom tooltips.</p><p>Global callbacks live in <code>event_wiring.js</code> because inline event attributes need global functions. Keep callbacks thin and escape player-controlled or imported strings with <code>U.escapeHtml</code>.</p><h3>Overlay contract</h3><ul><li>Open/closed state lives in <code>state.ui</code>.</li><li>The backdrop closes the overlay.</li><li>Mutation restrictions are enforced in the engine as well as UI.</li><li>Combat controls disable during resolution.</li><li>New animation respects <code>reduceMotion</code>.</li><li>Layouts are tested on narrow screens.</li></ul><p>Reuse CSS variables, tier colors, panels, buttons, typography, tooltip behavior, and animation language in <code>deepward-style.css</code>.</p></section>
+
+<section id="saves"><h2>14. Saving and migration</h2><p><code>SaveSystem</code> stores <code>deepward-save-v1</code> in localStorage and exports JSON. Snapshots exclude live dungeon and combat state so loading resumes safely in town.</p><p><code>validate</code> rejects unrelated or future-version saves. <code>restore</code> sanitizes strings, validates item slots and stats, reconstructs equipment, defaults fields, clears transient flags, recomputes derived stats, and refills resources.</p><h3>Schema changes</h3><ol><li>Increment the version for incompatible changes.</li><li>Migrate older payloads before restoration.</li><li>Default every new optional field.</li><li>Never serialize callbacks, timers, DOM nodes, functions, or circular combat references.</li><li>Test local load, export/import, invalid JSON, missing fields, and an older fixture.</li></ol></section>
+
+<section id="metrics"><h2>15. Balance metrics</h2><p>Telemetry is local-only under <code>deepward-balance-metrics-v1</code>. Nothing leaves the browser unless the player exports it. Metrics cover totals, actions, elemental results, loot tiers, difficulty outcomes, combat rounds, and performance for classes, subclasses, nodes, skills, items, traits, and mobs.</p><p>Record at the owning boundary: battle start/end, dungeon outcome, mob action, skill use, rewards, loot decisions, damage, and healing. Use stable IDs for keys.</p><h3>Analysis guidance</h3><ul><li>Compare win rate and average rounds by level and difficulty.</li><li>Use mob damage caused/received and player deaths to identify outliers.</li><li>Compare skill use, damage, healing, kills, and MP efficiency.</li><li>Read trait or node win rate alongside pick rate and sample size.</li><li>Do not balance around tiny samples or one optimized build.</li></ul></section>
+
+<section id="testing"><h2>16. Testing and debugging</h2><h3>Static checks</h3><pre><code>node --check core/file.js
+git diff --check</code></pre><p>Also validate duplicate IDs, unknown stats, missing recipe/trait references, missing enemy identities, unresolved skill prerequisites, node collisions, missing action handlers, and undersized trait pools.</p><h3>Manual smoke test</h3><ol><li>Create every class and inspect derived stats.</li><li>Test attack, cast, defend, skills, targeting, flee, death, revive, and victory.</li><li>Test modified traits alone and in multi-enemy encounters.</li><li>Verify equipment and learning are blocked during combat.</li><li>Complete ordinary rooms, boss, reward, merchant, and crafting flows.</li><li>Save, reload, export, import, and export metrics.</li><li>Test all combat speeds, reduced motion, and mobile width.</li></ol><h3>Console probes</h3><pre><code>STATE
+STATE.derived
+STATE.combat
+CLASS_BY_ID[STATE.player.classId].skillTree
+Metrics.read()
+Generators.generateItem(10,{forcedTier:'legendary',forcedSlot:'weapon'})</code></pre></section>
+
+<section id="workflow"><h2>17. Safe change workflow</h2><ol><li>Find the definition and every interpreter that consumes it.</li><li>Choose a stable ID and the correct lifetime.</li><li>Add data and engine behavior together.</li><li>Add UI feedback: description, tooltip, tag, log, disabled state, or animation.</li><li>Add telemetry at the actual gameplay boundary.</li><li>Evaluate save and migration impact.</li><li>Run syntax, whitespace, registry, prerequisite, and collision checks.</li><li>Test misses, criticals, overkill, death, bosses, packs, stacking, and resource extremes.</li><li>Update this guide when a developer contract changes.</li></ol><div class="callout">Never add a trait type, skill action, monster move, room type, stat, or save field as data only. Every new data contract needs an interpreter and usually UI, metrics, and persistence work.</div></section>
+
+<section id="reference"><h2>18. Quick reference</h2><table><tr><th>Goal</th><th>Files</th></tr><tr><td>Tune progression</td><td>balance_tuning.js, gear.js</td></tr><tr><td>Add stat or element</td><td>stats.js, combat_engine.js, renderer.js, balance_tuning.js</td></tr><tr><td>Add random traits</td><td>traits.js, generators.js, combat_engine.js</td></tr><tr><td>Add crafted Mythic</td><td>crafting.js, traits.js, combat_engine.js, event_handlers.js</td></tr><tr><td>Add class, skill, or node</td><td>classes.js, combat_engine.js, renderer.js</td></tr><tr><td>Add enemy or boss</td><td>mobs.js, generators.js, combat_engine.js</td></tr><tr><td>Add event</td><td>generators.js, event_handlers.js, renderer.js</td></tr><tr><td>Change UI</td><td>renderer.js, event_wiring.js, deepward-style.css</td></tr><tr><td>Change persistence</td><td>save_system.js, state.js</td></tr><tr><td>Add telemetry</td><td>metrics.js and the owning gameplay system</td></tr></table><h3>Non-negotiable invariants</h3><ul><li>IDs remain unique and stable.</li><li>All references resolve.</li><li>Descriptions match implemented behavior.</li><li>Random pools contain enough candidates.</li><li>Secondary damage and healing reach metrics.</li><li>Imported text is sanitized and escaped.</li><li>Temporary state never leaks into permanent saves.</li></ul></section>
+
+<section id="schemas"><h2>19. Schema API specification</h2><p>This section treats Deepward definition objects as public data contracts. Fields marked required must be present. Unknown fields are generally preserved but have no behavior unless a consumer reads them.</p>
+<h3><code>Item</code></h3><table><tr><th>Field</th><th>Type</th><th>Contract</th></tr><tr><td>uid</td><td>string, required</td><td>Unique instance identity. Generate with <code>U.uid()</code>.</td></tr><tr><td>name</td><td>string, required</td><td>Player-facing name; imported values are sanitized.</td></tr><tr><td>slot</td><td>SlotId, required</td><td>Must exist in <code>SLOTS</code>. Accessories may route to either accessory position.</td></tr><tr><td>tier</td><td>TierId, required</td><td>Must exist in <code>TIER_BY_ID</code>.</td></tr><tr><td>ilvl</td><td>number, required</td><td>Generation/scaling level; normally dungeon or character level.</td></tr><tr><td>stats</td><td>Record&lt;StatId,number&gt;</td><td>Every key must exist in <code>STAT_BY_ID</code>.</td></tr><tr><td>uniqueTraits</td><td>RolledTrait[]</td><td>Always an array, including on low-tier items.</td></tr><tr><td>mythicTrait</td><td>RolledTrait|null</td><td>Exclusive top-level property rendered separately.</td></tr><tr><td>element</td><td>ElementId</td><td>Controls the equipped weapon’s default attack element.</td></tr><tr><td>crafted</td><td>boolean, optional</td><td>Marks Soulforge output.</td></tr></table>
+<h3><code>TraitDefinition</code> and <code>RolledTrait</code></h3><pre><code>// Definition
+{ id, name, type, base, perLvl, desc(value), tier?, allowedSlots?,
+  source?, target?, element? }
+
+// Materialized on an item
+{ id, name, type, value, desc, source?, target?, element? }</code></pre><p>Rolled value is normally <code>(base + perLvl * level) * tier.traitValueMult</code>, rounded to one decimal. Crafted traits omit the tier multiplier. <code>desc</code changes from a function to a string during materialization.</p>
+<h3><code>SkillNode</code></h3><table><tr><th>Field</th><th>Type</th><th>Contract</th></tr><tr><td>id</td><td>string</td><td>Generated stable node ID used by saves and prerequisites.</td></tr><tr><td>kind</td><td><code>active</code> | <code>passive</code></td><td>Determines action or effect interpretation.</td></tr><tr><td>action</td><td>string</td><td>Active only; key in <code>SKILL_ACTION_HANDLERS</code>.</td></tr><tr><td>effect</td><td>object</td><td>Passive only; contains <code>type</code> and mechanic-specific data.</td></tr><tr><td>manaCost</td><td>number</td><td>Active base cost before reduction.</td></tr><tr><td>cooldown</td><td>number</td><td>Rounds assigned by tree generation.</td></tr><tr><td>power</td><td>number</td><td>Attack multiplier where 1.0 is 100%.</td></tr><tr><td>magic</td><td>boolean</td><td>Selects MATK/MDEF instead of ATK/DEF.</td></tr><tr><td>forcedElement</td><td>ElementId</td><td>Overrides equipped weapon element.</td></tr><tr><td>requires</td><td>string|null</td><td>Existing parent node ID.</td></tr><tr><td>x, y</td><td>number</td><td>Canvas coordinates in pixels.</td></tr></table>
+<h3><code>MonsterTemplate</code>, <code>MonsterMove</code>, and <code>Identity</code></h3><pre><code>{ id, name, icon, element, flavor,
+  atk, def, matk, mdef, spd, moves: MonsterMove[] }
+
+Strike(name, power, { magic?, dotPct?, dotTurns?, lifestealPct?, stunChance? })
+Buff(name, statId, percent)
+Heal(name, percentMaxHp)
+Debuff(name, statId, negativePercentMagnitude)
+
+Identity(name, description, statMultipliers={}, chargeBias=1, utilityBias=1)</code></pre><p>Template combat stats are ratios, not final values. Generation applies level, difficulty, identity, boss scaling, mercy, and random variance. A template ID must have an <code>ENEMY_IDENTITIES</code> entry.</p>
+<h3><code>Dungeon</code> and <code>Combat</code></h3><pre><code>Dungeon = { theme, difficulty, difficultyId, dungeonLevel,
+  roomTypes, roomCount, currentIndex, cleared, _buffs?, _altarPact? }
+
+Combat = { monsters, isBoss, bonusLoot, round, playerElement, buffs,
+  playerDots, playerGuarding, resolving, skillMenuOpen, activeActor,
+  targetUid, chargeChance, utilityChance, bossCadence, _metrics, ...traitState }</code></pre><p>Leading-underscore fields are transient implementation state. Do not save them or rely on them outside their owning lifecycle.</p></section>
+
+<section id="engine-api"><h2>20. Engine API specification</h2><p><code>Engine</code> is the primary gameplay service. Unless noted, methods mutate the supplied state. Callers are responsible for rendering after synchronous user-facing calls.</p>
+<h3>Derived stats and inventory</h3><table><tr><th>Signature</th><th>Returns / side effects</th></tr><tr><td><code>computeDerived(state)</code></td><td>Returns a new derived-stat object. Does not assign it.</td></tr><tr><td><code>refreshDerived(state)</code></td><td>Assigns <code>state.derived</code>. Call after equipment or permanent-build changes.</td></tr><tr><td><code>effectiveStat(state, statId)</code></td><td>Returns rounded sheet stat plus active combat percentages.</td></tr><tr><td><code>statModifiers(state, statId)</code></td><td>Returns visible temporary modifier sources for UI tooltips.</td></tr><tr><td><code>grantItem(state, item)</code></td><td>Pushes an item into inventory.</td></tr><tr><td><code>grantMaterial(state, materialId, amount=1)</code></td><td>Adds material count. Caller must supply a registered ID.</td></tr><tr><td><code>lootAffinities(state)</code></td><td>Returns stat-weight multipliers inferred from class and learned nodes.</td></tr><tr><td><code>equip(state, item)</code></td><td>Returns boolean; equips to natural slot, auto-selecting accessory position. Refuses combat.</td></tr><tr><td><code>equipToSlot(state,item,slotId)</code></td><td>Returns boolean; explicit position used by slot UI.</td></tr><tr><td><code>unequip(state,slotId)</code></td><td>Returns boolean; moves equipped item into inventory. Refuses combat.</td></tr><tr><td><code>sell(state,item)</code></td><td>Removes inventory instance and grants tier/level-scaled gold.</td></tr></table>
+<h3>Combat entry and commands</h3><table><tr><th>Signature</th><th>Contract</th></tr><tr><td><code>startCombat(state, monsters, opts={})</code></td><td>Enters combat. Options: <code>isBoss</code>, <code>bonusLoot</code>.</td></tr><tr><td><code>getTarget(state)</code></td><td>Returns selected living enemy, fallback living enemy, or null.</td></tr><tr><td><code>setTarget(state, monsterUid)</code></td><td>Selects a living monster by instance UID.</td></tr><tr><td><code>playerAction(state, kind)</code></td><td>Accepts <code>attack</code>, <code>cast</code>, <code>defend</code>, or <code>flee</code>; begins staged resolution.</td></tr><tr><td><code>findActiveSkill(state, skillId)</code></td><td>Returns learned active skill or class innate active.</td></tr><tr><td><code>useSkill(state, skillId)</code></td><td>Validates combat, resolution lock, mana, cooldown, and known skill; then queues it.</td></tr><tr><td><code>resolveRound(state, action)</code></td><td>Asynchronously stages the supplied player action and enemy turns by initiative.</td></tr><tr><td><code>endOfRound(state)</code></td><td>Ticks statuses and cooldowns, resolves death/revival/victory, increments round.</td></tr><tr><td><code>endCombat(state, result)</code></td><td>Accepts <code>victory</code>, <code>defeat</code>, or <code>fled</code>; records telemetry and transitions.</td></tr></table>
+<h3><code>resolveAttack</code></h3><pre><code>Engine.resolveAttack(
+  state,
+  attackerStats,
+  targetRef,
+  kind,                 // attack | cast | skill
+  isPlayer,
+  monsterObj = null,
+  opts = {
+    powerMult, forcedElement, executeThreshold, skillName,
+    charged, magic, guaranteedStatus
+  }
+) → { hit:boolean, damage?:number, crit?:boolean }</code></pre><p>The method mutates target HP, resources, statuses, temporary trait state, log, and metrics. For monster attacks, <code>targetRef</code> is only an HP-shaped proxy while the actual player is read from state. Do not call this method without active <code>state.combat</code>.</p>
+<h3>Progression and room flow</h3><table><tr><th>Signature</th><th>Contract</th></tr><tr><td><code>checkLevelUp(state)</code></td><td>Consumes XP thresholds repeatedly, grants stats/points through level progression, refreshes derived stats.</td></tr><tr><td><code>canUnlock(state,skill)</code></td><td>Pure boolean permission check for points, prerequisites, route rules, and combat lock.</td></tr><tr><td><code>unlockSkill(state,skillId)</code></td><td>Returns boolean; spends points and adds node ID.</td></tr><tr><td><code>setChoices(state,choices)</code></td><td>Sets event choices and switches mode to event. Each choice is <code>{text, act(state)}</code>.</td></tr><tr><td><code>enterNextRoom(state)</code></td><td>Advances dungeon index and dispatches the room handler.</td></tr><tr><td><code>finishRoom(state)</code></td><td>Clears event UI and proceeds to the next room or completion.</td></tr></table></section>
+
+<section id="generator-api"><h2>21. Generator API specification</h2><table><tr><th>Signature</th><th>Returns</th></tr><tr><td><code>rollTier(lootBonus=0)</code></td><td>A Tier object selected by adjusted weights.</td></tr><tr><td><code>pickSlot()</code></td><td>A Slot object; rare slots have lower weight.</td></tr><tr><td><code>rollStatsForSlot(slot,tier,level,affinities={})</code></td><td>Stat record with distinct keys and scaled integer values.</td></tr><tr><td><code>rollTraits(tier,level,pool,slot=null)</code></td><td>Materialized traits filtered by exact tier and slot.</td></tr><tr><td><code>rollMythicTrait(tier,level)</code></td><td>Rolled Mythic trait or null.</td></tr><tr><td><code>generateItem(level,opts={})</code></td><td>Complete Item instance.</td></tr><tr><td><code>monsterFromTemplate(template,level,mult=1,isBoss=false)</code></td><td>Complete randomized monster instance.</td></tr><tr><td><code>generateBattleGroup(level,difficulty)</code></td><td>Array of one to three monsters.</td></tr><tr><td><code>generateBoss(level,difficulty)</code></td><td>Single-element array containing a boss.</td></tr><tr><td><code>enforceCombatPacing(roomTypes)</code></td><td>Copied/corrected room-type array.</td></tr><tr><td><code>generateDungeon(playerLevel,difficultyId)</code></td><td>Dungeon object ending in a boss room.</td></tr></table>
+<h3><code>generateItem</code> options</h3><pre><code>{
+ forcedTier?: TierId,
+ forcedMinTier?: TierId,
+ forcedSlot?: SlotId,
+ lootBonus?: number,
+ affinities?: Record&lt;StatId, weightMultiplier&gt;
+}</code></pre><p><code>forcedTier</code> has priority over <code>forcedMinTier</code>. A forced minimum compares the rolled tier index with the requested minimum. Invalid forced IDs currently produce downstream errors; validate developer tooling before calling.</p>
+<h3>Examples</h3><pre><code>const boss = Generators.generateBoss(20, BALANCE.difficulties.nightmare);
+Engine.startCombat(STATE, boss, { isBoss:true, bonusLoot:true });
+
+const weapon = Generators.generateItem(15, {
+  forcedMinTier:'unique', forcedSlot:'weapon',
+  affinities:{ atk:2.5, fireDmg:2.8 }
+});
+Engine.grantItem(STATE, weapon);
+Engine.refreshDerived(STATE);
+render();</code></pre></section>
+
+<section id="service-api"><h2>22. Crafting, saving, and metrics APIs</h2>
+<h3><code>Crafting</code></h3><table><tr><th>Signature</th><th>Contract</th></tr><tr><td><code>canCraft(state,recipe)</code></td><td>Returns true only if recipe is known and every material cost is met.</td></tr><tr><td><code>createItem(recipe,level)</code></td><td>Pure item construction; does not spend resources or grant the item.</td></tr><tr><td><code>craft(state,recipeId)</code></td><td>Returns boolean; spends materials, creates item, grants inventory, logs result.</td></tr></table>
+<h3><code>SaveSystem</code></h3><table><tr><th>Signature</th><th>Contract</th></tr><tr><td><code>snapshot(state)</code></td><td>Returns portable town-safe payload; throws without active player.</td></tr><tr><td><code>validate(data)</code></td><td>Returns input or throws an Error for foreign, malformed, or future data.</td></tr><tr><td><code>save(state)</code></td><td>Returns boolean; catches localStorage errors.</td></tr><tr><td><code>hasSave()</code></td><td>Boolean local-save presence check.</td></tr><tr><td><code>readLocal()</code></td><td>Returns validated parsed payload or throws.</td></tr><tr><td><code>restore(data)</code></td><td>Sanitizes and installs global <code>STATE</code>, saves it, and renders.</td></tr><tr><td><code>loadLocal()</code></td><td>UI-safe wrapper that alerts on error.</td></tr><tr><td><code>export(state)</code></td><td>Downloads formatted JSON.</td></tr><tr><td><code>importFile(file)</code></td><td>Asynchronously reads, parses, validates, and restores a browser File.</td></tr></table>
+<h3><code>Metrics</code></h3><table><tr><th>Call</th><th>When to use</th></tr><tr><td><code>addTotal(name,value=1)</code></td><td>Global additive counters.</td></tr><tr><td><code>count(group,key,value=1)</code></td><td>Dynamic grouped counters such as ailments or actions.</td></tr><tr><td><code>battleStarted(state,monsters)</code></td><td>Exactly once after combat model creation; returns build snapshot.</td></tr><tr><td><code>battleEnded(state,result,combat)</code></td><td>Exactly once before combat is discarded.</td></tr><tr><td><code>combatFlow(combat,direction,amount,mob)</code></td><td>Every actual dealt/taken damage event.</td></tr><tr><td><code>healing(combat,amount)</code></td><td>Actual healing, not attempted healing.</td></tr><tr><td><code>mobAction(mob,type)</code></td><td>Type is <code>turn</code>, <code>charge</code>, or <code>utility</code>.</td></tr><tr><td><code>skillPerformance(skill,data)</code></td><td>Data supports damage, healing, kills, and mana.</td></tr><tr><td><code>reward(gold,xp)</code></td><td>When currency/XP is actually granted.</td></tr><tr><td><code>loot(item,decision)</code></td><td>Decision is <code>offered</code>, <code>taken</code>, or <code>left</code>.</td></tr></table></section>
+
+<section id="recipes-api"><h2>23. Copy-ready creation recipes</h2>
+<h3>Create a slot-exclusive trait</h3><pre><code>// core/traits.js — definition
+{ id:'weapon_ultra_rare_example', name:'Example Edge',
+  type:'exampleEffect', base:12, perLvl:.1,
+  tier:'ultra_rare', allowedSlots:['weapon'],
+  desc:v =&gt; `Every third hit deals ${v}% bonus damage.` }
+
+// core/combat_engine.js — EFFECT_HANDLERS
+exampleEffect:(ctx,v)=&gt;{
+  if(ctx.direction!=='outgoing') return;
+  ctx.combat._exampleHits=(ctx.combat._exampleHits||0)+1;
+  if(ctx.combat._exampleHits%3===0){
+    ctx.damage=Math.round(ctx.damage*(1+v/100));
+    ctx.notes.push('Example Edge triggers.');
+  }
+}</code></pre><p>Then confirm the trait enters the intended pool, its counter resets naturally with combat, its description matches the formula, and its damage is already included because it modifies the main hit.</p>
+<h3>Create an active skill action</h3><pre><code>// core/combat_engine.js
+SKILL_ACTION_HANDLERS.exampleAction = (state,skill) =&gt; {
+  const target=Engine.getTarget(state);
+  if(!target) return;
+  Engine.resolveAttack(state,state.derived,target,'skill',true,null,{
+    powerMult:skill.power, forcedElement:skill.forcedElement,
+    magic:skill.magic, skillName:skill.name
+  });
+};
+
+// core/classes.js route node
+A('Example Skill',18,'exampleAction','A bespoke attack.',{
+  power:1.6, magic:true, forcedElement:'dark'
+})</code></pre><p>Prefer adding the handler inside the object literal rather than assigning afterward. Test mana deduction, cooldown, death, target fallback, metrics, and multiple uses.</p>
+<h3>Create an enemy with identity</h3><pre><code>// core/mobs.js
+{ id:'example_beast', name:'Example Beast', icon:'◆', element:'fire',
+  flavor:'It hunts wounded intruders.', atk:1.2, def:.8,
+  matk:.6, mdef:.9, spd:1.15,
+  moves:[Strike('Rending Leap',1.3,{dotPct:4,dotTurns:3})] }
+
+ENEMY_IDENTITIES.example_beast = Identity(
+  'The Wound Hunter',
+  'A fast finisher that pressures injured characters.',
+  { atk:1.12, spd:1.1, hp:.9 }, 1.3, .8
+);</code></pre><p>Add it to the intended template registry, then test generated stat variance at several levels and difficulties.</p>
+<h3>Create a room event</h3><pre><code>// core/generators.js — add {t:'example_room',w:5} to room weights
+
+// core/event_handlers.js
+example_room(state){
+  Engine.log(state,'You discover an unstable shrine.','flavor');
+  Engine.setChoices(state,[
+    {text:'Touch it',act:s=&gt;{
+      Engine.grantMaterial(s,'void_amber',1);
+      Engine.log(s,'The shrine yields Void Amber.','good');
+      Engine.finishRoom(s);
+    }},
+    {text:'Leave',act:s=&gt;Engine.finishRoom(s)}
+  ]);
+}</code></pre>
+<h3>Create a Soulforge recipe</h3><pre><code>// 1. Add CRAFTED_MYTHIC_TRAITS definition and EFFECT_HANDLERS behavior.
+// 2. Add to MYTHIC_RECIPES:
+{ id:'example_relic',name:'Example Reliquary',slot:'artifact',
+  element:'dark',mythicTrait:'example_crafted_trait',
+  uniqueTraits:['crit_dmg','mana_eff'],
+  requirements:{void_amber:5,echo_crystal:3},
+  stats:{matk:25,darkDmg:18,mp:15} }
+// 3. Add recipe discovery to an event/boss reward.
+// 4. Verify every referenced ID before loading the crafting screen.</code></pre>
+<h3>Definition validation script pattern</h3><pre><code>const duplicateIds = list =&gt; list
+  .map(x=&gt;x.id).filter((id,i,all)=&gt;all.indexOf(id)!==i);
+
+console.assert(!duplicateIds(GEAR_TRAITS).length,'Duplicate gear traits');
+console.assert(MYTHIC_RECIPES.every(r=&gt;
+  CRAFTED_MYTHIC_TRAITS.some(t=&gt;t.id===r.mythicTrait)
+),'Recipe references missing crafted trait');
+console.assert(MONSTER_TEMPLATES.every(m=&gt;ENEMY_IDENTITIES[m.id]),
+  'Monster missing identity');</code></pre></section>
+
+<section id="cookbook"><h2>24. Example-code cookbook</h2><p>These examples demonstrate complete patterns. Replace IDs and values, then place each block in the named owner file rather than pasting everything into one module.</p>
+<h3>Add a passive skill-tree node</h3><pre><code>// Inside a route's nodes array in core/classes.js
+P('Ashen Circulation', {
+  type:'manaOnCrit',
+  value:6
+}, 'Critical hits restore 6% of maximum MP.')
+
+// No new handler is required because manaOnCrit already exists.
+// A brand-new type must also be implemented in EFFECT_HANDLERS.</code></pre>
+<h3>Add a buffing active skill</h3><pre><code>A('Infernal Focus', 16, 'buff',
+  'Gain +35% MATK for the rest of the battle.', {
+    buffStat:'matk',
+    buffValue:35,
+    magic:true,
+    forcedElement:'fire'
+  }
+)</code></pre>
+<h3>Add a new ailment</h3><pre><code>// core/stats.js
+ELEMENTAL_AILMENTS.arcane = {
+  name:'Fracture',
+  desc:'At 4 stacks, reduces both defenses for the battle.'
+};
+
+// core/combat_engine.js, inside applyElementalAilment
+if(element==='arcane'){
+  const a=target._ailments.fracture||={name:'Fracture',stacks:0};
+  a.stacks++;
+  target._ailments.fracture=a;
+  if(a.stacks&gt;=4){
+    target.def=Math.max(0,Math.round(target.def*.7));
+    target.mdef=Math.max(0,Math.round(target.mdef*.7));
+    delete target._ailments.fracture;
+    this.log(state,`${target.name}'s defenses fracture.`,'good');
+  }
+}</code></pre><p>This also requires an Element entry, damage stat, matchup behavior, renderer mapping, loot affinity, and content that can deal the element.</p>
+<h3>Instrument secondary damage</h3><pre><code>const damage=Math.max(1,Math.round(ctx.damage*.35));
+secondaryTarget.hp=Math.max(0,secondaryTarget.hp-damage);
+
+Metrics.addTotal('damageDealt',damage);
+Metrics.combatFlow(ctx.combat,'dealt',damage,secondaryTarget);
+Metrics.count('traitProcs','example_trait');
+
+ctx.notes.push(`The effect chains for ${damage} damage.`);</code></pre>
+<h3>Create a new UI overlay</h3><pre><code>// core/state.js and SaveSystem.restore UI defaults
+ui:{ ..., codexOpen:false }
+
+// core/event_wiring.js
+function toggleCodex(){
+  STATE.ui.codexOpen=!STATE.ui.codexOpen;
+  render();
+}
+
+// core/renderer.js
+function renderCodexOverlay(state){
+  if(!state.ui.codexOpen) return '';
+  return `&lt;div class="overlay" onclick="if(event.target===this) toggleCodex()"&gt;
+    &lt;div class="panel"&gt;
+      &lt;div class="panel-title"&gt;Codex&lt;/div&gt;
+      &lt;button class="btn" onclick="toggleCodex()"&gt;Close&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;`;
+}
+
+// Append renderCodexOverlay(s) in the main render composition.</code></pre>
+<h3>Add a save migration</h3><pre><code>// Increment SaveSystem.version to 2, then migrate before validate/restore.
+migrate(data){
+  if(data.version===1){
+    data.player.discoveredEnemies=[];
+    data.version=2;
+  }
+  return data;
+},
+
+restore(data){
+  data=this.validate(this.migrate(data));
+  // existing restoration continues...
+}</code></pre><p>In production, migrate before rejecting a lower known version, never mutate the stored payload without subsequently saving the migrated snapshot, and retain a version-1 test fixture.</p>
+<h3>Add a difficulty</h3><pre><code>// core/balance_tuning.js
+BALANCE.difficulties.abyss = {
+  id:'abyss',
+  name:'Abyss',
+  monsterMult:2.1,
+  rewardMult:1.8,
+  lootBonus:.55
+};
+
+// Add an Abyss choice wherever difficulty buttons are rendered.
+// Metrics.dungeonStarted/dungeonOutcome automatically group by ID.</code></pre>
+<h3>Grant a discovered recipe from a boss event</h3><pre><code>const recipeId='example_relic';
+if(!state.player.recipes.includes(recipeId)){
+  state.player.recipes.push(recipeId);
+  Engine.log(state,'You recover a new Soulforge design.','good');
+}
+Engine.finishRoom(state);</code></pre>
+<h3>Safely apply a dungeon-long modifier</h3><pre><code>state.dungeon._buffs||=[];
+state.dungeon._buffs.push({
+  stat:'spd',
+  flat:5,
+  name:'Wind Shrine'
+});
+Engine.refreshDerived(state);
+
+// Dungeon buffs are discarded by returnToTown and are not saved.</code></pre>
+<h3>Test a definition in the browser console</h3><pre><code>const testItem=Generators.generateItem(25,{
+  forcedTier:'mythic_legendary',
+  forcedSlot:'weapon',
+  affinities:{atk:3,fireDmg:3}
+});
+
+console.table(testItem.stats);
+console.table(testItem.uniqueTraits);
+Engine.grantItem(STATE,testItem);
+render();</code></pre>
+<h3>Test tree integrity</h3><pre><code>for(const cls of CLASSES){
+  const ids=new Set(cls.skillTree.map(node=&gt;node.id));
+  const missing=cls.skillTree.filter(node=&gt;node.requires&&!ids.has(node.requires));
+  const duplicate=cls.skillTree.filter((node,index,all)=&gt;
+    all.findIndex(other=&gt;other.id===node.id)!==index);
+  console.assert(!missing.length,`${cls.id}: missing prerequisite`,missing);
+  console.assert(!duplicate.length,`${cls.id}: duplicate node ID`,duplicate);
+}</code></pre>
+<p><a class="back" href="index.html">Return to Deepward</a></p></section>
+<script>
+// The detailed reference is authored below the overview for maintainability, then
+// distributed into its owning topic so each visible section is self-contained.
+const integrateGroup=(sourceId,targetId,headingText)=>{
+  const source=document.getElementById(sourceId),target=document.getElementById(targetId);
+  if(!source||!target)return;
+  const heading=[...source.querySelectorAll(':scope > h3')].find(h=>h.textContent.includes(headingText));
+  if(!heading)return;
+  const divider=document.createElement('div');divider.className='api-divider';divider.textContent='API contract & implementation examples';
+  target.appendChild(divider);
+  let node=heading;
+  while(node&&node.tagName!=='H2'){
+    const next=node.nextElementSibling;
+    if(node!==heading&&node.tagName==='H3')break;
+    target.appendChild(node);node=next;
+  }
+};
+const integrateAll=(sourceId,targetId)=>{
+  const source=document.getElementById(sourceId),target=document.getElementById(targetId);
+  if(!source||!target)return;
+  const divider=document.createElement('div');divider.className='api-divider';divider.textContent='Detailed API reference';target.appendChild(divider);
+  [...source.children].filter(el=>el.tagName!=='H2').forEach(el=>target.appendChild(el));
+};
+integrateGroup('schemas','loot','Item');
+integrateGroup('schemas','traits','TraitDefinition');
+integrateGroup('schemas','skills','SkillNode');
+integrateGroup('schemas','enemies','MonsterTemplate');
+integrateGroup('schemas','dungeons','Dungeon');
+integrateGroup('engine-api','balance','Derived stats and inventory');
+integrateGroup('engine-api','combat','Combat entry and commands');
+integrateGroup('engine-api','combat','resolveAttack');
+integrateGroup('engine-api','skills','Progression and room flow');
+integrateAll('generator-api','loot');
+integrateGroup('service-api','crafting','Crafting');
+integrateGroup('service-api','saves','SaveSystem');
+integrateGroup('service-api','metrics','Metrics');
+integrateGroup('recipes-api','traits','slot-exclusive trait');
+integrateGroup('recipes-api','skills','active skill action');
+integrateGroup('recipes-api','enemies','enemy with identity');
+integrateGroup('recipes-api','dungeons','room event');
+integrateGroup('recipes-api','crafting','Soulforge recipe');
+integrateGroup('recipes-api','testing','validation script');
+integrateGroup('cookbook','skills','passive skill-tree node');
+integrateGroup('cookbook','skills','buffing active skill');
+integrateGroup('cookbook','elements','new ailment');
+integrateGroup('cookbook','metrics','Instrument secondary damage');
+integrateGroup('cookbook','ui','new UI overlay');
+integrateGroup('cookbook','saves','save migration');
+integrateGroup('cookbook','balance','difficulty');
+integrateGroup('cookbook','crafting','discovered recipe');
+integrateGroup('cookbook','dungeons','dungeon-long modifier');
+integrateGroup('cookbook','testing','definition in the browser');
+integrateGroup('cookbook','testing','tree integrity');
+document.getElementById('combat')?.insertAdjacentHTML('beforeend',`<div class="api-divider">Dungeon defeat contract</div><h3><code>DeathPenalty</code></h3><pre><code>{ goldLost, xpLost, itemUid, itemName, materialLosses, bossDefeat }</code></pre><table><tr><th>Loss</th><th>Implemented rule</th></tr><tr><td>Gold</td><td>25% of currently held gold.</td></tr><tr><td>XP</td><td>20% of current-level XP progress; level cannot decrease.</td></tr><tr><td>Carried item</td><td>One random eligible inventory item. Equipped, crafted, and Mythic Legendary items are excluded.</td></tr><tr><td>Materials</td><td>1–4 owned material units after a normal defeat; 2–5 after a boss defeat, capped by owned quantity.</td></tr></table><p>The penalty is rolled when defeat resolves, previewed before confirmation, and applied once by <code>Engine.applyDeathPenalty(state)</code>. Material losses are grouped by material ID and tracked under <code>deathMaterialLosses</code>; aggregate gold, XP, and item losses are tracked under <code>deathPenalties</code>.</p>`);
+for(const id of ['schemas','engine-api','generator-api','service-api','recipes-api','cookbook'])document.getElementById(id)?.remove();
+document.querySelectorAll('.toc a').forEach(a=>{if(/^#(schemas|engine-api|generator-api|service-api|recipes-api|cookbook)$/.test(a.getAttribute('href')||''))a.remove();});
+</script>
+</main></div></body></html>
