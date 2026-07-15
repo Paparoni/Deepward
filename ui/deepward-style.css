@@ -82,6 +82,8 @@ body{
 .bar-xp{background:linear-gradient(90deg,#7a5e12,var(--gold));}
 .hud-gold{font-family:var(--font-mono);color:var(--gold);font-size:13px;margin-left:auto;}
 .hud-diff{font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);padding:3px 8px;border:1px solid var(--stone);border-radius:4px;}
+.save-controls{display:flex;gap:4px;}.save-controls button{font:9px var(--font-mono);color:var(--ink-dim);background:var(--bg-raised);border:1px solid var(--stone);border-radius:4px;padding:4px 6px;cursor:pointer}.save-controls button:hover{color:var(--gold);border-color:var(--gold)}
+.title-save-actions{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}.title-save-actions .btn{flex:none;}
 
 /* ---------- layout ---------- */
 .layout{display:grid;grid-template-columns:220px 1fr 240px;gap:14px;align-items:start;}

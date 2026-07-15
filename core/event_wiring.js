@@ -6,6 +6,13 @@ function startFromTitle(){
   const val = document.getElementById('nameInput').value.trim();
   newGame(val || 'Wanderer', PENDING_CLASS);
 }
+function saveGame(){
+  if(STATE && SaveSystem.save(STATE)){ STATE.ui.saveNotice='Saved locally.'; render(); }
+}
+function loadGame(){ SaveSystem.loadLocal(); }
+function exportSave(){ if(STATE) SaveSystem.export(STATE); }
+function chooseSaveImport(){ document.getElementById('saveImportInput')?.click(); }
+function importSave(input){ SaveSystem.importFile(input.files?.[0]); input.value=''; }
 function toggleInventory(){ if(STATE.mode!=='combat' || STATE.ui.invOpen) STATE.ui.invOpen = !STATE.ui.invOpen; render(); }
 function toggleCrafting(){ STATE.ui.craftOpen = !STATE.ui.craftOpen; render(); }
 function toggleSkills(){ if(STATE.mode!=='combat' || STATE.ui.skillsOpen) STATE.ui.skillsOpen = !STATE.ui.skillsOpen; render(); }

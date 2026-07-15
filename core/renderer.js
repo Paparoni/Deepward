@@ -90,6 +90,8 @@ function renderHud(s){
       <div class="bar-track">${animatedBar(s,'player-xp',s.player.xp/xpNeed*100,'bar-xp')}</div>
     </div>
     ${diffLabel? `<div class="hud-diff">${diffLabel}</div>`:''}
+    <div class="save-controls"><button onclick="saveGame()">Save</button><button onclick="exportSave()">Export</button><button onclick="chooseSaveImport()">Import</button></div>
+    <input id="saveImportInput" type="file" accept="application/json,.json" hidden onchange="importSave(this)">
     <div class="hud-gold">⛁ ${s.player.gold} gold</div>
   </div>`;
 }
@@ -370,7 +372,8 @@ function renderTitle(){
       <div class="panel-title">Choose your class</div>
       <div class="slots" style="grid-template-columns:1fr;">${classCards}</div>
     </div>
-    <div><button class="btn btn-primary" onclick="startFromTitle()">Begin the Descent</button></div>
+    <div class="title-save-actions"><button class="btn btn-primary" onclick="startFromTitle()">Begin the Descent</button>${SaveSystem.hasSave()?'<button class="btn" onclick="loadGame()">Continue Saved Game</button>':''}<button class="btn" onclick="chooseSaveImport()">Import Save</button></div>
+    <input id="saveImportInput" type="file" accept="application/json,.json" hidden onchange="importSave(this)">
   </div>`;
 }
 
@@ -471,6 +474,7 @@ function render(){
   const app = document.getElementById('app');
   if(!STATE){ app.innerHTML = renderTitle(); return; }
   const s = STATE;
+  SaveSystem.save(s);
   const scene = s.screen==='town' ? renderTown(s) : renderScene(s);
   const weaponElement = (s.equipment.weapon && s.equipment.weapon.element) || 'physical';
   app.innerHTML = `
