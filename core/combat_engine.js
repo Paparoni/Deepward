@@ -32,6 +32,21 @@ const EFFECT_HANDLERS = {
   mdefShred:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.target.mdef!=null){ const shred=Math.round(ctx.target.mdef*v/100); ctx.target.mdef=Math.max(0, ctx.target.mdef-shred); ctx.notes.push(`${ctx.targetName}'s wards crack.`); } },
   adrenaline:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.combat){ ctx.combat.buffs.push({stat:'spd', pct:v, name:'Adrenaline'}); } },
   arcaneMomentum:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.combat){ ctx.combat.buffs.push({stat:'matk', pct:v, name:'Arcane Momentum'}); } },
+  missingHpPower:(ctx,v)=>{ if(ctx.direction==='outgoing') ctx.damage=Math.round(ctx.damage*(1+(1-ctx.player.hp/ctx.maxHp)*v/100)); },
+  highHpDamage:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.player.hp/ctx.maxHp>.8) ctx.damage=Math.round(ctx.damage*(1+v/100)); },
+  highManaDamage:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.maxMp && ctx.player.mp/ctx.maxMp>.7) ctx.damage=Math.round(ctx.damage*(1+v/100)); },
+  lowManaDamage:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.maxMp && ctx.player.mp/ctx.maxMp<.3) ctx.damage=Math.round(ctx.damage*(1+v/100)); },
+  healOnCrit:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.isCrit) ctx.player.hp=Math.min(ctx.maxHp,ctx.player.hp+Math.round(ctx.maxHp*v/100)); },
+  manaOnCrit:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.isCrit) ctx.player.mp=Math.min(ctx.maxMp,ctx.player.mp+Math.round(ctx.maxMp*v/100)); },
+  soloEnemyDamage:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.combat.monsters.filter(m=>m.hp>0).length===1) ctx.damage=Math.round(ctx.damage*(1+v/100)); },
+  crowdDamage:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.combat.monsters.filter(m=>m.hp>0).length>=3) ctx.damage=Math.round(ctx.damage*(1+v/100)); },
+  roundDamage:(ctx,v)=>{ if(ctx.direction==='outgoing') ctx.damage=Math.round(ctx.damage*(1+Math.max(0,ctx.combat.round-1)*v/100)); },
+  earlyRoundDamage:(ctx,v)=>{ if(ctx.direction==='outgoing' && ctx.combat.round<=2) ctx.damage=Math.round(ctx.damage*(1+v/100)); },
+  manaGuard:(ctx,v)=>{ if(ctx.direction==='incoming' && ctx.maxMp && ctx.player.mp/ctx.maxMp>.5) ctx.damage=Math.round(ctx.damage*(1-v/100)); },
+  lowHpReduction:(ctx,v)=>{ if(ctx.direction==='incoming' && ctx.player.hp/ctx.maxHp<.35) ctx.damage=Math.round(ctx.damage*(1-v/100)); },
+  damageReductionFromPower:(ctx,v)=>{ if(ctx.direction==='incoming'){ const power=Math.max(ctx.derived.atk,ctx.derived.matk); ctx.damage=Math.round(ctx.damage*(1-Math.min(25,Math.floor(power/v))/100)); } },
+  glassCannon:(ctx,v)=>{ ctx.damage=Math.round(ctx.damage*(ctx.direction==='outgoing'?1+v/100:1.12)); },
+  goldAndXp:()=>{},
 };
 
 // -- active-skill action types (used by class skill trees, see [1] CLASSES) --------
@@ -161,6 +176,21 @@ const Engine = {
         totals[best.id] = Math.round((totals[best.id]||0)*(1+trait.value/100));
       } else if(trait.type==='critFromPower'){
         totals.critChance += Math.floor(Math.max(totals.atk,totals.matk)/Math.max(1,trait.value));
+      } else if(trait.type==='maxHpPercent'){
+        maxHp = Math.round(maxHp*(1+trait.value/100));
+      } else if(trait.type==='maxMpPercent'){
+        maxMp = Math.round(maxMp*(1+trait.value/100));
+      } else if(trait.type==='elementFromCore'){
+        const best = ELEMENT_STATS.reduce((a,s)=>(totals[s.id]||0)>(totals[a.id]||0)?s:a, ELEMENT_STATS[0]);
+        totals[best.id] += Math.round(Math.max(totals.atk,totals.matk)*trait.value/100);
+      } else if(trait.type==='balancedPower' && Math.min(totals.atk,totals.matk)/Math.max(totals.atk,totals.matk)>=.8){
+        totals.atk=Math.round(totals.atk*(1+trait.value/100)); totals.matk=Math.round(totals.matk*(1+trait.value/100));
+      } else if(trait.type==='balancedDefense' && Math.min(totals.def,totals.mdef)/Math.max(totals.def,totals.mdef)>=.8){
+        totals.def=Math.round(totals.def*(1+trait.value/100)); totals.mdef=Math.round(totals.mdef*(1+trait.value/100));
+      } else if(trait.type==='allCorePercent'){
+        for(const id of ['atk','def','matk','mdef','spd','hitEff','hitRes']) totals[id]=Math.round(totals[id]*(1+trait.value/100));
+      } else if(trait.type==='elementAllPercent'){
+        for(const stat of ELEMENT_STATS) totals[stat.id]=Math.round(totals[stat.id]*(1+trait.value/100));
       }
     }
     // dungeon-wide risk/reward pact from the cursed_altar event (see EVENT_HANDLERS);
@@ -555,7 +585,7 @@ const Engine = {
     let hitEff = isPlayer ? state.derived.hitEff : attackerStats.hitEff;
     let hitRes = isPlayer ? (targetRef.hitRes||0) : this.effectiveStat(state,'hitRes');
     const hitChance = U.clamp(85 + (hitEff-hitRes)*0.5, 55, 98);
-    const ctxBase = {notes:[], combat:c, player:state.player, maxHp: state.derived.maxHp, maxMp: state.derived.maxMp, combo: (c._combo||0)};
+    const ctxBase = {notes:[], combat:c, player:state.player, derived:state.derived, maxHp: state.derived.maxHp, maxMp: state.derived.maxMp, combo: (c._combo||0)};
 
     if(Math.random()*100 > hitChance){
       this.log(state, isPlayer ? `Your attack misses!` : `${monsterObj.name}'s attack misses!`, 'flavor');
@@ -571,8 +601,10 @@ const Engine = {
     if(isPlayer) for(const t of traits){
       if(t.type==='critChanceBonus') critChance += t.value;
       if(t.type==='critDmgBonus') critMult += t.value/100;
+      if(t.type==='firstHitCrit' && !c._firstAttackResolved) critChance += t.value;
     }
     const isCrit = Math.random()*100 < critChance;
+    if(isPlayer) c._firstAttackResolved = true;
 
     let dmg = Math.max(1, Math.round((atkStat*1.0 - relevantDef*0.5) * U.rand(0.85,1.15)));
     dmg = Math.round(dmg * (1+elemBonus/100));
@@ -635,8 +667,9 @@ const Engine = {
     if(result==='victory'){
       let gold=0, xp=0;
       for(const m of c.monsters){ gold+=m.goldDrop; xp+=m.xpDrop; }
-      const goldBonus = state.derived.traits.filter(t=>t.type==='goldFind').reduce((sum,t)=>sum+t.value, 0);
-      const xpBonus = state.derived.traits.filter(t=>t.type==='xpBonus').reduce((sum,t)=>sum+t.value, 0);
+      const sharedBonus = state.derived.traits.filter(t=>t.type==='goldAndXp').reduce((sum,t)=>sum+t.value, 0);
+      const goldBonus = sharedBonus + state.derived.traits.filter(t=>t.type==='goldFind').reduce((sum,t)=>sum+t.value, 0);
+      const xpBonus = sharedBonus + state.derived.traits.filter(t=>t.type==='xpBonus').reduce((sum,t)=>sum+t.value, 0);
       gold = Math.round(gold*(1+goldBonus/100));
       xp = Math.round(xp*(1+xpBonus/100));
       state.player.gold += gold;
