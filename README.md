@@ -10,35 +10,38 @@ Deepward is a fun little passion project created out of a love for classic dunge
 The project is actively developed in my spare time and will continue to grow with new content, features, and gameplay systems over time.
 
 ---
-##  Features
 
-- Turn-based text combat
-- Multiple playable classes with unique abilities
-- Expandable skill tree system
-- Inventory and equipment management
-- Randomized loot with rarity tiers
-- Weapons, armor, and accessories
-- Experience, leveling, and stat progression
-- Procedurally generated dungeon encounters
+## Features
+
+- Staged turn-based combat with speed-based initiative
+- Animated HP, MP, XP, and enemy health changes
+- Six playable classes with four subclasses each
+- 104-node constellation skill tree per class, 624 nodes total
+- Active skills, passives, branching paths, notables, and capstones
+- Inventory and ten equipment slots
+- Randomized loot with seven rarity tiers
+- Elemental damage, advantages, and resistances
+- Experience, leveling, gold, and stat progression
+- Procedurally generated dungeon encounters and events
+- Normal, Hard, and Nightmare difficulty
 - Shops and merchants
-- Boss encounters
-- RNG-driven gameplay with high replayability
+- Boss encounters with phases and unique behavior
+- Crafting
+- Automatic local saving
+- JSON save export and import
 - Modular architecture for adding new content
-- Runs entirely in the browser—no installation required
-- Crafting *(Work in Progress)*
+- Runs entirely in the browser
 
 ---
 
 ## Planned Features
 
-- Saving
 - Additional classes
-- More skill trees
 - Advanced crafting and enchanting
 - Pets and companions
 - Prestige system
 - Dynamic events
-- Difficulty modifiers
+- Additional difficulty modifiers
 - Seasonal content
 - Achievements
 - Story campaigns
@@ -46,6 +49,7 @@ The project is actively developed in my spare time and will continue to grow wit
 - Multiplayer-inspired asynchronous features
 
 ---
+
 ## Play Now
 
 The latest playable development build of **Deepward** is available below.
@@ -53,7 +57,9 @@ The latest playable development build of **Deepward** is available below.
 **Play here:** https://paparoni.github.io/Deepward/
 
 > **Note:** This is the latest development version and may contain unfinished features, balance changes, or bugs as new content is actively being added.
+
 ---
+
 ## Tech Stack
 
 - HTML5
@@ -73,7 +79,7 @@ Simply clone the repository and open `index.html`.
 Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/deepward.git
+git clone https://github.com/Paparoni/Deepward.git
 ```
 
 Open the project:
@@ -86,14 +92,14 @@ Or host it with any static web server.
 
 ---
 
-
-
 ## Character Progression
 
 Players can:
 
 - Choose from unique classes
-- Unlock powerful skills
+- Explore four subclasses per class
+- Spend skill points across large connected skill trees
+- Unlock powerful active skills and passives
 - Build around different playstyles
 - Find increasingly rare equipment
 - Customize their character through gear and talents
@@ -108,21 +114,33 @@ Deepward features randomized equipment with rarity tiers:
 - Common
 - Uncommon
 - Rare
-- Epic
+- Ultra Rare
+- Unique
 - Legendary
-- Mythic
+- Mythic Legendary
 
 Equipment includes:
 
 - Weapons
-- Shields
 - Helmets
 - Chest Armor
-- Gloves
+- Leg Armor
+- Arm Guards
+- Off-Hands
 - Boots
-- Rings
-- Amulets
-- Consumables
+- Accessories
+- Artifacts
+
+---
+
+## Saving
+
+- Automatic browser saving through `localStorage`
+- Manual local save control
+- JSON save export
+- JSON save import
+- Loading resumes safely in town
+- Character progression, equipment, inventory, recipes, and materials are preserved
 
 ---
 
@@ -148,18 +166,20 @@ Feel free to open an issue or submit a pull request.
 
 ## Roadmap
 
-- [ ] Core combat system
+- [x] Core combat system
 - [x] Inventory
-- [ ] Equipment
-- [ ] Classes
-- [ ] Skill trees
-- [ ] Loot generation
-- [ ] Merchants
+- [x] Equipment
+- [x] Classes
+- [x] Skill trees
+- [x] Loot generation
+- [x] Merchants
 - [ ] Quests
-- [ ] Save system
-- [ ] Procedural dungeons
-- [ ] Boss fights
-- [ ] Crafting
+- [x] Save system
+- [x] Procedural dungeons
+- [x] Boss fights
+- [x] Crafting
+- [ ] Pets and companion system
+- [ ] Story campaign
 - [ ] Endgame content
 
 ---
@@ -167,5 +187,3 @@ Feel free to open an issue or submit a pull request.
 ## License
 
 This project is licensed under the Apache License 2.0.
-
----
