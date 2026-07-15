@@ -887,7 +887,28 @@ const Engine = {
       state.combat=null; state.mode='explore';
     } else if(result==='defeat'){
       state.combat=null; state.mode='defeat';
+      const eligible=state.inventory.filter(item=>!item.crafted&&item.tier!=='mythic_legendary');
+      const lostItem=eligible.length?U.pick(eligible):null;
+      state.ui.deathPenalty={
+        goldLost:Math.floor(state.player.gold*.25),
+        xpLost:Math.floor(state.player.xp*.20),
+        itemUid:lostItem?.uid||null,
+        itemName:lostItem?.name||null,
+      };
     }
+  },
+
+  applyDeathPenalty(state){
+    const penalty=state.ui.deathPenalty;
+    if(!penalty)return null;
+    state.player.gold=Math.max(0,state.player.gold-penalty.goldLost);
+    state.player.xp=Math.max(0,state.player.xp-penalty.xpLost);
+    if(penalty.itemUid)state.inventory=state.inventory.filter(item=>item.uid!==penalty.itemUid);
+    Metrics.count('deathPenalties','goldLost',penalty.goldLost);
+    Metrics.count('deathPenalties','xpLost',penalty.xpLost);
+    if(penalty.itemUid)Metrics.count('deathPenalties','itemsLost');
+    state.ui.deathPenalty=null;
+    return penalty;
   },
 
   // shows an item card with Pick up / Leave choices; afterFn(state) runs once resolved

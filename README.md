@@ -47,8 +47,9 @@ The project is actively developed in my spare time and will continue to grow wit
 - [ ] Localization
 - [x] Loot generation
 - [x] Merchants
-- [ ] Multiplayer-inspired asynchronous features
+- [ ] Multiplayer systems including asynchronous challenges, leaderboards, trading, and cooperative play
 - [ ] Pets and companion system
+- [ ] Player-versus-player (PvP) combat
 - [ ] Prestige system
 - [x] Procedural dungeons
 - [ ] Quests

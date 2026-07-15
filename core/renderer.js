@@ -244,7 +244,10 @@ function renderChoices(s){
 function renderScene(s){
   let inner='';
   if(s.mode==='combat') inner = renderCombat(s);
-  else if(s.mode==='defeat') inner = `${renderLog(s)}<div class="choices"><p class="log-bad">You wake later, dragged from the dungeon by unseen hands. Some gold was lost.</p><button class="btn btn-primary" onclick="onDefeatContinue()">Return to Town</button></div>`;
+  else if(s.mode==='defeat'){
+    const p=s.ui.deathPenalty||{goldLost:0,xpLost:0,itemName:null};
+    inner=`${renderLog(s)}<div class="choices"><div class="death-penalty"><b>THE DEPTHS TAKE THEIR DUE</b><p>Defeat costs <strong>${p.goldLost} gold</strong> and <strong>${p.xpLost} current-level XP</strong>.</p>${p.itemName?`<p>One unprotected carried item will also be lost: <strong>${U.escapeHtml(p.itemName)}</strong>.</p>`:`<p>No eligible carried item can be claimed. Equipped, crafted, and Mythic Legendary gear is protected.</p>`}<small>Equipped gear, Soulforge creations, and Mythic Legendary items are never lost.</small></div><button class="btn btn-danger" onclick="onDefeatContinue()">Accept the Loss and Return</button></div>`;
+  }
   else if(s.mode==='complete') inner = `${renderLog(s)}<div class="choices"><p class="log-good">The dungeon falls silent. You've cleared it.</p><button class="btn btn-primary" onclick="onDungeonComplete()">Return to Town</button></div>`;
   else inner = renderChoices(s);
   return `<div class="panel scene">
@@ -517,7 +520,7 @@ function renderSystemOverlay(s){
     <div class="system-body"><h3>Combat Presentation</h3><div class="segmented">${['fast','normal','cinematic'].map(p=>`<button class="${pace===p?'selected':''}" onclick="setCombatPace('${p}')">${p}</button>`).join('')}</div>
     <label class="setting-toggle"><span><b>Reduce motion</b><small>Disables interface animations and pulsing effects.</small></span><input type="checkbox" ${s.settings?.reduceMotion?'checked':''} onchange="toggleReduceMotion()"></label>
     <h3>Save Management</h3><div class="menu-actions"><button class="btn" onclick="saveGame()">Save locally</button><button class="btn" onclick="exportSave()">Export JSON</button><button class="btn" onclick="chooseSaveImport()">Import JSON</button></div>
-    <details class="developer-options"><summary>Developer Options</summary><div class="developer-body"><p>Balance telemetry is stored only in this browser.</p><div class="metric-grid"><span><b>${metrics.battles}</b>Battles</span><span><b>${metrics.winRate}%</b>Win rate</span><span><b>${metrics.avgRounds}</b>Avg. rounds</span><span><b>${metrics.damageDealt}</b>Damage dealt</span><span><b>${metrics.damageTaken}</b>Damage taken</span><span><b>${metrics.deaths}</b>Deaths</span><span><b>${metrics.items}</b>Items seen</span></div><div class="menu-actions"><button class="btn btn-primary" onclick="exportMetrics()">Export Metrics</button><button class="btn btn-danger" onclick="resetMetrics()">Reset Metrics</button></div></div></details>
+    <details class="developer-options"><summary>Developer Options</summary><div class="developer-body"><p>Balance telemetry is stored only in this browser.</p><div class="metric-grid"><span><b>${metrics.battles}</b>Battles</span><span><b>${metrics.winRate}%</b>Win rate</span><span><b>${metrics.avgRounds}</b>Avg. rounds</span><span><b>${metrics.damageDealt}</b>Damage dealt</span><span><b>${metrics.damageTaken}</b>Damage taken</span><span><b>${metrics.deaths}</b>Deaths</span><span><b>${metrics.items}</b>Items seen</span></div><div class="menu-actions"><a class="btn" href="developer.html" target="_blank" rel="noopener">Developer Docs</a><button class="btn btn-primary" onclick="exportMetrics()">Export Metrics</button><button class="btn btn-danger" onclick="resetMetrics()">Reset Metrics</button></div></div></details>
     <div class="system-note">Combat settings and character progress are included in your save.</div></div>
   </div></div>`;
 }

@@ -86,7 +86,12 @@ function onBuyItem(i, price){
 }
 function onLeaveMerchant(){ Engine.finishRoom(STATE); render(); }
 function onDefeatContinue(){
-  STATE.player.gold = Math.floor(STATE.player.gold*0.7);
+  const penalty=Engine.applyDeathPenalty(STATE);
+  if(penalty){
+    const losses=[`${penalty.goldLost} gold`,`${penalty.xpLost} XP`];
+    if(penalty.itemName)losses.push(penalty.itemName);
+    Engine.log(STATE,`The depths claim ${losses.join(', ')}.`,'bad');
+  }
   returnToTown();
 }
 function onDungeonComplete(){ returnToTown(); }
