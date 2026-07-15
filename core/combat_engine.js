@@ -61,6 +61,19 @@ const EFFECT_HANDLERS = {
   cooldownOnKill:(ctx,v)=>{if(ctx.direction==='outgoing'&&ctx.target.hp<=ctx.damage)for(const id of Object.keys(ctx.player.skillCooldowns))ctx.player.skillCooldowns[id]=Math.max(0,ctx.player.skillCooldowns[id]-v);},
   fateMomentum:()=>{},
   statusEcho:(ctx,v)=>{if(ctx.direction==='outgoing'&&Math.random()*100<v)ctx.statusEcho=true;},
+  worldsplitter:(ctx,v)=>{if(ctx.direction==='outgoing'){ctx.damage=Math.round(ctx.damage*(1+(ctx.combo||0)*v/100));ctx.combat._worldHits=(ctx.combat._worldHits||0)+1;if(ctx.combat._worldHits%3===0){for(const enemy of ctx.combat.monsters)if(enemy.hp>0&&enemy!==ctx.target){const cleave=Math.max(1,Math.round(ctx.damage*.6));enemy.hp=Math.max(0,enemy.hp-cleave);Metrics.addTotal('damageDealt',cleave);Metrics.combatFlow(ctx.combat,'dealt',cleave,enemy);}ctx.notes.push('Worldsplitter tears through the enemy line.');}}},
+  dawnkeep:(ctx,v)=>{if(ctx.direction==='incoming'&&ctx.combat._dawnkeepRound!==ctx.combat.round){ctx.combat._dawnkeepRound=ctx.combat.round;ctx.damage=0;ctx.combat.elementalWard=Math.min(Math.round(ctx.maxHp*.4),(ctx.combat.elementalWard||0)+Math.round(ctx.maxHp*v/100));ctx.notes.push('Dawnkeep converts the blow into radiant protection.');}},
+  mourningCovenant:(ctx,v)=>{if(ctx.direction==='outgoing'){ctx.player.hp=Math.min(ctx.maxHp,ctx.player.hp+Math.round(ctx.damage*v/100));ctx.target._ailments||={};const doom=ctx.target._ailments.doom||{name:'Doom Mark',stacks:0};doom.stacks=Math.min(5,doom.stacks+1);ctx.target._ailments.doom=doom;}},
+  basiliskCrown:(ctx,v)=>{if(ctx.direction==='outgoing'){ctx.target._ailments||={};const toxin=ctx.target._ailments.toxin||{name:'Toxin',stacks:0,damage:Math.max(1,Math.round(ctx.damage*.06))};toxin.stacks=Math.min(5,toxin.stacks+v);ctx.target._ailments.toxin=toxin;if(toxin.stacks>=5){ctx.target._stunned=true;ctx.notes.push('Basilisk Apotheosis petrifies the poisoned target.');}}},
+  phoenixAscension:(ctx,v)=>{if(ctx.player.hp<=0&&!ctx.player._revivedThisFight){ctx.player._revivedThisFight=true;ctx.player.hp=Math.round(ctx.maxHp*v/100);for(const stat of ['atk','def','matk','mdef','spd','hitEff','hitRes'])ctx.combat.buffs.push({stat,pct:50,name:'Phoenix Ascension'});ctx.notes.push('Phoenix Ascension raises every core stat by 50%!');}},
+  riftsong:(ctx,v)=>{if(ctx.direction==='outgoing'&&Math.random()*100<v){ctx.echo=Math.round(ctx.damage*.5);ctx.target._ailments||={};const chill=ctx.target._ailments.chill||{name:'Chill',stacks:0};chill.stacks++;ctx.target._ailments.chill=chill;if(chill.stacks>=3){ctx.target._stunned=true;delete ctx.target._ailments.chill;}ctx.notes.push('Riftsong answers in a freezing echo.');}},
+  colossusLaw:(ctx,v)=>{if(ctx.direction==='incoming'){const cap=Math.round(ctx.maxHp*v/100);if(ctx.damage>cap){ctx.combat._colossusBank=(ctx.combat._colossusBank||0)+(ctx.damage-cap);ctx.damage=cap;ctx.notes.push('Colossus Law stores the prevented force.');}}else if(ctx.direction==='outgoing'&&ctx.combat._colossusBank){ctx.damage+=ctx.combat._colossusBank;ctx.combat._colossusBank=0;}},
+  abyssalHunger:(ctx,v)=>{if(ctx.direction==='outgoing'){const ailments=Object.keys(ctx.target._ailments||{}).length;ctx.damage=Math.round(ctx.damage*(1+ailments*v/100));}},
+  reaperSeal:(ctx,v)=>{if(ctx.direction==='outgoing'&&ctx.target.hp/ctx.target.maxHp*100<=v){if(ctx.target.isBoss)ctx.damage=Math.round(ctx.damage*1.35);else ctx.damage=ctx.target.hp;ctx.notes.push('Final Destination closes around its victim.');}},
+  voidwroughtHaste:(ctx,v)=>{if(ctx.direction==='outgoing'){ctx.combat._voidHits=(ctx.combat._voidHits||0)+1;ctx.combat.buffs.push({stat:'spd',pct:v,name:'Voidwrought Velocity'});if(ctx.combat._voidHits%5===0)ctx.combat._voidExtraReady=true;}},
+  emberCommunion:(ctx,v)=>{if(ctx.direction==='outgoing'&&ctx.target.hp<=ctx.damage){ctx.player.hp=Math.min(ctx.maxHp,ctx.player.hp+Math.round(ctx.maxHp*v/100));for(const enemy of ctx.combat.monsters)if(enemy.hp>0&&enemy!==ctx.target){enemy._ailments||={};enemy._ailments.burn={name:'Burn',stacks:3,turns:3,damage:Math.max(1,Math.round(ctx.damage*.1))};}ctx.notes.push('Ember Communion ignites every survivor.');}},
+  absoluteZero:(ctx,v)=>{if(ctx.direction==='incoming'){ctx.damage=Math.round(ctx.damage*(1-v/100));ctx.combat._zeroHits=(ctx.combat._zeroHits||0)+1;if(ctx.combat._zeroHits%3===0){ctx.attacker._stunned=true;ctx.notes.push('Absolute Zero freezes the attacker.');}}},
+  stormcaller:(ctx,v)=>{if(ctx.direction==='outgoing'){ctx.player.mp=Math.min(ctx.maxMp,ctx.player.mp+Math.max(1,Math.round((ctx.maxMp-ctx.player.mp)*v/100)));const other=ctx.combat.monsters.find(m=>m.hp>0&&m!==ctx.target);if(other){const arc=Math.max(1,Math.round(ctx.damage*.45));other.hp=Math.max(0,other.hp-arc);Metrics.addTotal('damageDealt',arc);Metrics.combatFlow(ctx.combat,'dealt',arc,other);ctx.notes.push(`Stormcaller arcs ${arc} damage into ${other.name}.`);}}},
 };
 
 // -- active-skill action types (used by class skill trees, see [1] CLASSES) --------
@@ -354,8 +367,10 @@ const Engine = {
 
   // mythic 'extraTurnChance' trait: a chance to immediately repeat the action for free
   maybeExtraAction(state, actionFn){
-    const t = state.derived.traits.find(x=>x.type==='extraTurnChance');
-    if(t && Math.random()*100<t.value){
+    const t = state.derived.traits.find(x=>x.type==='extraTurnChance'||x.type==='tempestStep');
+    const voidReady=!!state.combat?._voidExtraReady;
+    if(voidReady)state.combat._voidExtraReady=false;
+    if(voidReady||(t && Math.random()*100<t.value)){
       this.log(state, 'Time loops back — you act again!', 'good');
       actionFn();
     }
@@ -675,10 +690,10 @@ const Engine = {
     if(state.player.hp<=0){
       let revived=false;
       for(const t of state.derived.traits){
-        if(t.type==='revive' || t.type==='reviveOncePerFight'){
-          const ctx={player:state.player, maxHp:state.derived.maxHp};
+        if(t.type==='revive' || t.type==='reviveOncePerFight' || t.type==='phoenixAscension'){
+          const ctx={player:state.player,maxHp:state.derived.maxHp,maxMp:state.derived.maxMp,combat:c,derived:state.derived,notes:[]};
           EFFECT_HANDLERS[t.type](ctx, t.value);
-          if(ctx.player.hp>0) revived=true;
+          if(ctx.player.hp>0){revived=true;if(ctx.notes.length)this.log(state,ctx.notes.join(' '),'good');}
         }
       }
       if(!revived){ this.log(state,'You collapse — the dungeon has beaten you.', 'bad'); this.endCombat(state,'defeat'); return; }
