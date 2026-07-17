@@ -1,50 +1,53 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>DEEPWARD</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="ui/deepward-style.css">
-<script>
-const scripts = [
-    "core/utilities.js",
-    "core/balance_tuning.js",
-    "core/stats.js",
-    "core/gear.js",
-    "core/traits.js",
-    "core/crafting.js",
-    "core/mobs.js",
-    "core/naming.js",
-    "core/classes.js",
-    "core/state.js",
-    "core/generators.js",
-    "core/event_handlers.js",
-    "core/metrics.js",
-    "core/combat_engine.js",
-    "core/save_system.js",
-    "core/renderer.js",
-    "core/event_wiring.js"
-];
+  <head>
+    <meta charset="UTF-8" />
+    <title>DEEPWARD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="ui/deepward-style.css" />
+    <script>
+      const scripts = [
+        'core/utilities.js',
+        'core/balance_tuning.js',
+        'core/stats.js',
+        'core/gear.js',
+        'core/traits.js',
+        'core/crafting.js',
+        'core/mobs.js',
+        'core/naming.js',
+        'core/classes.js',
+        'core/state.js',
+        'core/generators.js',
+        'core/event_handlers.js',
+        'core/metrics.js',
+        'core/combat_engine.js',
+        'core/save_system.js',
+        'core/renderer.js',
+        'core/event_wiring.js',
+      ];
 
-async function loadScriptsInOrder(){
-    for(const src of scripts){
-        await new Promise((resolve, reject) => {
-            const script = document.createElement("script");
+      async function loadScriptsInOrder() {
+        for (const src of scripts) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
             script.src = src;
             script.onload = resolve;
             script.onerror = () => reject(new Error(`Failed to load ${src}`));
             document.head.appendChild(script);
-        });
-    }
-    console.log("All game scripts loaded.");
-}
-
-</script>
-<body>
-<div id="app"></div>
-<script>
-loadScriptsInOrder().catch(error => console.error(error));
-</script>
-</body>
+          });
+        }
+        console.log('All game scripts loaded.');
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script>
+      loadScriptsInOrder().catch((error) => console.error(error));
+    </script>
+  </body>
 </html>

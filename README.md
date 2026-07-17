@@ -32,7 +32,7 @@ The project is actively developed in my spare time and will continue to grow wit
 - JSON save export and import
 - Modular architecture for adding new content
 - Runs entirely in the browser
-- Crafting *(Work in Progress)*
+- Crafting _(Work in Progress)_
 
 ## Roadmap
 
@@ -162,7 +162,7 @@ Equipment includes:
 
 Contributions are welcome!
 
-Detailed Documentation here: 
+Detailed Documentation here:
 https://paparoni.github.io/Deepward/developer.html
 
 Ideas include:

@@ -1,73 +1,95 @@
-/* ============================================================
-  RENDERING (vanilla DOM strings — re-render on every action)
-   ============================================================ */
-function esc(s){ return String(s); }
-
-function animatedBar(state,key,pct,kind){
-  state.ui.barHistory ||= {};
-  const now=U.clamp(pct,0,100), before=state.ui.barHistory[key]??now;
-  state.ui.barHistory[key]=now;
-  const changed=Math.abs(now-before)>.01;
-  return `<div class="bar-fill ${kind}${changed?' bar-changing':''}" style="width:${now}%;--bar-from:${before}%;--bar-to:${now}%"></div>`;
+function esc(s) {
+  return String(s);
 }
 
-function renderStatBlock(state, weaponElement){
+function animatedBar(state, key, pct, kind) {
+  state.ui.barHistory ||= {};
+  const now = U.clamp(pct, 0, 100),
+    before = state.ui.barHistory[key] ?? now;
+  state.ui.barHistory[key] = now;
+  const changed = Math.abs(now - before) > 0.01;
+  return `<div class="bar-fill ${kind}${changed ? ' bar-changing' : ''}" style="width:${now}%;--bar-from:${before}%;--bar-to:${now}%"></div>`;
+}
+
+function renderStatBlock(state, weaponElement) {
   const derived = state.derived;
-  const rows = CORE_STATS.map(stat=>{
-    const mods = Engine.statModifiers(state,stat.id);
-    const pct = mods.reduce((sum,m)=>sum+(m.pct||0),0);
-    const flat = mods.reduce((sum,m)=>sum+(m.flat||0),0);
-    const details = mods.map(m=>`${m.name}: ${m.pct!=null?U.fmtSigned(m.pct)+'%':U.fmtSigned(m.flat)+' '+stat.short}`).join('\n');
-    const badges = `${pct?`<span class="stat-mod ${pct<0?'negative':'positive'}" title="${U.escapeHtml(details)}">${U.fmtSigned(pct)}%</span>`:''}${flat?`<span class="stat-mod ${flat<0?'negative':'positive'}" title="${U.escapeHtml(details)}">${U.fmtSigned(flat)}</span>`:''}`;
-    const value = state.mode==='combat' ? Engine.effectiveStat(state,stat.id) : derived[stat.id];
+  const rows = CORE_STATS.map((stat) => {
+    const mods = Engine.statModifiers(state, stat.id);
+    const pct = mods.reduce((sum, m) => sum + (m.pct || 0), 0);
+    const flat = mods.reduce((sum, m) => sum + (m.flat || 0), 0);
+    const details = mods
+      .map(
+        (m) =>
+          `${m.name}: ${m.pct != null ? U.fmtSigned(m.pct) + '%' : U.fmtSigned(m.flat) + ' ' + stat.short}`,
+      )
+      .join('\n');
+    const badges = `${pct ? `<span class="stat-mod ${pct < 0 ? 'negative' : 'positive'}" title="${U.escapeHtml(details)}">${U.fmtSigned(pct)}%</span>` : ''}${flat ? `<span class="stat-mod ${flat < 0 ? 'negative' : 'positive'}" title="${U.escapeHtml(details)}">${U.fmtSigned(flat)}</span>` : ''}`;
+    const value = state.mode === 'combat' ? Engine.effectiveStat(state, stat.id) : derived[stat.id];
     return `<div class="stat-row"><span>${stat.short}</span><b>${value} ${badges}</b></div>`;
   }).join('');
-  const elemRows = ELEMENT_STATS.map(s=>{
-    const active = s.element===weaponElement;
-    return `<div class="stat-row" style="${active?'color:var(--ember)':''}"><span>${s.short}${active?' ★':''}</span><b>+${derived[s.id]||0}%</b></div>`;
+  const elemRows = ELEMENT_STATS.map((s) => {
+    const active = s.element === weaponElement;
+    return `<div class="stat-row" style="${active ? 'color:var(--ember)' : ''}"><span>${s.short}${active ? ' â˜…' : ''}</span><b>+${derived[s.id] || 0}%</b></div>`;
   }).join('');
-  const traits = derived.traits.map(t=>`<span class="trait-tag" title="${typeof t.desc==='function'?'':t.desc}">${t.name}</span>`).join('');
+  const traits = derived.traits
+    .map(
+      (t) => `<span class="trait-tag" title="${typeof t.desc === 'function' ? '' : t.desc}">${t.name}</span>`,
+    )
+    .join('');
   return `
     <div class="statsheet">
       ${rows}
-      <div class="panel-title" style="border:none;padding:10px 0 4px;font-size:10.5px;">Bonus Damage <span class="small">(★ active with your weapon)</span></div>
+      <div class="panel-title" style="border:none;padding:10px 0 4px;font-size:10.5px;">Bonus Damage <span class="small">(â˜… active with your weapon)</span></div>
       ${elemRows}
-      ${derived.traits.length? `<div style="margin-top:8px;">${traits}</div>`:''}
+      ${derived.traits.length ? `<div style="margin-top:8px;">${traits}</div>` : ''}
     </div>`;
 }
 
-function tierGlowStyle(tierId){
+function tierGlowStyle(tierId) {
   const t = TIER_BY_ID[tierId];
   return `style="--glow:${t.color};border-color:${t.color}"`;
 }
 
-function renderItemCard(item, actions, extra=''){
+function renderItemCard(item, actions, extra = '') {
   const t = TIER_BY_ID[item.tier];
-  const coreEntries = Object.entries(item.stats).filter(([k])=>!k.endsWith('Dmg'));
-  const elemEntries = Object.entries(item.stats).filter(([k])=>k.endsWith('Dmg'));
-  const statLines = coreEntries.map(([k,v])=>{
-    const s = STAT_BY_ID[k];
-    return `<div>${s.short}: ${U.fmtSigned(v)}</div>`;
-  }).join('');
-  const bonusLines = elemEntries.map(([k,v])=>{
-    const s = STAT_BY_ID[k];
-    return `<div>${s.short}: +${v}%</div>`;
-  }).join('');
-  const traitLines = item.uniqueTraits.map(t2=>`<div class="item-trait uniquetrait">✦ ${t2.name} — ${t2.desc}</div>`).join('');
-  const mythicLine = item.mythicTrait ? `<div class="item-trait mythictrait">★ ${item.mythicTrait.name} — ${item.mythicTrait.desc}</div>` : '';
-  const glowClass = item.tier==='mythic_legendary' ? 'tier-glow mythic-border' : (['unique','legendary'].includes(item.tier) ? 'tier-glow' : '');
+  const coreEntries = Object.entries(item.stats).filter(([k]) => !k.endsWith('Dmg'));
+  const elemEntries = Object.entries(item.stats).filter(([k]) => k.endsWith('Dmg'));
+  const statLines = coreEntries
+    .map(([k, v]) => {
+      const s = STAT_BY_ID[k];
+      return `<div>${s.short}: ${U.fmtSigned(v)}</div>`;
+    })
+    .join('');
+  const bonusLines = elemEntries
+    .map(([k, v]) => {
+      const s = STAT_BY_ID[k];
+      return `<div>${s.short}: +${v}%</div>`;
+    })
+    .join('');
+  const traitLines = item.uniqueTraits
+    .map((t2) => `<div class="item-trait uniquetrait">âœ¦ ${t2.name} â€” ${t2.desc}</div>`)
+    .join('');
+  const mythicLine = item.mythicTrait
+    ? `<div class="item-trait mythictrait">â˜… ${item.mythicTrait.name} â€” ${item.mythicTrait.desc}</div>`
+    : '';
+  const glowClass =
+    item.tier === 'mythic_legendary'
+      ? 'tier-glow mythic-border'
+      : ['unique', 'legendary'].includes(item.tier)
+        ? 'tier-glow'
+        : '';
   return `
     <div class="item-card ${glowClass}" ${tierGlowStyle(item.tier)}>
       <div class="item-name" style="color:${t.color}">${item.name}</div>
-      <div class="item-meta">${t.name.toUpperCase()} · ${item.slotLabel} · ilvl ${item.ilvl}${item.slot==='weapon'?' · '+item.element.toUpperCase()+' DMG':''}</div>
+      <div class="item-meta">${t.name.toUpperCase()} Â· ${item.slotLabel} Â· ilvl ${item.ilvl}${item.slot === 'weapon' ? ' Â· ' + item.element.toUpperCase() + ' DMG' : ''}</div>
       <div class="item-stats">${statLines || '<span class="small">(no core stats)</span>'}</div>
-      ${elemEntries.length? `<div class="item-stats" style="margin-top:5px;color:var(--ember)"><b>Bonus Damage:</b>${bonusLines}</div>` : ''}
+      ${elemEntries.length ? `<div class="item-stats" style="margin-top:5px;color:var(--ember)"><b>Bonus Damage:</b>${bonusLines}</div>` : ''}
       ${traitLines}${mythicLine}${extra}
-      ${actions? `<div class="item-actions">${actions}</div>` : ''}
+      ${actions ? `<div class="item-actions">${actions}</div>` : ''}
     </div>`;
 }
 
-function renderHud(s){
+function renderHud(s) {
   const d = s.derived;
   const xpNeed = BALANCE.xpToNext(s.player.level);
   const diffLabel = s.dungeon ? BALANCE.difficulties[s.dungeon.difficultyId].label : '';
@@ -79,31 +101,31 @@ function renderHud(s){
     </div>
     <div class="bar-wrap">
       <div class="bar-label"><span>HP</span><span>${s.player.hp}/${d.maxHp}</span></div>
-      <div class="bar-track">${animatedBar(s,'player-hp',s.player.hp/d.maxHp*100,'bar-hp')}</div>
+      <div class="bar-track">${animatedBar(s, 'player-hp', (s.player.hp / d.maxHp) * 100, 'bar-hp')}</div>
     </div>
     <div class="bar-wrap">
       <div class="bar-label"><span>MP</span><span>${s.player.mp}/${d.maxMp}</span></div>
-      <div class="bar-track">${animatedBar(s,'player-mp',s.player.mp/d.maxMp*100,'bar-mp')}</div>
+      <div class="bar-track">${animatedBar(s, 'player-mp', (s.player.mp / d.maxMp) * 100, 'bar-mp')}</div>
     </div>
     <div class="bar-wrap">
       <div class="bar-label"><span>XP</span><span>${s.player.xp}/${xpNeed}</span></div>
-      <div class="bar-track">${animatedBar(s,'player-xp',s.player.xp/xpNeed*100,'bar-xp')}</div>
+      <div class="bar-track">${animatedBar(s, 'player-xp', (s.player.xp / xpNeed) * 100, 'bar-xp')}</div>
     </div>
-    ${diffLabel? `<div class="hud-diff">${diffLabel}</div>`:''}
+    ${diffLabel ? `<div class="hud-diff">${diffLabel}</div>` : ''}
     <div class="save-controls"><button onclick="toggleCharacter()">Character</button><button onclick="toggleSystemMenu()">Menu</button><button onclick="saveGame()">Save</button><button onclick="exportSave()">Export</button><button onclick="chooseSaveImport()">Import</button></div>
     <input id="saveImportInput" type="file" accept="application/json,.json" hidden onchange="importSave(this)">
-    <div class="hud-gold">⛁ ${s.player.gold} gold</div>
+    <div class="hud-gold">â› ${s.player.gold} gold</div>
   </div>`;
 }
 
-function slotTooltip(slot, item){
-  if(!item) return `${slot.label} — empty. Click to equip something.`;
+function slotTooltip(slot, item) {
+  if (!item) return `${slot.label} â€” empty. Click to equip something.`;
   const t = TIER_BY_ID[item.tier];
-  const coreEntries = Object.entries(item.stats).filter(([k])=>!k.endsWith('Dmg'));
-  const elemEntries = Object.entries(item.stats).filter(([k])=>k.endsWith('Dmg'));
-  const statLines = coreEntries.map(([k,v])=>`${STAT_BY_ID[k].short} ${U.fmtSigned(v)}`).join(', ');
-  const bonusLines = elemEntries.map(([k,v])=>`${STAT_BY_ID[k].short} +${v}%`).join(', ');
-  const traitLines = item.uniqueTraits.map(t2=>`${t2.name}: ${t2.desc}`).join(' | ');
+  const coreEntries = Object.entries(item.stats).filter(([k]) => !k.endsWith('Dmg'));
+  const elemEntries = Object.entries(item.stats).filter(([k]) => k.endsWith('Dmg'));
+  const statLines = coreEntries.map(([k, v]) => `${STAT_BY_ID[k].short} ${U.fmtSigned(v)}`).join(', ');
+  const bonusLines = elemEntries.map(([k, v]) => `${STAT_BY_ID[k].short} +${v}%`).join(', ');
+  const traitLines = item.uniqueTraits.map((t2) => `${t2.name}: ${t2.desc}`).join(' | ');
   const mythicLine = item.mythicTrait ? `${item.mythicTrait.name}: ${item.mythicTrait.desc}` : '';
   return [
     `${item.name} (${t.name})`,
@@ -112,16 +134,18 @@ function slotTooltip(slot, item){
     traitLines,
     mythicLine,
     'Click to view, remove, or change.',
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
-function renderSlots(s){
-  const html = SLOTS.map(slot=>{
+function renderSlots(s) {
+  const html = SLOTS.map((slot) => {
     const item = s.equipment[slot.id];
     const t = item ? TIER_BY_ID[item.tier] : null;
     return `<div class="slot" onclick="onSlotClick('${slot.id}')" title="${U.escapeHtml(slotTooltip(slot, item))}">
       <div class="slot-label">${slot.label}</div>
-      ${item ? `<div class="slot-item" style="color:${t.color}">${item.name}</div>` : `<div class="slot-empty">— empty —</div>`}
+      ${item ? `<div class="slot-item" style="color:${t.color}">${item.name}</div>` : `<div class="slot-empty">â€” empty â€”</div>`}
     </div>`;
   }).join('');
   const tabs = `<div class="panel-tabs">
@@ -136,209 +160,313 @@ function renderSlots(s){
     </div>`;
 }
 
-function renderDepthTrack(s){
-  if(!s.dungeon) return '';
-  const nodes = s.dungeon.roomTypes.map((type,i)=>{
-    let cls='depth-node';
-    if(i<s.dungeon.currentIndex) cls+=' done';
-    else if(i===s.dungeon.currentIndex) cls+=' current';
-    if(type==='boss') cls+=' boss';
-    return `<div class="${cls}" title="Room ${i+1}: ${type}"><span>${i+1}</span></div>`;
-  }).join('');
-  const laws=(s.dungeon.mutators||[]).map(m=>`<span class="depth-law" title="${U.escapeHtml(m.desc)}">✦ ${U.escapeHtml(m.name)}</span>`).join('');
-  const boons=(s.dungeon.boons||[]).map(b=>`<span class="depth-law boon-law" title="${U.escapeHtml(b.desc)}">◆ ${U.escapeHtml(b.name)}</span>`).join('');
-  const floor=Math.min(s.dungeon.currentIndex+1,s.dungeon.roomCount);
-  return `<section class="run-status"><header><div><small>Current descent</small><b>Floor ${floor} <i>/ ${s.dungeon.roomCount}</i></b></div><span>${U.escapeHtml(s.dungeon.theme?.name||'The Depths')}</span></header><div class="depth-track" style="--room-count:${s.dungeon.roomCount}">${nodes}</div><div class="run-effect-grid"><div class="run-effect-group"><small>Depth Laws</small><div>${laws}</div></div><div class="run-effect-group"><small>Run Boons <em>${s.dungeon.boons?.length||0}</em></small><div>${boons||'<span class="run-empty">None claimed yet</span>'}</div></div></div></section>`;
+function renderDepthTrack(s) {
+  if (!s.dungeon) return '';
+  const nodes = s.dungeon.roomTypes
+    .map((type, i) => {
+      let cls = 'depth-node';
+      if (i < s.dungeon.currentIndex) cls += ' done';
+      else if (i === s.dungeon.currentIndex) cls += ' current';
+      if (type === 'boss') cls += ' boss';
+      return `<div class="${cls}" title="Room ${i + 1}: ${type}"><span>${i + 1}</span></div>`;
+    })
+    .join('');
+  const laws = (s.dungeon.mutators || [])
+    .map((m) => `<span class="depth-law" title="${U.escapeHtml(m.desc)}">âœ¦ ${U.escapeHtml(m.name)}</span>`)
+    .join('');
+  const boons = (s.dungeon.boons || [])
+    .map(
+      (b) =>
+        `<span class="depth-law boon-law" title="${U.escapeHtml(b.desc)}">â—† ${U.escapeHtml(b.name)}</span>`,
+    )
+    .join('');
+  const floor = Math.min(s.dungeon.currentIndex + 1, s.dungeon.roomCount);
+  return `<section class="run-status"><header><div><small>Current descent</small><b>Floor ${floor} <i>/ ${s.dungeon.roomCount}</i></b></div><span>${U.escapeHtml(s.dungeon.theme?.name || 'The Depths')}</span></header><div class="depth-track" style="--room-count:${s.dungeon.roomCount}">${nodes}</div><div class="run-effect-grid"><div class="run-effect-group"><small>Depth Laws</small><div>${laws}</div></div><div class="run-effect-group"><small>Run Boons <em>${s.dungeon.boons?.length || 0}</em></small><div>${boons || '<span class="run-empty">None claimed yet</span>'}</div></div></div></section>`;
 }
 
-function renderLog(s){
-  const combat=s.mode==='combat';
-  const entries=combat?s.log.slice(-6):s.log;
-  return `<div class="log-feed${combat?' combat-log':''}">${entries.map(l=>`<p class="log-${l.cls}">${l.html}</p>`).join('')}</div>`;
+function renderLog(s) {
+  const combat = s.mode === 'combat';
+  const entries = combat ? s.log.slice(-6) : s.log;
+  return `<div class="log-feed${combat ? ' combat-log' : ''}">${entries.map((l) => `<p class="log-${l.cls}">${l.html}</p>`).join('')}</div>`;
 }
 
-function renderCombat(s){
+function renderCombat(s) {
   const c = s.combat;
-  const monsterHtml = c.monsters.map(m=>{
-    const targeted = m.hp>0 && m.uid===c.targetUid;
-    const clickable = m.hp>0;
-    const classes = ['combatant', m.hp<=0?'dead':'', targeted?'targeted':'', m._charging?'charging':'', c.activeActor===m.uid?'acting':''].filter(Boolean).join(' ');
-    const chargeName = m._chargingMove ? m._chargingMove.name : 'a heavy blow';
-    const ailments=Object.entries(m._ailments||{}).map(([key,a])=>`<span class="enemy-ailment ailment-${key}" title="${U.escapeHtml(ELEMENTAL_AILMENTS[key==='bleed'?'physical':key==='chill'?'ice':key==='toxin'?'poison':key==='doom'?'dark':key]?.desc||a.name)}">${U.escapeHtml(a.name)}${a.stacks?` ${a.stacks}`:''}${a.turns?` · ${a.turns}r`:''}</span>`).join('');
-    return `
-    <div class="${classes}" ${clickable?`onclick="onSelectTarget('${m.uid}')" title="Target ${m.name}"`:''}>
-      <div class="combatant-name">${m.icon} ${m.name}${targeted?' <span class="target-mark">🎯</span>':''}</div>
+  const monsterHtml = c.monsters
+    .map((m) => {
+      const targeted = m.hp > 0 && m.uid === c.targetUid;
+      const clickable = m.hp > 0;
+      const classes = [
+        'combatant',
+        m.hp <= 0 ? 'dead' : '',
+        targeted ? 'targeted' : '',
+        m._charging ? 'charging' : '',
+        c.activeActor === m.uid ? 'acting' : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+      const chargeName = m._chargingMove ? m._chargingMove.name : 'a heavy blow';
+      const ailments = Object.entries(m._ailments || {})
+        .map(
+          ([key, a]) =>
+            `<span class="enemy-ailment ailment-${key}" title="${U.escapeHtml(ELEMENTAL_AILMENTS[key === 'bleed' ? 'physical' : key === 'chill' ? 'ice' : key === 'toxin' ? 'poison' : key === 'doom' ? 'dark' : key]?.desc || a.name)}">${U.escapeHtml(a.name)}${a.stacks ? ` ${a.stacks}` : ''}${a.turns ? ` Â· ${a.turns}r` : ''}</span>`,
+        )
+        .join('');
+      return `
+    <div class="${classes}" ${clickable ? `onclick="onSelectTarget('${m.uid}')" title="Target ${m.name}"` : ''}>
+      <div class="combatant-name">${m.icon} ${m.name}${targeted ? ' <span class="target-mark">ðŸŽ¯</span>' : ''}</div>
       <div class="enemy-element">${m.element.toUpperCase()} AFFINITY</div>
-      <div class="enemy-identity" title="${U.escapeHtml(m.identityDesc||m.flavor)}">${U.escapeHtml(m.identity||'Skirmisher')}</div>
-      <div class="bar-track" style="margin-top:4px;">${animatedBar(s,`monster-${m.uid}`,m.hp/m.maxHp*100,'bar-hp')}</div>
-      <div class="combatant-hp-num">${Math.max(0,m.hp)}/${m.maxHp} HP</div>
-      ${ailments?`<div class="enemy-ailments">${ailments}</div>`:''}
-      ${m._charging? `<div class="charge-tag">⚡ Channeling <b>${U.escapeHtml(chargeName)}</b> — Defend or burst it down!</div>` : ''}
+      <div class="enemy-identity" title="${U.escapeHtml(m.identityDesc || m.flavor)}">${U.escapeHtml(m.identity || 'Skirmisher')}</div>
+      <div class="bar-track" style="margin-top:4px;">${animatedBar(s, `monster-${m.uid}`, (m.hp / m.maxHp) * 100, 'bar-hp')}</div>
+      <div class="combatant-hp-num">${Math.max(0, m.hp)}/${m.maxHp} HP</div>
+      ${ailments ? `<div class="enemy-ailments">${ailments}</div>` : ''}
+      ${m._charging ? `<div class="charge-tag">âš¡ Channeling <b>${U.escapeHtml(chargeName)}</b> â€” Defend or burst it down!</div>` : ''}
     </div>`;
-  }).join('');
-  const alive = c.monsters.some(m=>m.hp>0);
-
-  // initiative preview for this round — mirrors the sort resolveRound() uses,
-  // without the per-round jitter (the jitter can swap close ties in practice).
+    })
+    .join('');
+  const alive = c.monsters.some((m) => m.hp > 0);
   const order = [
-    {name:'You', spd: Engine.effectiveStat(s,'spd'), you:true},
-    ...c.monsters.filter(m=>m.hp>0).map(m=>({name:m.name, spd:m.spd, icon:m.icon})),
-  ].sort((a,b)=>b.spd-a.spd);
-  const orderHtml = order.map(o=>`<span class="init-chip${o.you?' init-you':''}">${o.you?'🧍':o.icon} ${o.you?'You':o.name}</span>`).join('<span class="init-arrow">→</span>');
-
-  // player-facing affliction tags: negative buffs (monster debuffs) plus active DoTs
-  const debuffTags = c.buffs.filter(b=>b.pct<0).map(b=>`<span class="affliction-tag bad-tag">${U.escapeHtml(b.name)}: ${b.pct}% ${STAT_BY_ID[b.stat]?.short||b.stat}</span>`);
-  const dotTags = c.playerDots.map(d=>`<span class="affliction-tag bad-tag">${U.escapeHtml(d.name)}: ${d.dmgPerTurn}/turn (${d.turnsLeft} left)</span>`);
-  const wardTags=c.elementalWard>0?[`<span class="affliction-tag ward-tag" title="Absorbs incoming damage before HP is lost.">Radiant Ward: ${c.elementalWard}</span>`]:[];
-  const afflictionRow = (debuffTags.length||dotTags.length||wardTags.length) ? `<div class="affliction-row">${debuffTags.join('')}${dotTags.join('')}${wardTags.join('')}</div>` : '';
+    { name: 'You', spd: Engine.effectiveStat(s, 'spd'), you: true },
+    ...c.monsters.filter((m) => m.hp > 0).map((m) => ({ name: m.name, spd: m.spd, icon: m.icon })),
+  ].sort((a, b) => b.spd - a.spd);
+  const orderHtml = order
+    .map(
+      (o) =>
+        `<span class="init-chip${o.you ? ' init-you' : ''}">${o.you ? 'ðŸ§' : o.icon} ${o.you ? 'You' : o.name}</span>`,
+    )
+    .join('<span class="init-arrow">â†’</span>');
+  const debuffTags = c.buffs
+    .filter((b) => b.pct < 0)
+    .map(
+      (b) =>
+        `<span class="affliction-tag bad-tag">${U.escapeHtml(b.name)}: ${b.pct}% ${STAT_BY_ID[b.stat]?.short || b.stat}</span>`,
+    );
+  const dotTags = c.playerDots.map(
+    (d) =>
+      `<span class="affliction-tag bad-tag">${U.escapeHtml(d.name)}: ${d.dmgPerTurn}/turn (${d.turnsLeft} left)</span>`,
+  );
+  const wardTags =
+    c.elementalWard > 0
+      ? [
+          `<span class="affliction-tag ward-tag" title="Absorbs incoming damage before HP is lost.">Radiant Ward: ${c.elementalWard}</span>`,
+        ]
+      : [];
+  const afflictionRow =
+    debuffTags.length || dotTags.length || wardTags.length
+      ? `<div class="affliction-row">${debuffTags.join('')}${dotTags.join('')}${wardTags.join('')}</div>`
+      : '';
 
   const cls = CLASS_BY_ID[s.player.classId];
   const activeSkills = [
     ...(cls.innateActive ? [cls.innateActive] : []),
-    ...cls.skillTree.filter(sk=>sk.kind==='active' && s.player.unlockedSkills.includes(sk.id)),
-    ...(s.dungeon?.boons||[]).filter(boon=>boon.skill).map(boon=>boon.skill),
+    ...cls.skillTree.filter((sk) => sk.kind === 'active' && s.player.unlockedSkills.includes(sk.id)),
+    ...(s.dungeon?.boons || []).filter((boon) => boon.skill).map((boon) => boon.skill),
   ];
-  const skillButtons = activeSkills.map(sk=>{
-    const cd = s.player.skillCooldowns[sk.id]||0;
-    const manaReduction = Math.min(75,s.derived.traits.filter(t=>t.type==='manaCostReduction').reduce((sum,t)=>sum+t.value,0));
-    const cost = Math.max(0,Math.round(sk.manaCost*(1-manaReduction/100)));
-    const disabled = !alive || s.player.mp < cost || cd>0 || c.resolving;
-    const status = cd>0 ? `Ready in ${cd} round${cd===1?'':'s'}` : s.player.mp<cost ? 'Not enough MP' : 'Ready';
-    return `<button class="skill-choice" title="${U.escapeHtml(sk.desc)}" onclick="onUseSkill('${sk.id}')" ${disabled?'disabled':''}><span><b>${sk.name}</b><small>${U.escapeHtml(sk.desc)}</small></span><span class="skill-cost">${cost} MP<br><em>${status}</em></span></button>`;
-  }).join('');
-  const buffNote = c.buffs.length ? `<div class="small" style="margin:6px 0;">Active this battle: ${c.buffs.map(b=>`+${b.pct}% ${STAT_BY_ID[b.stat].short} (${b.name})`).join(', ')}</div>` : '';
+  const skillButtons = activeSkills
+    .map((sk) => {
+      const cd = s.player.skillCooldowns[sk.id] || 0;
+      const manaReduction = Math.min(
+        75,
+        s.derived.traits.filter((t) => t.type === 'manaCostReduction').reduce((sum, t) => sum + t.value, 0),
+      );
+      const cost = Math.max(0, Math.round(sk.manaCost * (1 - manaReduction / 100)));
+      const disabled = !alive || s.player.mp < cost || cd > 0 || c.resolving;
+      const status =
+        cd > 0
+          ? `Ready in ${cd} round${cd === 1 ? '' : 's'}`
+          : s.player.mp < cost
+            ? 'Not enough MP'
+            : 'Ready';
+      return `<button class="skill-choice" title="${U.escapeHtml(sk.desc)}" onclick="onUseSkill('${sk.id}')" ${disabled ? 'disabled' : ''}><span><b>${sk.name}</b><small>${U.escapeHtml(sk.desc)}</small></span><span class="skill-cost">${cost} MP<br><em>${status}</em></span></button>`;
+    })
+    .join('');
+  const buffNote = c.buffs.length
+    ? `<div class="small" style="margin:6px 0;">Active this battle: ${c.buffs.map((b) => `+${b.pct}% ${STAT_BY_ID[b.stat].short} (${b.name})`).join(', ')}</div>`
+    : '';
   return `
-    <div class="round-label">Round ${c.round}${c.resolving?'<span class="resolving-tag">Resolving…</span>':''}<span class="init-strip">${orderHtml}</span></div>
+    <div class="round-label">Round ${c.round}${c.resolving ? '<span class="resolving-tag">Resolvingâ€¦</span>' : ''}<span class="init-strip">${orderHtml}</span></div>
     <div class="combatants">${monsterHtml}</div>
     ${buffNote}
     ${afflictionRow}
     ${renderLog(s)}
     <div class="combat-action-dock"><div class="btn-row combat-actions">
-      <button class="btn btn-primary" onclick="onCombatAction('attack')" ${alive&&!c.resolving?'':'disabled'}>Attack</button>
-      <button class="btn" onclick="onCombatAction('cast')" ${alive&&!c.resolving?'':'disabled'}>Cast (Magic)</button>
-      <button class="btn skill-menu-btn" onclick="toggleCombatSkills()" ${alive&&!c.resolving&&activeSkills.length?'':'disabled'}>Skills <span class="small">(${activeSkills.length})</span></button>
-      <button class="btn" onclick="onCombatAction('defend')" ${alive&&!c.resolving?'':'disabled'} title="Sharply reduce all damage you take this round; restores a little MP.">Defend</button>
-      <button class="btn btn-danger" onclick="onCombatAction('flee')" ${alive&&!c.resolving?'':'disabled'}>Flee</button>
+      <button class="btn btn-primary" onclick="onCombatAction('attack')" ${alive && !c.resolving ? '' : 'disabled'}>Attack</button>
+      <button class="btn" onclick="onCombatAction('cast')" ${alive && !c.resolving ? '' : 'disabled'}>Cast (Magic)</button>
+      <button class="btn skill-menu-btn" onclick="toggleCombatSkills()" ${alive && !c.resolving && activeSkills.length ? '' : 'disabled'}>Skills <span class="small">(${activeSkills.length})</span></button>
+      <button class="btn" onclick="onCombatAction('defend')" ${alive && !c.resolving ? '' : 'disabled'} title="Sharply reduce all damage you take this round; restores a little MP.">Defend</button>
+      <button class="btn btn-danger" onclick="onCombatAction('flee')" ${alive && !c.resolving ? '' : 'disabled'}>Flee</button>
     </div>
-    ${c.skillMenuOpen?`<div class="combat-skill-menu"><div class="skill-menu-head"><b>Choose a skill</b><button onclick="toggleCombatSkills()">×</button></div>${skillButtons||'<div class="empty-note">No active skills learned.</div>'}</div>`:''}</div>`;
+    ${c.skillMenuOpen ? `<div class="combat-skill-menu"><div class="skill-menu-head"><b>Choose a skill</b><button onclick="toggleCombatSkills()">Ã—</button></div>${skillButtons || '<div class="empty-note">No active skills learned.</div>'}</div>` : ''}</div>`;
 }
 
-function renderMerchantPanel(s){
+function renderMerchantPanel(s) {
   const stock = s.ui.merchantStock || [];
-  const cards = stock.map((item,i)=>{
-    const price = Math.round((10+item.ilvl*3) * (1+TIERS.findIndex(t=>t.id===item.tier)*0.9));
-    return renderItemCard(item, `<button class="btn" onclick="onBuyItem(${i}, ${price})">Buy — ${price}g</button>`);
-  }).join('');
+  const cards = stock
+    .map((item, i) => {
+      const price = Math.round((10 + item.ilvl * 3) * (1 + TIERS.findIndex((t) => t.id === item.tier) * 0.9));
+      return renderItemCard(
+        item,
+        `<button class="btn" onclick="onBuyItem(${i}, ${price})">Buy â€” ${price}g</button>`,
+      );
+    })
+    .join('');
   return `
     ${renderLog(s)}
     <div style="margin-top:12px;">${cards || '<div class="empty-note">The stall is bare today.</div>'}</div>
     <div class="btn-row" style="margin-top:12px;"><button class="btn" onclick="onLeaveMerchant()">Leave the stall</button></div>`;
 }
 
-function renderChoices(s){
-  if(s.ui.choices==='merchant') return renderMerchantPanel(s);
+function renderChoices(s) {
+  if (s.ui.choices === 'merchant') return renderMerchantPanel(s);
   const choices = s.ui.choices || [];
-  if(s.ui.pendingItems?.length){
-    const cards=s.ui.pendingItems.map((item,i)=>renderItemCard(item,`<button class="btn btn-primary" onclick="onChoiceClick(${i})">Choose this item</button>`)).join('');
+  if (s.ui.pendingItems?.length) {
+    const cards = s.ui.pendingItems
+      .map((item, i) =>
+        renderItemCard(
+          item,
+          `<button class="btn btn-primary" onclick="onChoiceClick(${i})">Choose this item</button>`,
+        ),
+      )
+      .join('');
     return `${renderLog(s)}<div class="loot-choice-head"><b>Choose one reward</b><span>Unchosen gear is left in the depths.</span></div><div class="loot-choice-grid">${cards}</div><div class="choices"><button class="btn" onclick="onChoiceClick(${s.ui.pendingItems.length})">Leave all three</button></div>`;
   }
-  if(s.ui.boonChoices?.length){
-    const boons=s.ui.boonChoices.map((boon,i)=>{const power=BOON_POWER_TIERS[boon.powerTier]||BOON_POWER_TIERS.lesser,attuned=boon.buildWeight>=1.16;return `<button class="boon-card boon-${boon.powerTier}" onclick="onChoiceClick(${i})"><span style="color:${power.color}">${power.name.toUpperCase()} BOON · RANK ${boon.tier}${boon.tier>1?' · UPGRADE':''}</span>${attuned?'<i class="attuned-tag" title="This option is modestly favored by your class, stats, skills, or active element.">ATTUNED TO BUILD</i>':''}<b>${U.escapeHtml(boon.name)}</b><p>${U.escapeHtml(boon.desc)}</p><em>${boon.tier>1?'Replace the previous rank':'Claim boon'}</em></button>`;}).join('');
+  if (s.ui.boonChoices?.length) {
+    const boons = s.ui.boonChoices
+      .map((boon, i) => {
+        const power = BOON_POWER_TIERS[boon.powerTier] || BOON_POWER_TIERS.lesser,
+          attuned = boon.buildWeight >= 1.16;
+        return `<button class="boon-card boon-${boon.powerTier}" onclick="onChoiceClick(${i})"><span style="color:${power.color}">${power.name.toUpperCase()} BOON Â· RANK ${boon.tier}${boon.tier > 1 ? ' Â· UPGRADE' : ''}</span>${attuned ? '<i class="attuned-tag" title="This option is modestly favored by your class, stats, skills, or active element.">ATTUNED TO BUILD</i>' : ''}<b>${U.escapeHtml(boon.name)}</b><p>${U.escapeHtml(boon.desc)}</p><em>${boon.tier > 1 ? 'Replace the previous rank' : 'Claim boon'}</em></button>`;
+      })
+      .join('');
     return `${renderLog(s)}<div class="loot-choice-head"><b>Choose a boon</b><span>It lasts until you leave the dungeon.</span></div><div class="boon-choice-grid">${boons}</div>`;
   }
   const itemCard = s.ui.pendingItem ? renderItemCard(s.ui.pendingItem, '') : '';
   return `
     ${renderLog(s)}
     ${itemCard}
-    <div class="choices">${choices.map((c,i)=>`<button class="btn" onclick="onChoiceClick(${i})">${c.label}</button>`).join('')}</div>`;
+    <div class="choices">${choices.map((c, i) => `<button class="btn" onclick="onChoiceClick(${i})">${c.label}</button>`).join('')}</div>`;
 }
 
-function renderScene(s){
-  let inner='';
-  if(s.mode==='combat') inner = renderCombat(s);
-  else if(s.mode==='defeat'){
-    const p=s.ui.deathPenalty||{goldLost:0,xpLost:0,itemName:null,materialLosses:{}};
-    const materialLosses=Object.entries(p.materialLosses||{}).map(([id,count])=>`${MATERIAL_BY_ID[id]?.name||id}${count>1?` ×${count}`:''}`);
-    inner=`${renderLog(s)}<div class="choices"><div class="death-penalty"><b>THE DEPTHS TAKE THEIR DUE</b><p>Defeat costs <strong>${p.goldLost} gold</strong> and <strong>${p.xpLost} current-level XP</strong>.</p>${materialLosses.length?`<p>${p.bossDefeat?'A boss defeat':'The defeat'} also costs: <strong>${materialLosses.map(U.escapeHtml).join(', ')}</strong>.</p>`:`<p>You have no crafting materials for the depths to claim.</p>`}${p.itemName?`<p>One unprotected carried item will also be lost: <strong>${U.escapeHtml(p.itemName)}</strong>.</p>`:`<p>No eligible carried item can be claimed. Equipped, crafted, and Mythic Legendary gear is protected.</p>`}<small>Normal defeats claim 1–4 material units; boss defeats claim 2–5. Equipped gear, Soulforge creations, and Mythic Legendary items are never lost.</small></div><button class="btn btn-danger" onclick="onDefeatContinue()">Accept the Loss and Return</button></div>`;
-  }
-  else if(s.mode==='complete') inner = `${renderLog(s)}<div class="choices"><p class="log-good">The dungeon falls silent. You've cleared it.</p><button class="btn btn-primary" onclick="onDungeonComplete()">Return to Town</button></div>`;
+function renderScene(s) {
+  let inner = '';
+  if (s.mode === 'combat') inner = renderCombat(s);
+  else if (s.mode === 'defeat') {
+    const p = s.ui.deathPenalty || {
+      goldLost: 0,
+      xpLost: 0,
+      itemName: null,
+      materialLosses: {},
+    };
+    const materialLosses = Object.entries(p.materialLosses || {}).map(
+      ([id, count]) => `${MATERIAL_BY_ID[id]?.name || id}${count > 1 ? ` Ã—${count}` : ''}`,
+    );
+    inner = `${renderLog(s)}<div class="choices"><div class="death-penalty"><b>THE DEPTHS TAKE THEIR DUE</b><p>Defeat costs <strong>${p.goldLost} gold</strong> and <strong>${p.xpLost} current-level XP</strong>.</p>${materialLosses.length ? `<p>${p.bossDefeat ? 'A boss defeat' : 'The defeat'} also costs: <strong>${materialLosses.map(U.escapeHtml).join(', ')}</strong>.</p>` : `<p>You have no crafting materials for the depths to claim.</p>`}${p.itemName ? `<p>One unprotected carried item will also be lost: <strong>${U.escapeHtml(p.itemName)}</strong>.</p>` : `<p>No eligible carried item can be claimed. Equipped, crafted, and Mythic Legendary gear is protected.</p>`}<small>Normal defeats claim 1â€“4 material units; boss defeats claim 2â€“5. Equipped gear, Soulforge creations, and Mythic Legendary items are never lost.</small></div><button class="btn btn-danger" onclick="onDefeatContinue()">Accept the Loss and Return</button></div>`;
+  } else if (s.mode === 'complete')
+    inner = `${renderLog(s)}<div class="choices"><p class="log-good">The dungeon falls silent. You've cleared it.</p><button class="btn btn-primary" onclick="onDungeonComplete()">Return to Town</button></div>`;
   else inner = renderChoices(s);
   return `<div class="panel scene">
-      <div class="panel-title">${s.dungeon ? s.dungeon.theme.icon+' '+s.dungeon.theme.name : 'Town of Last Light'}</div>
+      <div class="panel-title">${s.dungeon ? s.dungeon.theme.icon + ' ' + s.dungeon.theme.name : 'Town of Last Light'}</div>
       ${renderDepthTrack(s)}
       <div class="scene-body">${inner}</div>
     </div>`;
 }
 
-function renderTown(s){
+function renderTown(s) {
   return `<div class="panel scene">
     <div class="panel-title">Town of Last Light</div>
     <div class="scene-body">
-      <div class="log-feed"><p class="log-flavor">The town is quiet. Torches gutter along the wall. Somewhere below, the dungeon waits — and it will not have gotten any easier.</p>
+      <div class="log-feed"><p class="log-flavor">The town is quiet. Torches gutter along the wall. Somewhere below, the dungeon waits â€” and it will not have gotten any easier.</p>
       <p>Choose your descent, ${s.player.name}.</p></div>
       <div class="choices">
-        <button class="btn btn-primary" onclick="descend('normal')">Descend — Normal</button>
-        <button class="btn" onclick="descend('hard')">Descend — Hard <span class="small">(tougher foes, better loot)</span></button>
-        <button class="btn btn-danger" onclick="descend('nightmare')">Descend — Nightmare <span class="small">(brutal, best loot)</span></button>
+        <button class="btn btn-primary" onclick="descend('normal')">Descend â€” Normal</button>
+        <button class="btn" onclick="descend('hard')">Descend â€” Hard <span class="small">(tougher foes, better loot)</span></button>
+        <button class="btn btn-danger" onclick="descend('nightmare')">Descend â€” Nightmare <span class="small">(brutal, best loot)</span></button>
       </div>
     </div>
   </div>`;
 }
 
-function renderInventoryOverlay(s){
-  if(!s.ui.invOpen) return '';
+function renderInventoryOverlay(s) {
+  if (!s.ui.invOpen) return '';
   const items = s.inventory;
-  const cards = items.map(item=>{
-    const equipLabel = (item.slot==='accessory1'||item.slot==='accessory2') ? 'Equip' : 'Equip';
-    return renderItemCard(item, `
+  const cards = items
+    .map((item) => {
+      const equipLabel = item.slot === 'accessory1' || item.slot === 'accessory2' ? 'Equip' : 'Equip';
+      return renderItemCard(
+        item,
+        `
       <button class="btn" onclick="onEquipItem('${item.uid}')">${equipLabel}</button>
-      <button class="btn btn-danger" onclick="onSellItem('${item.uid}')">Sell</button>`, renderItemComparison(s,item));
-  }).join('');
+      <button class="btn btn-danger" onclick="onSellItem('${item.uid}')">Sell</button>`,
+        renderItemComparison(s, item),
+      );
+    })
+    .join('');
   return `<div class="overlay" onclick="if(event.target===this) toggleInventory()">
     <div class="panel overlay-panel">
-      <div class="panel-title">Inventory<span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleInventory()">Close ✕</span></div>
+      <div class="panel-title">Inventory<span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleInventory()">Close âœ•</span></div>
       <div class="overlay-body">${cards || '<div class="empty-note">Your pack is empty. Explore the dungeon to find gear.</div>'}</div>
     </div>
   </div>`;
 }
 
-function comparisonTarget(s,item){
-  if(item.slot==='accessory1'||item.slot==='accessory2'){
-    const options=[s.equipment.accessory1,s.equipment.accessory2].filter(Boolean);
-    return options.sort((a,b)=>Object.values(a.stats).reduce((x,y)=>x+y,0)-Object.values(b.stats).reduce((x,y)=>x+y,0))[0]||null;
+function comparisonTarget(s, item) {
+  if (item.slot === 'accessory1' || item.slot === 'accessory2') {
+    const options = [s.equipment.accessory1, s.equipment.accessory2].filter(Boolean);
+    return (
+      options.sort(
+        (a, b) =>
+          Object.values(a.stats).reduce((x, y) => x + y, 0) -
+          Object.values(b.stats).reduce((x, y) => x + y, 0),
+      )[0] || null
+    );
   }
-  return s.equipment[item.slot]||null;
+  return s.equipment[item.slot] || null;
 }
 
-function renderItemComparison(s,item){
-  const current=comparisonTarget(s,item);
-  if(!current) return '<div class="item-compare upgrade">Empty slot · direct upgrade opportunity</div>';
-  const ids=new Set([...Object.keys(item.stats||{}),...Object.keys(current.stats||{})]);
-  const changes=[...ids].map(id=>({id,value:(item.stats[id]||0)-(current.stats[id]||0)})).filter(x=>x.value).sort((a,b)=>Math.abs(b.value)-Math.abs(a.value)).slice(0,5);
-  if(!changes.length) return '<div class="item-compare">Same raw stat total as equipped item</div>';
-  return `<div class="item-compare"><b>vs ${U.escapeHtml(current.name)}</b>${changes.map(x=>`<span class="${x.value>0?'up':'down'}">${STAT_BY_ID[x.id]?.short||x.id} ${U.fmtSigned(x.value)}${x.id.endsWith('Dmg')?'%':''}</span>`).join('')}</div>`;
+function renderItemComparison(s, item) {
+  const current = comparisonTarget(s, item);
+  if (!current) return '<div class="item-compare upgrade">Empty slot Â· direct upgrade opportunity</div>';
+  const ids = new Set([...Object.keys(item.stats || {}), ...Object.keys(current.stats || {})]);
+  const changes = [...ids]
+    .map((id) => ({
+      id,
+      value: (item.stats[id] || 0) - (current.stats[id] || 0),
+    }))
+    .filter((x) => x.value)
+    .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
+    .slice(0, 5);
+  if (!changes.length) return '<div class="item-compare">Same raw stat total as equipped item</div>';
+  return `<div class="item-compare"><b>vs ${U.escapeHtml(current.name)}</b>${changes.map((x) => `<span class="${x.value > 0 ? 'up' : 'down'}">${STAT_BY_ID[x.id]?.short || x.id} ${U.fmtSigned(x.value)}${x.id.endsWith('Dmg') ? '%' : ''}</span>`).join('')}</div>`;
 }
 
-function renderSlotOverlay(s){
+function renderSlotOverlay(s) {
   const so = s.ui.slotOverlay;
-  if(!so) return '';
-  const slot = SLOTS.find(sl=>sl.id===so.slotId);
+  if (!so) return '';
+  const slot = SLOTS.find((sl) => sl.id === so.slotId);
   const equipped = s.equipment[so.slotId];
   let body;
-  if(so.mode==='change'){
-    const matches = s.inventory.filter(item=>
-      slot.group==='accessory' ? (item.slot==='accessory1'||item.slot==='accessory2') : item.slot===slot.id
+  if (so.mode === 'change') {
+    const matches = s.inventory.filter((item) =>
+      slot.group === 'accessory'
+        ? item.slot === 'accessory1' || item.slot === 'accessory2'
+        : item.slot === slot.id,
     );
-    const cards = matches.map(item=>renderItemCard(item,
-      `<button class="btn btn-primary" onclick="onEquipToSlot('${item.uid}','${slot.id}')">Equip</button>`, renderItemComparison(s,item)
-    )).join('');
+    const cards = matches
+      .map((item) =>
+        renderItemCard(
+          item,
+          `<button class="btn btn-primary" onclick="onEquipToSlot('${item.uid}','${slot.id}')">Equip</button>`,
+          renderItemComparison(s, item),
+        ),
+      )
+      .join('');
     body = `
       <div class="small" style="margin-bottom:10px;">Choose a ${slot.label.toLowerCase()} from your pack to equip here.</div>
       ${cards || `<div class="empty-note">No ${slot.label.toLowerCase()} items in your pack. Explore the dungeon or visit a merchant.</div>`}
-      <div class="btn-row" style="margin-top:12px;"><button class="btn" onclick="onBackToSlotView()">← Back</button></div>`;
+      <div class="btn-row" style="margin-top:12px;"><button class="btn" onclick="onBackToSlotView()">â† Back</button></div>`;
   } else {
     body = equipped
-      ? `${renderItemCard(equipped,'')}
+      ? `${renderItemCard(equipped, '')}
          <div class="btn-row" style="margin-top:10px;">
            <button class="btn btn-primary" onclick="onChangeEquipClick()">Change Equip</button>
            <button class="btn btn-danger" onclick="onRemoveEquip('${slot.id}')">Remove Equip</button>
@@ -350,54 +478,58 @@ function renderSlotOverlay(s){
   }
   return `<div class="overlay" onclick="if(event.target===this) closeSlotOverlay()">
     <div class="panel overlay-panel">
-      <div class="panel-title">${slot.label}<span class="small" style="cursor:pointer;color:var(--ember)" onclick="closeSlotOverlay()">Close ✕</span></div>
+      <div class="panel-title">${slot.label}<span class="small" style="cursor:pointer;color:var(--ember)" onclick="closeSlotOverlay()">Close âœ•</span></div>
       <div class="overlay-body">${body}</div>
     </div>
   </div>`;
 }
 
-function renderCraftingOverlay(s){
-  if(!s.ui.craftOpen) return '';
-  const materials = CRAFTING_MATERIALS.map(material=>{
-    const count = s.player.materials[material.id]||0;
-    return `<span class="trait-tag" style="opacity:${count?1:.45}">${material.name} ×${count}</span>`;
+function renderCraftingOverlay(s) {
+  if (!s.ui.craftOpen) return '';
+  const materials = CRAFTING_MATERIALS.map((material) => {
+    const count = s.player.materials[material.id] || 0;
+    return `<span class="trait-tag" style="opacity:${count ? 1 : 0.45}">${material.name} Ã—${count}</span>`;
   }).join('');
-  const known = MYTHIC_RECIPES.filter(recipe=>s.player.recipes.includes(recipe.id));
-  const cards = known.map(recipe=>{
-    const canCraft = Crafting.canCraft(s,recipe);
-    const requirements = Object.entries(recipe.requirements).map(([id,count])=>{
-      const owned = s.player.materials[id]||0;
-      return `<span style="color:${owned>=count?'var(--good)':'var(--bad)'}">${MATERIAL_BY_ID[id].name} ${owned}/${count}</span>`;
-    }).join('<br>');
-    const trait = CRAFTED_MYTHIC_TRAITS.find(entry=>entry.id===recipe.mythicTrait);
-    return `<div class="item-card mythic-border" style="--glow:var(--t-mythic1);border-color:var(--t-mythic1)">
+  const known = MYTHIC_RECIPES.filter((recipe) => s.player.recipes.includes(recipe.id));
+  const cards = known
+    .map((recipe) => {
+      const canCraft = Crafting.canCraft(s, recipe);
+      const requirements = Object.entries(recipe.requirements)
+        .map(([id, count]) => {
+          const owned = s.player.materials[id] || 0;
+          return `<span style="color:${owned >= count ? 'var(--good)' : 'var(--bad)'}">${MATERIAL_BY_ID[id].name} ${owned}/${count}</span>`;
+        })
+        .join('<br>');
+      const trait = CRAFTED_MYTHIC_TRAITS.find((entry) => entry.id === recipe.mythicTrait);
+      return `<div class="item-card mythic-border" style="--glow:var(--t-mythic1);border-color:var(--t-mythic1)">
       <div class="item-name" style="color:var(--t-mythic1)">${recipe.name}</div>
-      <div class="item-meta">MYTHIC ${SLOTS.find(slot=>slot.id===recipe.slot).label.toUpperCase()} · SOULFORGE ONLY</div>
+      <div class="item-meta">MYTHIC ${SLOTS.find((slot) => slot.id === recipe.slot).label.toUpperCase()} Â· SOULFORGE ONLY</div>
       <div class="item-stats">${requirements}</div>
-      <div class="item-trait mythictrait">★ ${trait.name} — ${trait.desc(trait.base)}</div>
-      <div class="item-actions"><button class="btn btn-primary" onclick="onCraftItem('${recipe.id}')" ${canCraft?'':'disabled'}>Forge Mythic</button></div>
+      <div class="item-trait mythictrait">â˜… ${trait.name} â€” ${trait.desc(trait.base)}</div>
+      <div class="item-actions"><button class="btn btn-primary" onclick="onCraftItem('${recipe.id}')" ${canCraft ? '' : 'disabled'}>Forge Mythic</button></div>
     </div>`;
-  }).join('');
-  const unknownCount = MYTHIC_RECIPES.length-known.length;
+    })
+    .join('');
+  const unknownCount = MYTHIC_RECIPES.length - known.length;
   return `<div class="overlay" onclick="if(event.target===this) toggleCrafting()">
     <div class="panel overlay-panel">
-      <div class="panel-title">Soulforge <span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleCrafting()">Close ×</span></div>
+      <div class="panel-title">Soulforge <span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleCrafting()">Close Ã—</span></div>
       <div class="overlay-body">
         <div class="small" style="margin-bottom:10px;">Bosses rarely yield new mythic recipes. Materials are collected automatically from defeated enemies. Each recipe has its own exact requirements.</div>
         <div style="margin-bottom:14px;line-height:2">${materials}</div>
         <div class="panel-title" style="border:none;padding:4px 0;">Known Recipes (${known.length}/${MYTHIC_RECIPES.length})</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${cards || '<div class="empty-note">No mythic recipes known. Defeat dungeon bosses to uncover one.</div>'}</div>
-        ${unknownCount? `<div class="small" style="margin-top:10px;color:var(--ink-dim);">${unknownCount} undiscovered recipe${unknownCount===1?'':'s'} remain.</div>`:''}
+        ${unknownCount ? `<div class="small" style="margin-top:10px;color:var(--ink-dim);">${unknownCount} undiscovered recipe${unknownCount === 1 ? '' : 's'} remain.</div>` : ''}
       </div>
     </div>
   </div>`;
 }
 
-function renderTitle(){
-  const classCards = CLASSES.map(c=>{
-    const selected = c.id===PENDING_CLASS;
-    return `<div class="slot" style="cursor:pointer;text-align:left;${selected?'border-color:var(--ember);background:#2a2115;':''}" onclick="selectClass('${c.id}')">
-      <div class="slot-label">${c.icon} ${c.name.toUpperCase()}${selected?' ✓':''}</div>
+function renderTitle() {
+  const classCards = CLASSES.map((c) => {
+    const selected = c.id === PENDING_CLASS;
+    return `<div class="slot" style="cursor:pointer;text-align:left;${selected ? 'border-color:var(--ember);background:#2a2115;' : ''}" onclick="selectClass('${c.id}')">
+      <div class="slot-label">${c.icon} ${c.name.toUpperCase()}${selected ? ' âœ“' : ''}</div>
       <div class="slot-empty" style="color:var(--ink-dim);font-style:normal;">${c.desc}</div>
       ${c.innatePassive ? `<div class="small" style="color:var(--gold);margin-top:4px;">Innate: ${c.innatePassive.name}</div>` : ''}
     </div>`;
@@ -410,40 +542,63 @@ function renderTitle(){
       <div class="panel-title">Choose your class</div>
       <div class="slots" style="grid-template-columns:1fr;">${classCards}</div>
     </div>
-    <div class="title-save-actions"><button class="btn btn-primary" onclick="startFromTitle()">Begin the Descent</button>${SaveSystem.hasSave()?'<button class="btn" onclick="loadGame()">Continue Saved Game</button>':''}<button class="btn" onclick="chooseSaveImport()">Import Save</button></div>
+    <div class="title-save-actions"><button class="btn btn-primary" onclick="startFromTitle()">Begin the Descent</button>${SaveSystem.hasSave() ? '<button class="btn" onclick="loadGame()">Continue Saved Game</button>' : ''}<button class="btn" onclick="chooseSaveImport()">Import Save</button></div>
     <input id="saveImportInput" type="file" accept="application/json,.json" hidden onchange="importSave(this)">
   </div>`;
 }
 
-function renderSkillGraph(s, cls){
-  const width=3600, height=1260;
-  const byId=Object.fromEntries(cls.skillTree.map(node=>[node.id,node]));
-  const lines=cls.skillTree.filter(node=>node.requires&&byId[node.requires]).map(node=>{
-    const parent=byId[node.requires];
-    const active=s.player.unlockedSkills.includes(parent.id)&&s.player.unlockedSkills.includes(node.id);
-    const available=s.player.unlockedSkills.includes(parent.id)&&!s.player.unlockedSkills.includes(node.id);
-    return `<line x1="${parent.x}" y1="${parent.y}" x2="${node.x}" y2="${node.y}" class="tree-link ${active?'active':available?'available':''}"/>`;
-  }).join('');
-  const branches=[...new Set(cls.skillTree.map(node=>node.branch))];
-  const headers=branches.map(branch=>{
-    const nodes=cls.skillTree.filter(node=>node.branch===branch);
-    const x=Math.round(nodes.reduce((sum,node)=>sum+node.x,0)/nodes.length);
-    return `<div class="tree-branch-title" style="left:${x}px">${branch}</div>`;
-  }).join('');
-  const nodes=cls.skillTree.map(node=>{
-    const unlocked=s.player.unlockedSkills.includes(node.id);
-    const can=Engine.canUnlock(s,node);
-    const parent=node.requires?byId[node.requires]:null;
-    const reason=!unlocked&&!can?(parent&&!s.player.unlockedSkills.includes(parent.id)?`Requires ${parent.name}`:s.player.skillPoints<node.cost?`Requires ${node.cost} points`:'Locked'):'';
-    const icon=node.kind==='active'?'⚡':node.nodeRole==='capstone'?'★':node.nodeRole==='notable'?'✦':'◆';
-    const title=`${node.name}\n${node.kind.toUpperCase()} · ${node.cost} point${node.cost===1?'':'s'}\n${node.desc}${reason?'\n'+reason:''}`;
-    return `<button class="tree-node ${node.nodeRole||''} ${node.kind} ${unlocked?'unlocked':can?'available':'locked'}" style="left:${node.x}px;top:${node.y}px" title="${U.escapeHtml(title)}" onclick="onUnlockSkill('${node.id}')" ${unlocked||!can?'disabled':''}><span>${icon}</span><small>${node.name}</small><em>${unlocked?'✓':node.cost}</em></button>`;
-  }).join('');
-  const learned=s.player.unlockedSkills.filter(id=>byId[id]).length;
+function renderSkillGraph(s, cls) {
+  const width = 3600,
+    height = 1260;
+  const byId = Object.fromEntries(cls.skillTree.map((node) => [node.id, node]));
+  const lines = cls.skillTree
+    .filter((node) => node.requires && byId[node.requires])
+    .map((node) => {
+      const parent = byId[node.requires];
+      const active = s.player.unlockedSkills.includes(parent.id) && s.player.unlockedSkills.includes(node.id);
+      const available =
+        s.player.unlockedSkills.includes(parent.id) && !s.player.unlockedSkills.includes(node.id);
+      return `<line x1="${parent.x}" y1="${parent.y}" x2="${node.x}" y2="${node.y}" class="tree-link ${active ? 'active' : available ? 'available' : ''}"/>`;
+    })
+    .join('');
+  const branches = [...new Set(cls.skillTree.map((node) => node.branch))];
+  const headers = branches
+    .map((branch) => {
+      const nodes = cls.skillTree.filter((node) => node.branch === branch);
+      const x = Math.round(nodes.reduce((sum, node) => sum + node.x, 0) / nodes.length);
+      return `<div class="tree-branch-title" style="left:${x}px">${branch}</div>`;
+    })
+    .join('');
+  const nodes = cls.skillTree
+    .map((node) => {
+      const unlocked = s.player.unlockedSkills.includes(node.id);
+      const can = Engine.canUnlock(s, node);
+      const parent = node.requires ? byId[node.requires] : null;
+      const reason =
+        !unlocked && !can
+          ? parent && !s.player.unlockedSkills.includes(parent.id)
+            ? `Requires ${parent.name}`
+            : s.player.skillPoints < node.cost
+              ? `Requires ${node.cost} points`
+              : 'Locked'
+          : '';
+      const icon =
+        node.kind === 'active'
+          ? 'âš¡'
+          : node.nodeRole === 'capstone'
+            ? 'â˜…'
+            : node.nodeRole === 'notable'
+              ? 'âœ¦'
+              : 'â—†';
+      const title = `${node.name}\n${node.kind.toUpperCase()} Â· ${node.cost} point${node.cost === 1 ? '' : 's'}\n${node.desc}${reason ? '\n' + reason : ''}`;
+      return `<button class="tree-node ${node.nodeRole || ''} ${node.kind} ${unlocked ? 'unlocked' : can ? 'available' : 'locked'}" style="left:${node.x}px;top:${node.y}px" title="${U.escapeHtml(title)}" onclick="onUnlockSkill('${node.id}')" ${unlocked || !can ? 'disabled' : ''}><span>${icon}</span><small>${node.name}</small><em>${unlocked ? 'âœ“' : node.cost}</em></button>`;
+    })
+    .join('');
+  const learned = s.player.unlockedSkills.filter((id) => byId[id]).length;
   return `<div class="overlay skill-tree-overlay" onclick="if(event.target===this) toggleSkills()">
     <div class="panel skill-tree-panel">
-      <div class="panel-title tree-toolbar"><span>${cls.icon} ${cls.name} Constellation <small>${learned}/${cls.skillTree.length} learned</small></span><span>Points: <b>${s.player.skillPoints}</b> <button onclick="toggleSkills()">Close ×</button></span></div>
-      <div class="tree-legend"><span class="legend-dot available"></span>Available <span class="legend-dot unlocked"></span>Learned <span>⚡ Active</span><span>★ Capstone</span><span>Drag the scrollbars to explore · hover any node for details</span></div>
+      <div class="panel-title tree-toolbar"><span>${cls.icon} ${cls.name} Constellation <small>${learned}/${cls.skillTree.length} learned</small></span><span>Points: <b>${s.player.skillPoints}</b> <button onclick="toggleSkills()">Close Ã—</button></span></div>
+      <div class="tree-legend"><span class="legend-dot available"></span>Available <span class="legend-dot unlocked"></span>Learned <span>âš¡ Active</span><span>â˜… Capstone</span><span>Drag the scrollbars to explore Â· hover any node for details</span></div>
       <div class="skill-tree-viewport">
         <div class="skill-tree-canvas" style="width:${width}px;height:${height}px">
           <svg width="${width}" height="${height}" aria-hidden="true">${lines}</svg>${headers}${nodes}
@@ -453,52 +608,74 @@ function renderSkillGraph(s, cls){
   </div>`;
 }
 
-function renderSkillsOverlay(s){
-  if(!s.ui.skillsOpen) return '';
+function renderSkillsOverlay(s) {
+  if (!s.ui.skillsOpen) return '';
   const cls = CLASS_BY_ID[s.player.classId];
-  return renderSkillGraph(s,cls);
-  /* Legacy tier renderer retained below for save-compatible data diagnostics. */
-  const maxTier = Math.max(...cls.skillTree.map(sk=>sk.tier));
-  const byTier = Array.from({length:maxTier}, (_,i)=>cls.skillTree.filter(sk=>sk.tier===i+1));
-  const tierHtml = byTier.map((skills,i)=>{
-    const cards = skills.map(sk=>{
-      const unlocked = s.player.unlockedSkills.includes(sk.id);
-      const can = Engine.canUnlock(s, sk);
-      const prerequisite = sk.requires && !s.player.unlockedSkills.includes(sk.requires)
-        ? `<div class="small">Requires: ${cls.skillTree.find(x=>x.id===sk.requires).name}</div>` : '';
-      const chosenRoot = sk.choiceGroup && cls.skillTree.find(x=>x.choiceGroup===sk.choiceGroup && s.player.unlockedSkills.includes(x.id));
-      const routeLock = chosenRoot && chosenRoot.id!==sk.id
-        ? `<div class="small" style="color:var(--bad);">Committed to ${chosenRoot.branch}</div>` : '';
-      return `<div class="item-card" style="${unlocked?'border-color:var(--good);':''}">
-        <div class="item-name" style="font-size:13px;color:${sk.kind==='active'?'var(--ember)':'var(--ink)'}">${sk.kind==='active'?'⚡':'◆'} ${sk.name}</div>
-        <div class="item-meta">${sk.kind.toUpperCase()}${sk.kind==='active'?' · '+sk.manaCost+' MP':''} · cost ${sk.cost} pt</div>
+  return renderSkillGraph(s, cls);
+  const maxTier = Math.max(...cls.skillTree.map((sk) => sk.tier));
+  const byTier = Array.from({ length: maxTier }, (_, i) => cls.skillTree.filter((sk) => sk.tier === i + 1));
+  const tierHtml = byTier
+    .map((skills, i) => {
+      const cards = skills
+        .map((sk) => {
+          const unlocked = s.player.unlockedSkills.includes(sk.id);
+          const can = Engine.canUnlock(s, sk);
+          const prerequisite =
+            sk.requires && !s.player.unlockedSkills.includes(sk.requires)
+              ? `<div class="small">Requires: ${cls.skillTree.find((x) => x.id === sk.requires).name}</div>`
+              : '';
+          const chosenRoot =
+            sk.choiceGroup &&
+            cls.skillTree.find(
+              (x) => x.choiceGroup === sk.choiceGroup && s.player.unlockedSkills.includes(x.id),
+            );
+          const routeLock =
+            chosenRoot && chosenRoot.id !== sk.id
+              ? `<div class="small" style="color:var(--bad);">Committed to ${chosenRoot.branch}</div>`
+              : '';
+          return `<div class="item-card" style="${unlocked ? 'border-color:var(--good);' : ''}">
+        <div class="item-name" style="font-size:13px;color:${sk.kind === 'active' ? 'var(--ember)' : 'var(--ink)'}">${sk.kind === 'active' ? 'âš¡' : 'â—†'} ${sk.name}</div>
+        <div class="item-meta">${sk.kind.toUpperCase()}${sk.kind === 'active' ? ' Â· ' + sk.manaCost + ' MP' : ''} Â· cost ${sk.cost} pt</div>
         <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${sk.desc}</div>
         <div class="small" style="color:var(--gold);">${sk.branch}</div>
         ${prerequisite}${routeLock}
-        <div class="item-actions">${unlocked? '<span class="small" style="color:var(--good);">Learned</span>' : `<button class="btn" onclick="onUnlockSkill('${sk.id}')" ${can?'':'disabled'}>Unlock</button>`}</div>
+        <div class="item-actions">${unlocked ? '<span class="small" style="color:var(--good);">Learned</span>' : `<button class="btn" onclick="onUnlockSkill('${sk.id}')" ${can ? '' : 'disabled'}>Unlock</button>`}</div>
       </div>`;
-    }).join('');
-    return `<div style="margin-bottom:14px;"><div class="panel-title" style="border:none;padding:4px 0;">Tier ${i+1}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${cards}</div></div>`;
-  }).join('');
-  const innateHtml = (cls.innatePassive || cls.innateActive) ? `
+        })
+        .join('');
+      return `<div style="margin-bottom:14px;"><div class="panel-title" style="border:none;padding:4px 0;">Tier ${i + 1}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${cards}</div></div>`;
+    })
+    .join('');
+  const innateHtml =
+    cls.innatePassive || cls.innateActive
+      ? `
     <div style="margin-bottom:14px;">
       <div class="panel-title" style="border:none;padding:4px 0;">Class Innate <span class="small">(no discipline required, always active)</span></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        ${cls.innatePassive ? `<div class="item-card" style="border-color:var(--good);">
-          <div class="item-name" style="font-size:13px;">◆ ${cls.innatePassive.name}</div>
+        ${
+          cls.innatePassive
+            ? `<div class="item-card" style="border-color:var(--good);">
+          <div class="item-name" style="font-size:13px;">â—† ${cls.innatePassive.name}</div>
           <div class="item-meta">INNATE PASSIVE</div>
           <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${cls.innatePassive.desc}</div>
-        </div>` : ''}
-        ${cls.innateActive ? `<div class="item-card" style="border-color:var(--good);">
-          <div class="item-name" style="font-size:13px;color:var(--ember);">⚡ ${cls.innateActive.name}</div>
-          <div class="item-meta">INNATE ACTIVE · ${cls.innateActive.manaCost} MP</div>
+        </div>`
+            : ''
+        }
+        ${
+          cls.innateActive
+            ? `<div class="item-card" style="border-color:var(--good);">
+          <div class="item-name" style="font-size:13px;color:var(--ember);">âš¡ ${cls.innateActive.name}</div>
+          <div class="item-meta">INNATE ACTIVE Â· ${cls.innateActive.manaCost} MP</div>
           <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${cls.innateActive.desc}</div>
-        </div>` : ''}
+        </div>`
+            : ''
+        }
       </div>
-    </div>` : '';
+    </div>`
+      : '';
   return `<div class="overlay" onclick="if(event.target===this) toggleSkills()">
     <div class="panel overlay-panel">
-      <div class="panel-title">${cls.icon} ${cls.name} Skill Tree <span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleSkills()">Close ✕</span></div>
+      <div class="panel-title">${cls.icon} ${cls.name} Skill Tree <span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleSkills()">Close âœ•</span></div>
       <div class="overlay-body">
         <div class="small" style="margin-bottom:10px;">Skill points available: <b style="color:var(--gold)">${s.player.skillPoints}</b></div>
         ${innateHtml}
@@ -508,61 +685,92 @@ function renderSkillsOverlay(s){
   </div>`;
 }
 
-function renderCharacterOverlay(s){
-  if(!s.ui.characterOpen) return '';
-  const cls=CLASS_BY_ID[s.player.classId];
-  const gear=Object.values(s.equipment).filter(Boolean);
-  const gearScore=gear.reduce((sum,item)=>sum+Object.values(item.stats||{}).reduce((a,b)=>a+b,0),0);
-  const learned=s.player.unlockedSkills.length;
-  const elements=ELEMENT_STATS.map(stat=>({name:STAT_BY_ID[stat.id].short,value:s.derived[stat.id]||0})).filter(x=>x.value).sort((a,b)=>b.value-a.value);
-  const traits=s.derived.traits.map(t=>`<div class="build-trait" title="${U.escapeHtml(t.desc||'')}"><b>${U.escapeHtml(t.name)}</b><span>${U.escapeHtml(t.desc||'')}</span></div>`).join('');
-  const equipment=SLOTS.map(slot=>{const item=s.equipment[slot.id];return `<div class="build-gear-row"><span>${slot.label}</span><b style="color:${item?TIER_BY_ID[item.tier].color:'var(--ink-faint)'}">${item?U.escapeHtml(item.name):'Empty'}</b></div>`}).join('');
+function renderCharacterOverlay(s) {
+  if (!s.ui.characterOpen) return '';
+  const cls = CLASS_BY_ID[s.player.classId];
+  const gear = Object.values(s.equipment).filter(Boolean);
+  const gearScore = gear.reduce(
+    (sum, item) => sum + Object.values(item.stats || {}).reduce((a, b) => a + b, 0),
+    0,
+  );
+  const learned = s.player.unlockedSkills.length;
+  const elements = ELEMENT_STATS.map((stat) => ({
+    name: STAT_BY_ID[stat.id].short,
+    value: s.derived[stat.id] || 0,
+  }))
+    .filter((x) => x.value)
+    .sort((a, b) => b.value - a.value);
+  const traits = s.derived.traits
+    .map(
+      (t) =>
+        `<div class="build-trait" title="${U.escapeHtml(t.desc || '')}"><b>${U.escapeHtml(t.name)}</b><span>${U.escapeHtml(t.desc || '')}</span></div>`,
+    )
+    .join('');
+  const equipment = SLOTS.map((slot) => {
+    const item = s.equipment[slot.id];
+    return `<div class="build-gear-row"><span>${slot.label}</span><b style="color:${item ? TIER_BY_ID[item.tier].color : 'var(--ink-faint)'}">${item ? U.escapeHtml(item.name) : 'Empty'}</b></div>`;
+  }).join('');
   return `<div class="overlay dashboard-overlay" onclick="if(event.target===this) toggleCharacter()"><div class="panel dashboard-panel">
-    <div class="panel-title"><span>${cls.icon} ${s.player.name} · Build Dashboard</span><button class="icon-close" onclick="toggleCharacter()">×</button></div>
-    <div class="dashboard-hero"><div><strong>${cls.name}</strong><span>Level ${s.player.level} · ${s.player.skillPoints} skill points</span></div><div class="build-metrics"><span><b>${gear.length}</b> equipped</span><span><b>${gearScore}</b> gear power</span><span><b>${learned}</b> nodes</span></div></div>
-    <div class="dashboard-grid"><section><h3>Equipment Loadout</h3>${equipment}</section><section><h3>Elemental Profile</h3>${elements.length?elements.map(e=>`<div class="element-meter"><span>${e.name}</span><div><i style="width:${Math.min(100,e.value)}%"></i></div><b>+${e.value}%</b></div>`).join(''):'<div class="empty-note">No elemental bonuses yet.</div>'}<h3>Active Traits</h3><div class="build-traits">${traits||'<div class="empty-note">No active traits.</div>'}</div></section></div>
+    <div class="panel-title"><span>${cls.icon} ${s.player.name} Â· Build Dashboard</span><button class="icon-close" onclick="toggleCharacter()">Ã—</button></div>
+    <div class="dashboard-hero"><div><strong>${cls.name}</strong><span>Level ${s.player.level} Â· ${s.player.skillPoints} skill points</span></div><div class="build-metrics"><span><b>${gear.length}</b> equipped</span><span><b>${gearScore}</b> gear power</span><span><b>${learned}</b> nodes</span></div></div>
+    <div class="dashboard-grid"><section><h3>Equipment Loadout</h3>${equipment}</section><section><h3>Elemental Profile</h3>${elements.length ? elements.map((e) => `<div class="element-meter"><span>${e.name}</span><div><i style="width:${Math.min(100, e.value)}%"></i></div><b>+${e.value}%</b></div>`).join('') : '<div class="empty-note">No elemental bonuses yet.</div>'}<h3>Active Traits</h3><div class="build-traits">${traits || '<div class="empty-note">No active traits.</div>'}</div></section></div>
   </div></div>`;
 }
 
-function renderSystemOverlay(s){
-  if(!s.ui.systemOpen) return '';
-  const pace=s.settings?.combatPace||'normal';
-  const metrics=Metrics.summary();
+function renderSystemOverlay(s) {
+  if (!s.ui.systemOpen) return '';
+  const pace = s.settings?.combatPace || 'normal';
+  const metrics = Metrics.summary();
   return `<div class="overlay dashboard-overlay" onclick="if(event.target===this) toggleSystemMenu()"><div class="panel system-panel">
-    <div class="panel-title"><span>Deepward Menu</span><button class="icon-close" onclick="toggleSystemMenu()">×</button></div>
-    <div class="system-body"><h3>Combat Presentation</h3><div class="segmented">${['fast','normal','cinematic'].map(p=>`<button class="${pace===p?'selected':''}" onclick="setCombatPace('${p}')">${p}</button>`).join('')}</div>
-    <label class="setting-toggle"><span><b>Reduce motion</b><small>Disables interface animations and pulsing effects.</small></span><input type="checkbox" ${s.settings?.reduceMotion?'checked':''} onchange="toggleReduceMotion()"></label>
+    <div class="panel-title"><span>Deepward Menu</span><button class="icon-close" onclick="toggleSystemMenu()">Ã—</button></div>
+    <div class="system-body"><h3>Combat Presentation</h3><div class="segmented">${['fast', 'normal', 'cinematic'].map((p) => `<button class="${pace === p ? 'selected' : ''}" onclick="setCombatPace('${p}')">${p}</button>`).join('')}</div>
+    <label class="setting-toggle"><span><b>Reduce motion</b><small>Disables interface animations and pulsing effects.</small></span><input type="checkbox" ${s.settings?.reduceMotion ? 'checked' : ''} onchange="toggleReduceMotion()"></label>
     <h3>Save Management</h3><div class="menu-actions"><button class="btn" onclick="saveGame()">Save locally</button><button class="btn" onclick="exportSave()">Export JSON</button><button class="btn" onclick="chooseSaveImport()">Import JSON</button></div>
     <details class="developer-options"><summary>Developer Options</summary><div class="developer-body"><p>Balance telemetry is stored only in this browser.</p><div class="metric-grid"><span><b>${metrics.battles}</b>Battles</span><span><b>${metrics.winRate}%</b>Win rate</span><span><b>${metrics.avgRounds}</b>Avg. rounds</span><span><b>${metrics.damageDealt}</b>Damage dealt</span><span><b>${metrics.damageTaken}</b>Damage taken</span><span><b>${metrics.deaths}</b>Deaths</span><span><b>${metrics.items}</b>Items seen</span></div><div class="menu-actions"><a class="btn" href="developer.html" target="_blank" rel="noopener">Developer Docs</a><button class="btn btn-primary" onclick="exportMetrics()">Export Metrics</button><button class="btn btn-danger" onclick="resetMetrics()">Reset Metrics</button></div></div></details>
     <div class="system-note">Combat settings and character progress are included in your save.</div></div>
   </div></div>`;
 }
 
-let TOOLTIP_BOUND=false;
-function enhanceTooltips(root){
-  root.querySelectorAll('[title]').forEach(el=>{el.dataset.tip=el.getAttribute('title');el.removeAttribute('title');});
-  if(TOOLTIP_BOUND) return;
-  TOOLTIP_BOUND=true;
-  const tip=document.createElement('div'); tip.className='deep-tooltip'; document.body.appendChild(tip);
-  document.addEventListener('mouseover',event=>{
-    const target=event.target.closest?.('[data-tip]'); if(!target) return;
-    tip.textContent=target.dataset.tip; tip.classList.add('visible');
+let TOOLTIP_BOUND = false;
+function enhanceTooltips(root) {
+  root.querySelectorAll('[title]').forEach((el) => {
+    el.dataset.tip = el.getAttribute('title');
+    el.removeAttribute('title');
   });
-  document.addEventListener('mousemove',event=>{
-    if(!tip.classList.contains('visible')) return;
-    const x=Math.min(innerWidth-tip.offsetWidth-12,event.clientX+16), y=Math.min(innerHeight-tip.offsetHeight-12,event.clientY+16);
-    tip.style.left=`${Math.max(8,x)}px`;tip.style.top=`${Math.max(8,y)}px`;
+  if (TOOLTIP_BOUND) return;
+  TOOLTIP_BOUND = true;
+  const tip = document.createElement('div');
+  tip.className = 'deep-tooltip';
+  document.body.appendChild(tip);
+  document.addEventListener('mouseover', (event) => {
+    const target = event.target.closest?.('[data-tip]');
+    if (!target) return;
+    tip.textContent = target.dataset.tip;
+    tip.classList.add('visible');
   });
-  document.addEventListener('mouseout',event=>{if(event.target.closest?.('[data-tip]')) tip.classList.remove('visible');});
+  document.addEventListener('mousemove', (event) => {
+    if (!tip.classList.contains('visible')) return;
+    const x = Math.min(innerWidth - tip.offsetWidth - 12, event.clientX + 16),
+      y = Math.min(innerHeight - tip.offsetHeight - 12, event.clientY + 16);
+    tip.style.left = `${Math.max(8, x)}px`;
+    tip.style.top = `${Math.max(8, y)}px`;
+  });
+  document.addEventListener('mouseout', (event) => {
+    if (event.target.closest?.('[data-tip]')) tip.classList.remove('visible');
+  });
 }
 
-function render(){
+function render() {
   const app = document.getElementById('app');
-  if(!STATE){ app.innerHTML = renderTitle(); enhanceTooltips(app); return; }
+  if (!STATE) {
+    app.innerHTML = renderTitle();
+    enhanceTooltips(app);
+    return;
+  }
   const s = STATE;
-  document.body.classList.toggle('reduce-motion',!!s.settings?.reduceMotion);
+  document.body.classList.toggle('reduce-motion', !!s.settings?.reduceMotion);
   SaveSystem.save(s);
-  const scene = s.screen==='town' ? renderTown(s) : renderScene(s);
+  const scene = s.screen === 'town' ? renderTown(s) : renderScene(s);
   const weaponElement = (s.equipment.weapon && s.equipment.weapon.element) || 'physical';
   app.innerHTML = `
     ${renderHud(s)}

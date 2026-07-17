@@ -1,47 +1,504 @@
-/* Local-only balance telemetry. No data leaves the browser unless exported. */
 const Metrics = {
-  key:'deepward-balance-metrics-v1', version:1,
-  fresh(){return {version:this.version,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
-    totals:{dungeonsStarted:0,battlesStarted:0,battlesWon:0,battlesFled:0,deaths:0,rounds:0,damageDealt:0,damageTaken:0,healing:0,crits:0,misses:0,goldEarned:0,xpEarned:0,levelsGained:0,itemsOffered:0,itemsTaken:0,itemsLeft:0,boonDrafts:0,boonsOffered:0,boonsClaimed:0,boonUpgradesClaimed:0,boonRankSkips:0},
-    actions:{},skills:{},classes:{},levels:{},difficulties:{},enemyEncounters:{},enemyKills:{},lootTiers:{},elemental:{strong:0,resisted:0},combatRounds:[],
-    boonOffers:{},boonSelections:{},boonUnselected:{},boonPowerOffered:{},boonPowerSelected:{},boonRanksOffered:{},boonRanksSelected:{},boonDifficulties:{},boonAffinityOffered:{},boonAffinitySelected:{},
-    performance:{classes:{},subclasses:{},nodes:{},skills:{},items:{},traits:{},mobs:{},boons:{}}};},
-  read(){try{return {...this.fresh(),...JSON.parse(localStorage.getItem(this.key)||'null')};}catch(_){return this.fresh();}},
-  write(data){try{data.updatedAt=new Date().toISOString();localStorage.setItem(this.key,JSON.stringify(data));}catch(_){}},
-  mutate(fn){const data=this.read();fn(data);this.write(data);},
-  addTotal(name,value=1){this.mutate(d=>d.totals[name]=(d.totals[name]||0)+value);},
-  count(group,key,value=1){if(!key)return;this.mutate(d=>{d[group]||={};d[group][key]=(d[group][key]||0)+value;});},
-  perfRecord(){return {battles:0,wins:0,deaths:0,fled:0,rounds:0,damageDealt:0,damageTaken:0,healing:0,uses:0,kills:0,manaSpent:0};},
-  ensurePerf(data,group,key,meta={}){data.performance||={classes:{},subclasses:{},nodes:{},skills:{},items:{},traits:{},mobs:{},boons:{}};data.performance[group]||={};return data.performance[group][key]||=(Object.assign(this.perfRecord(),meta));},
-  captureBuild(state,monsters){
-    const cls=CLASS_BY_ID[state.player.classId],nodes=state.player.unlockedSkills.map(id=>cls.skillTree.find(n=>n.id===id)).filter(Boolean);
-    const items=Object.entries(state.equipment).filter(([,item])=>item).map(([slot,item])=>({key:item.uid||`${slot}:${item.name}`,uid:item.uid,name:item.name,slot,tier:item.tier,ilvl:item.ilvl,stats:item.stats,traits:[...(item.uniqueTraits||[]).map(t=>t.id),...(item.mythicTrait?[item.mythicTrait.id]:[])]}));
-    const traits=Object.values(state.equipment).filter(Boolean).flatMap(item=>[...(item.uniqueTraits||[]),...(item.mythicTrait?[item.mythicTrait]:[])]).map(t=>({key:t.id||t.name,name:t.name,type:t.type}));
-    const boons=(state.dungeon?.boons||[]).map(b=>({key:`${b.baseId||b.id}_r${b.tier||1}`,baseId:b.baseId||b.id,name:b.name,rank:b.tier||1,powerTier:b.powerTier||'lesser'}));
-    return {classId:state.player.classId,level:state.player.level,nodes:nodes.map(n=>({key:n.id,name:n.name,branch:n.branch,kind:n.kind})),subclasses:[...new Set(nodes.map(n=>n.branch))],items,traits,boons,mobs:monsters.map(m=>m.tplId),damageDealt:0,damageTaken:0,healing:0};
+  key: 'deepward-balance-metrics-v1',
+  version: 1,
+  fresh() {
+    return {
+      version: this.version,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      totals: {
+        dungeonsStarted: 0,
+        battlesStarted: 0,
+        battlesWon: 0,
+        battlesFled: 0,
+        deaths: 0,
+        rounds: 0,
+        damageDealt: 0,
+        damageTaken: 0,
+        healing: 0,
+        crits: 0,
+        misses: 0,
+        goldEarned: 0,
+        xpEarned: 0,
+        levelsGained: 0,
+        itemsOffered: 0,
+        itemsTaken: 0,
+        itemsLeft: 0,
+        boonDrafts: 0,
+        boonsOffered: 0,
+        boonsClaimed: 0,
+        boonUpgradesClaimed: 0,
+        boonRankSkips: 0,
+      },
+      actions: {},
+      skills: {},
+      classes: {},
+      levels: {},
+      difficulties: {},
+      enemyEncounters: {},
+      enemyKills: {},
+      lootTiers: {},
+      elemental: { strong: 0, resisted: 0 },
+      combatRounds: [],
+      boonOffers: {},
+      boonSelections: {},
+      boonUnselected: {},
+      boonPowerOffered: {},
+      boonPowerSelected: {},
+      boonRanksOffered: {},
+      boonRanksSelected: {},
+      boonDifficulties: {},
+      boonAffinityOffered: {},
+      boonAffinitySelected: {},
+      performance: {
+        classes: {},
+        subclasses: {},
+        nodes: {},
+        skills: {},
+        items: {},
+        traits: {},
+        mobs: {},
+        boons: {},
+      },
+    };
   },
-  dungeonStarted(difficulty){this.mutate(d=>{d.totals.dungeonsStarted++;d.difficulties[difficulty]||={started:0,won:0,deaths:0,fled:0};d.difficulties[difficulty].started++;});},
-  dungeonOutcome(difficulty,result){if(!difficulty)return;this.mutate(d=>{d.difficulties[difficulty]||={started:0,won:0,deaths:0,fled:0};if(result==='victory')d.difficulties[difficulty].won++;if(result==='defeat')d.difficulties[difficulty].deaths++;if(result==='fled')d.difficulties[difficulty].fled++;});},
-  battleStarted(state,monsters){const context=this.captureBuild(state,monsters);this.mutate(d=>{d.totals.battlesStarted++;const cls=state.player.classId;d.classes[cls]||={battles:0,wins:0,deaths:0,fled:0};d.classes[cls].battles++;d.levels[state.player.level]=(d.levels[state.player.level]||0)+1;for(const m of monsters){d.enemyEncounters[m.tplId]=(d.enemyEncounters[m.tplId]||0)+1;const p=this.ensurePerf(d,'mobs',m.tplId,{name:m.name,identity:m.identity,element:m.element,spawns:0,turns:0,charges:0,utilities:0,damageCaused:0,damageReceived:0,playerDeaths:0,spawnStats:{count:0,hp:0,atk:0,def:0,matk:0,mdef:0,spd:0}});p.spawns++;p.spawnStats.count++;for(const stat of ['hp','atk','def','matk','mdef','spd'])p.spawnStats[stat]+=m[stat]||0;}});return context;},
-  battleEnded(state,result,combat){this.mutate(d=>{const rounds=Math.max(1,combat?.round||1),cls=state.player.classId,ctx=combat?._metrics||this.captureBuild(state,combat?.monsters||[]);d.totals.rounds+=rounds;d.combatRounds.push(rounds);if(d.combatRounds.length>500)d.combatRounds.shift();d.classes[cls]||={battles:0,wins:0,deaths:0,fled:0};if(result==='victory'){d.totals.battlesWon++;d.classes[cls].wins++;for(const m of combat.monsters)d.enemyKills[m.tplId]=(d.enemyKills[m.tplId]||0)+1;}if(result==='fled'){d.totals.battlesFled++;d.classes[cls].fled++;}if(result==='defeat'){d.totals.deaths++;d.classes[cls].deaths++;}
-    const apply=(record)=>{record.battles++;record.rounds+=rounds;record.damageDealt+=ctx.damageDealt||0;record.damageTaken+=ctx.damageTaken||0;record.healing+=ctx.healing||0;if(result==='victory')record.wins++;if(result==='defeat')record.deaths++;if(result==='fled')record.fled++;};
-    apply(this.ensurePerf(d,'classes',ctx.classId,{name:ctx.classId}));for(const branch of ctx.subclasses)apply(this.ensurePerf(d,'subclasses',`${ctx.classId}:${branch}`,{classId:ctx.classId,name:branch}));for(const node of ctx.nodes)apply(this.ensurePerf(d,'nodes',node.key,node));for(const item of ctx.items)apply(this.ensurePerf(d,'items',item.key,item));for(const trait of ctx.traits)apply(this.ensurePerf(d,'traits',trait.key,trait));for(const boon of ctx.boons||[])apply(this.ensurePerf(d,'boons',boon.key,boon));for(const id of new Set(ctx.mobs)){const p=this.ensurePerf(d,'mobs',id);if(result==='defeat')p.playerDeaths++;}
-  });},
-  boonDraft(difficulty,draft){this.mutate(d=>{d.totals.boonDrafts=(d.totals.boonDrafts||0)+1;d.totals.boonsOffered=(d.totals.boonsOffered||0)+draft.length;d.boonOffers||={};d.boonPowerOffered||={};d.boonRanksOffered||={};d.boonDifficulties||={};d.boonAffinityOffered||={};const diff=d.boonDifficulties[difficulty]||=( {drafts:0,offered:0,claimed:0,powerOffered:{},powerSelected:{},ranksOffered:{},ranksSelected:{}} );diff.drafts++;for(const b of draft){const key=`${b.baseId||b.id}_r${b.tier||1}`;d.boonOffers[key]=(d.boonOffers[key]||0)+1;d.boonPowerOffered[b.powerTier]=(d.boonPowerOffered[b.powerTier]||0)+1;d.boonRanksOffered[b.tier]=(d.boonRanksOffered[b.tier]||0)+1;const affinity=d.boonAffinityOffered[key]||=( {offers:0,totalWeight:0} );affinity.offers++;affinity.totalWeight+=b.buildWeight||1;diff.offered++;diff.powerOffered[b.powerTier]=(diff.powerOffered[b.powerTier]||0)+1;diff.ranksOffered[b.tier]=(diff.ranksOffered[b.tier]||0)+1;}});},
-  boonClaim(boon,draft,previousRank,difficulty){this.mutate(d=>{const key=`${boon.baseId||boon.id}_r${boon.tier||1}`;d.totals.boonsClaimed=(d.totals.boonsClaimed||0)+1;if(previousRank)d.totals.boonUpgradesClaimed=(d.totals.boonUpgradesClaimed||0)+1;if(!previousRank&&boon.tier>1)d.totals.boonRankSkips=(d.totals.boonRankSkips||0)+1;d.boonSelections||={};d.boonUnselected||={};d.boonPowerSelected||={};d.boonRanksSelected||={};d.boonAffinitySelected||={};d.boonSelections[key]=(d.boonSelections[key]||0)+1;d.boonPowerSelected[boon.powerTier]=(d.boonPowerSelected[boon.powerTier]||0)+1;d.boonRanksSelected[boon.tier]=(d.boonRanksSelected[boon.tier]||0)+1;const affinity=d.boonAffinitySelected[key]||=( {selections:0,totalWeight:0} );affinity.selections++;affinity.totalWeight+=boon.buildWeight||1;for(const other of draft)if(other!==boon){const otherKey=`${other.baseId||other.id}_r${other.tier||1}`;d.boonUnselected[otherKey]=(d.boonUnselected[otherKey]||0)+1;}const diff=(d.boonDifficulties||={})[difficulty]||=( {drafts:0,offered:0,claimed:0,powerOffered:{},powerSelected:{},ranksOffered:{},ranksSelected:{}} );diff.claimed++;diff.powerSelected[boon.powerTier]=(diff.powerSelected[boon.powerTier]||0)+1;diff.ranksSelected[boon.tier]=(diff.ranksSelected[boon.tier]||0)+1;});},
-  combatFlow(combat,direction,amount,mob){if(!combat?._metrics)return;if(direction==='dealt')combat._metrics.damageDealt+=amount;if(direction==='taken')combat._metrics.damageTaken+=amount;if(mob)this.mutate(d=>{const p=this.ensurePerf(d,'mobs',mob.tplId,{name:mob.name});if(direction==='dealt')p.damageReceived=(p.damageReceived||0)+amount;if(direction==='taken')p.damageCaused=(p.damageCaused||0)+amount;});},
-  healing(combat,amount){if(combat?._metrics)combat._metrics.healing+=amount;},
-  mobAction(mob,type){this.mutate(d=>{const p=this.ensurePerf(d,'mobs',mob.tplId,{name:mob.name});if(type==='turn')p.turns=(p.turns||0)+1;if(type==='charge')p.charges=(p.charges||0)+1;if(type==='utility')p.utilities=(p.utilities||0)+1;});},
-  skillPerformance(skill,data){this.mutate(d=>{const p=this.ensurePerf(d,'skills',skill.id,{name:skill.name,action:skill.action});p.uses++;p.damageDealt+=data.damage||0;p.healing+=data.healing||0;p.kills+=data.kills||0;p.manaSpent+=data.mana||0;});},
-  reward(gold,xp){this.mutate(d=>{d.totals.goldEarned+=gold;d.totals.xpEarned+=xp;});},
-  loot(item,decision){this.mutate(d=>{if(decision==='offered'){d.totals.itemsOffered++;d.lootTiers[item.tier]=(d.lootTiers[item.tier]||0)+1;}if(decision==='taken')d.totals.itemsTaken++;if(decision==='left')d.totals.itemsLeft++;});},
-  summary(){const d=this.read(),t=d.totals;return {battles:t.battlesStarted,winRate:t.battlesStarted?Math.round(t.battlesWon/t.battlesStarted*100):0,avgRounds:t.battlesWon?Math.round(t.rounds/Math.max(1,t.battlesWon+t.battlesFled+t.deaths)*10)/10:0,damageDealt:t.damageDealt,damageTaken:t.damageTaken,deaths:t.deaths,items:t.itemsOffered};},
-  analysis(data){
-    const correlate=group=>Object.fromEntries(Object.entries(data.performance?.[group]||{}).map(([key,r])=>[key,{name:r.name,battles:r.battles,winRate:r.battles?Math.round(r.wins/r.battles*1000)/10:0,deathRate:r.battles?Math.round(r.deaths/r.battles*1000)/10:0,avgRounds:r.battles?Math.round(r.rounds/r.battles*10)/10:0,damagePerBattle:r.battles?Math.round(r.damageDealt/r.battles):0,damageTakenPerBattle:r.battles?Math.round(r.damageTaken/r.battles):0,healingPerBattle:r.battles?Math.round(r.healing/r.battles):0}]));
-    const skills=Object.fromEntries(Object.entries(data.performance?.skills||{}).map(([key,r])=>[key,{name:r.name,uses:r.uses,damagePerUse:r.uses?Math.round(r.damageDealt/r.uses*10)/10:0,healingPerUse:r.uses?Math.round(r.healing/r.uses*10)/10:0,killsPerUse:r.uses?Math.round(r.kills/r.uses*100)/100:0,manaPerUse:r.uses?Math.round(r.manaSpent/r.uses*10)/10:0,damagePerMana:r.manaSpent?Math.round(r.damageDealt/r.manaSpent*100)/100:null}]));
-    const mobs=Object.fromEntries(Object.entries(data.performance?.mobs||{}).map(([key,r])=>[key,{name:r.name,identity:r.identity,spawns:r.spawns||0,killRate:r.spawns?Math.round((data.enemyKills[key]||0)/r.spawns*1000)/10:0,playerDeaths:r.playerDeaths||0,damagePerTurn:r.turns?Math.round((r.damageCaused||0)/r.turns*10)/10:0,damageTakenPerSpawn:r.spawns?Math.round((r.damageReceived||0)/r.spawns):0,chargeRate:r.turns?Math.round((r.charges||0)/r.turns*1000)/10:0,utilityRate:r.turns?Math.round((r.utilities||0)/r.turns*1000)/10:0,averageSpawnStats:r.spawnStats?.count?Object.fromEntries(['hp','atk','def','matk','mdef','spd'].map(stat=>[stat,Math.round(r.spawnStats[stat]/r.spawnStats.count*10)/10])):{}}]));
-    return {classes:correlate('classes'),subclasses:correlate('subclasses'),nodes:correlate('nodes'),items:correlate('items'),traits:correlate('traits'),boons:correlate('boons'),skills,mobs};
+  read() {
+    try {
+      return {
+        ...this.fresh(),
+        ...JSON.parse(localStorage.getItem(this.key) || 'null'),
+      };
+    } catch (_) {
+      return this.fresh();
+    }
   },
-  export(){const raw=this.read(),payload={...raw,analysis:this.analysis(raw)},data=JSON.stringify(payload,null,2),blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`deepward-metrics-${new Date().toISOString().slice(0,10)}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);},
-  reset(){if(confirm('Reset all locally stored balance metrics?')){localStorage.removeItem(this.key);render();}},
+  write(data) {
+    try {
+      data.updatedAt = new Date().toISOString();
+      localStorage.setItem(this.key, JSON.stringify(data));
+    } catch (_) {}
+  },
+  mutate(fn) {
+    const data = this.read();
+    fn(data);
+    this.write(data);
+  },
+  addTotal(name, value = 1) {
+    this.mutate((d) => (d.totals[name] = (d.totals[name] || 0) + value));
+  },
+  count(group, key, value = 1) {
+    if (!key) return;
+    this.mutate((d) => {
+      d[group] ||= {};
+      d[group][key] = (d[group][key] || 0) + value;
+    });
+  },
+  perfRecord() {
+    return {
+      battles: 0,
+      wins: 0,
+      deaths: 0,
+      fled: 0,
+      rounds: 0,
+      damageDealt: 0,
+      damageTaken: 0,
+      healing: 0,
+      uses: 0,
+      kills: 0,
+      manaSpent: 0,
+    };
+  },
+  ensurePerf(data, group, key, meta = {}) {
+    data.performance ||= {
+      classes: {},
+      subclasses: {},
+      nodes: {},
+      skills: {},
+      items: {},
+      traits: {},
+      mobs: {},
+      boons: {},
+    };
+    data.performance[group] ||= {};
+    return (data.performance[group][key] ||= Object.assign(this.perfRecord(), meta));
+  },
+  captureBuild(state, monsters) {
+    const cls = CLASS_BY_ID[state.player.classId],
+      nodes = state.player.unlockedSkills.map((id) => cls.skillTree.find((n) => n.id === id)).filter(Boolean);
+    const items = Object.entries(state.equipment)
+      .filter(([, item]) => item)
+      .map(([slot, item]) => ({
+        key: item.uid || `${slot}:${item.name}`,
+        uid: item.uid,
+        name: item.name,
+        slot,
+        tier: item.tier,
+        ilvl: item.ilvl,
+        stats: item.stats,
+        traits: [
+          ...(item.uniqueTraits || []).map((t) => t.id),
+          ...(item.mythicTrait ? [item.mythicTrait.id] : []),
+        ],
+      }));
+    const traits = Object.values(state.equipment)
+      .filter(Boolean)
+      .flatMap((item) => [...(item.uniqueTraits || []), ...(item.mythicTrait ? [item.mythicTrait] : [])])
+      .map((t) => ({ key: t.id || t.name, name: t.name, type: t.type }));
+    const boons = (state.dungeon?.boons || []).map((b) => ({
+      key: `${b.baseId || b.id}_r${b.tier || 1}`,
+      baseId: b.baseId || b.id,
+      name: b.name,
+      rank: b.tier || 1,
+      powerTier: b.powerTier || 'lesser',
+    }));
+    return {
+      classId: state.player.classId,
+      level: state.player.level,
+      nodes: nodes.map((n) => ({
+        key: n.id,
+        name: n.name,
+        branch: n.branch,
+        kind: n.kind,
+      })),
+      subclasses: [...new Set(nodes.map((n) => n.branch))],
+      items,
+      traits,
+      boons,
+      mobs: monsters.map((m) => m.tplId),
+      damageDealt: 0,
+      damageTaken: 0,
+      healing: 0,
+    };
+  },
+  dungeonStarted(difficulty) {
+    this.mutate((d) => {
+      d.totals.dungeonsStarted++;
+      d.difficulties[difficulty] ||= { started: 0, won: 0, deaths: 0, fled: 0 };
+      d.difficulties[difficulty].started++;
+    });
+  },
+  dungeonOutcome(difficulty, result) {
+    if (!difficulty) return;
+    this.mutate((d) => {
+      d.difficulties[difficulty] ||= { started: 0, won: 0, deaths: 0, fled: 0 };
+      if (result === 'victory') d.difficulties[difficulty].won++;
+      if (result === 'defeat') d.difficulties[difficulty].deaths++;
+      if (result === 'fled') d.difficulties[difficulty].fled++;
+    });
+  },
+  battleStarted(state, monsters) {
+    const context = this.captureBuild(state, monsters);
+    this.mutate((d) => {
+      d.totals.battlesStarted++;
+      const cls = state.player.classId;
+      d.classes[cls] ||= { battles: 0, wins: 0, deaths: 0, fled: 0 };
+      d.classes[cls].battles++;
+      d.levels[state.player.level] = (d.levels[state.player.level] || 0) + 1;
+      for (const m of monsters) {
+        d.enemyEncounters[m.tplId] = (d.enemyEncounters[m.tplId] || 0) + 1;
+        const p = this.ensurePerf(d, 'mobs', m.tplId, {
+          name: m.name,
+          identity: m.identity,
+          element: m.element,
+          spawns: 0,
+          turns: 0,
+          charges: 0,
+          utilities: 0,
+          damageCaused: 0,
+          damageReceived: 0,
+          playerDeaths: 0,
+          spawnStats: {
+            count: 0,
+            hp: 0,
+            atk: 0,
+            def: 0,
+            matk: 0,
+            mdef: 0,
+            spd: 0,
+          },
+        });
+        p.spawns++;
+        p.spawnStats.count++;
+        for (const stat of ['hp', 'atk', 'def', 'matk', 'mdef', 'spd']) p.spawnStats[stat] += m[stat] || 0;
+      }
+    });
+    return context;
+  },
+  battleEnded(state, result, combat) {
+    this.mutate((d) => {
+      const rounds = Math.max(1, combat?.round || 1),
+        cls = state.player.classId,
+        ctx = combat?._metrics || this.captureBuild(state, combat?.monsters || []);
+      d.totals.rounds += rounds;
+      d.combatRounds.push(rounds);
+      if (d.combatRounds.length > 500) d.combatRounds.shift();
+      d.classes[cls] ||= { battles: 0, wins: 0, deaths: 0, fled: 0 };
+      if (result === 'victory') {
+        d.totals.battlesWon++;
+        d.classes[cls].wins++;
+        for (const m of combat.monsters) d.enemyKills[m.tplId] = (d.enemyKills[m.tplId] || 0) + 1;
+      }
+      if (result === 'fled') {
+        d.totals.battlesFled++;
+        d.classes[cls].fled++;
+      }
+      if (result === 'defeat') {
+        d.totals.deaths++;
+        d.classes[cls].deaths++;
+      }
+      const apply = (record) => {
+        record.battles++;
+        record.rounds += rounds;
+        record.damageDealt += ctx.damageDealt || 0;
+        record.damageTaken += ctx.damageTaken || 0;
+        record.healing += ctx.healing || 0;
+        if (result === 'victory') record.wins++;
+        if (result === 'defeat') record.deaths++;
+        if (result === 'fled') record.fled++;
+      };
+      apply(this.ensurePerf(d, 'classes', ctx.classId, { name: ctx.classId }));
+      for (const branch of ctx.subclasses)
+        apply(
+          this.ensurePerf(d, 'subclasses', `${ctx.classId}:${branch}`, {
+            classId: ctx.classId,
+            name: branch,
+          }),
+        );
+      for (const node of ctx.nodes) apply(this.ensurePerf(d, 'nodes', node.key, node));
+      for (const item of ctx.items) apply(this.ensurePerf(d, 'items', item.key, item));
+      for (const trait of ctx.traits) apply(this.ensurePerf(d, 'traits', trait.key, trait));
+      for (const boon of ctx.boons || []) apply(this.ensurePerf(d, 'boons', boon.key, boon));
+      for (const id of new Set(ctx.mobs)) {
+        const p = this.ensurePerf(d, 'mobs', id);
+        if (result === 'defeat') p.playerDeaths++;
+      }
+    });
+  },
+  boonDraft(difficulty, draft) {
+    this.mutate((d) => {
+      d.totals.boonDrafts = (d.totals.boonDrafts || 0) + 1;
+      d.totals.boonsOffered = (d.totals.boonsOffered || 0) + draft.length;
+      d.boonOffers ||= {};
+      d.boonPowerOffered ||= {};
+      d.boonRanksOffered ||= {};
+      d.boonDifficulties ||= {};
+      d.boonAffinityOffered ||= {};
+      const diff = (d.boonDifficulties[difficulty] ||= {
+        drafts: 0,
+        offered: 0,
+        claimed: 0,
+        powerOffered: {},
+        powerSelected: {},
+        ranksOffered: {},
+        ranksSelected: {},
+      });
+      diff.drafts++;
+      for (const b of draft) {
+        const key = `${b.baseId || b.id}_r${b.tier || 1}`;
+        d.boonOffers[key] = (d.boonOffers[key] || 0) + 1;
+        d.boonPowerOffered[b.powerTier] = (d.boonPowerOffered[b.powerTier] || 0) + 1;
+        d.boonRanksOffered[b.tier] = (d.boonRanksOffered[b.tier] || 0) + 1;
+        const affinity = (d.boonAffinityOffered[key] ||= {
+          offers: 0,
+          totalWeight: 0,
+        });
+        affinity.offers++;
+        affinity.totalWeight += b.buildWeight || 1;
+        diff.offered++;
+        diff.powerOffered[b.powerTier] = (diff.powerOffered[b.powerTier] || 0) + 1;
+        diff.ranksOffered[b.tier] = (diff.ranksOffered[b.tier] || 0) + 1;
+      }
+    });
+  },
+  boonClaim(boon, draft, previousRank, difficulty) {
+    this.mutate((d) => {
+      const key = `${boon.baseId || boon.id}_r${boon.tier || 1}`;
+      d.totals.boonsClaimed = (d.totals.boonsClaimed || 0) + 1;
+      if (previousRank) d.totals.boonUpgradesClaimed = (d.totals.boonUpgradesClaimed || 0) + 1;
+      if (!previousRank && boon.tier > 1) d.totals.boonRankSkips = (d.totals.boonRankSkips || 0) + 1;
+      d.boonSelections ||= {};
+      d.boonUnselected ||= {};
+      d.boonPowerSelected ||= {};
+      d.boonRanksSelected ||= {};
+      d.boonAffinitySelected ||= {};
+      d.boonSelections[key] = (d.boonSelections[key] || 0) + 1;
+      d.boonPowerSelected[boon.powerTier] = (d.boonPowerSelected[boon.powerTier] || 0) + 1;
+      d.boonRanksSelected[boon.tier] = (d.boonRanksSelected[boon.tier] || 0) + 1;
+      const affinity = (d.boonAffinitySelected[key] ||= {
+        selections: 0,
+        totalWeight: 0,
+      });
+      affinity.selections++;
+      affinity.totalWeight += boon.buildWeight || 1;
+      for (const other of draft)
+        if (other !== boon) {
+          const otherKey = `${other.baseId || other.id}_r${other.tier || 1}`;
+          d.boonUnselected[otherKey] = (d.boonUnselected[otherKey] || 0) + 1;
+        }
+      const diff = ((d.boonDifficulties ||= {})[difficulty] ||= {
+        drafts: 0,
+        offered: 0,
+        claimed: 0,
+        powerOffered: {},
+        powerSelected: {},
+        ranksOffered: {},
+        ranksSelected: {},
+      });
+      diff.claimed++;
+      diff.powerSelected[boon.powerTier] = (diff.powerSelected[boon.powerTier] || 0) + 1;
+      diff.ranksSelected[boon.tier] = (diff.ranksSelected[boon.tier] || 0) + 1;
+    });
+  },
+  combatFlow(combat, direction, amount, mob) {
+    if (!combat?._metrics) return;
+    if (direction === 'dealt') combat._metrics.damageDealt += amount;
+    if (direction === 'taken') combat._metrics.damageTaken += amount;
+    if (mob)
+      this.mutate((d) => {
+        const p = this.ensurePerf(d, 'mobs', mob.tplId, { name: mob.name });
+        if (direction === 'dealt') p.damageReceived = (p.damageReceived || 0) + amount;
+        if (direction === 'taken') p.damageCaused = (p.damageCaused || 0) + amount;
+      });
+  },
+  healing(combat, amount) {
+    if (combat?._metrics) combat._metrics.healing += amount;
+  },
+  mobAction(mob, type) {
+    this.mutate((d) => {
+      const p = this.ensurePerf(d, 'mobs', mob.tplId, { name: mob.name });
+      if (type === 'turn') p.turns = (p.turns || 0) + 1;
+      if (type === 'charge') p.charges = (p.charges || 0) + 1;
+      if (type === 'utility') p.utilities = (p.utilities || 0) + 1;
+    });
+  },
+  skillPerformance(skill, data) {
+    this.mutate((d) => {
+      const p = this.ensurePerf(d, 'skills', skill.id, {
+        name: skill.name,
+        action: skill.action,
+      });
+      p.uses++;
+      p.damageDealt += data.damage || 0;
+      p.healing += data.healing || 0;
+      p.kills += data.kills || 0;
+      p.manaSpent += data.mana || 0;
+    });
+  },
+  reward(gold, xp) {
+    this.mutate((d) => {
+      d.totals.goldEarned += gold;
+      d.totals.xpEarned += xp;
+    });
+  },
+  loot(item, decision) {
+    this.mutate((d) => {
+      if (decision === 'offered') {
+        d.totals.itemsOffered++;
+        d.lootTiers[item.tier] = (d.lootTiers[item.tier] || 0) + 1;
+      }
+      if (decision === 'taken') d.totals.itemsTaken++;
+      if (decision === 'left') d.totals.itemsLeft++;
+    });
+  },
+  summary() {
+    const d = this.read(),
+      t = d.totals;
+    return {
+      battles: t.battlesStarted,
+      winRate: t.battlesStarted ? Math.round((t.battlesWon / t.battlesStarted) * 100) : 0,
+      avgRounds: t.battlesWon
+        ? Math.round((t.rounds / Math.max(1, t.battlesWon + t.battlesFled + t.deaths)) * 10) / 10
+        : 0,
+      damageDealt: t.damageDealt,
+      damageTaken: t.damageTaken,
+      deaths: t.deaths,
+      items: t.itemsOffered,
+    };
+  },
+  analysis(data) {
+    const correlate = (group) =>
+      Object.fromEntries(
+        Object.entries(data.performance?.[group] || {}).map(([key, r]) => [
+          key,
+          {
+            name: r.name,
+            battles: r.battles,
+            winRate: r.battles ? Math.round((r.wins / r.battles) * 1000) / 10 : 0,
+            deathRate: r.battles ? Math.round((r.deaths / r.battles) * 1000) / 10 : 0,
+            avgRounds: r.battles ? Math.round((r.rounds / r.battles) * 10) / 10 : 0,
+            damagePerBattle: r.battles ? Math.round(r.damageDealt / r.battles) : 0,
+            damageTakenPerBattle: r.battles ? Math.round(r.damageTaken / r.battles) : 0,
+            healingPerBattle: r.battles ? Math.round(r.healing / r.battles) : 0,
+          },
+        ]),
+      );
+    const skills = Object.fromEntries(
+      Object.entries(data.performance?.skills || {}).map(([key, r]) => [
+        key,
+        {
+          name: r.name,
+          uses: r.uses,
+          damagePerUse: r.uses ? Math.round((r.damageDealt / r.uses) * 10) / 10 : 0,
+          healingPerUse: r.uses ? Math.round((r.healing / r.uses) * 10) / 10 : 0,
+          killsPerUse: r.uses ? Math.round((r.kills / r.uses) * 100) / 100 : 0,
+          manaPerUse: r.uses ? Math.round((r.manaSpent / r.uses) * 10) / 10 : 0,
+          damagePerMana: r.manaSpent ? Math.round((r.damageDealt / r.manaSpent) * 100) / 100 : null,
+        },
+      ]),
+    );
+    const mobs = Object.fromEntries(
+      Object.entries(data.performance?.mobs || {}).map(([key, r]) => [
+        key,
+        {
+          name: r.name,
+          identity: r.identity,
+          spawns: r.spawns || 0,
+          killRate: r.spawns ? Math.round(((data.enemyKills[key] || 0) / r.spawns) * 1000) / 10 : 0,
+          playerDeaths: r.playerDeaths || 0,
+          damagePerTurn: r.turns ? Math.round(((r.damageCaused || 0) / r.turns) * 10) / 10 : 0,
+          damageTakenPerSpawn: r.spawns ? Math.round((r.damageReceived || 0) / r.spawns) : 0,
+          chargeRate: r.turns ? Math.round(((r.charges || 0) / r.turns) * 1000) / 10 : 0,
+          utilityRate: r.turns ? Math.round(((r.utilities || 0) / r.turns) * 1000) / 10 : 0,
+          averageSpawnStats: r.spawnStats?.count
+            ? Object.fromEntries(
+                ['hp', 'atk', 'def', 'matk', 'mdef', 'spd'].map((stat) => [
+                  stat,
+                  Math.round((r.spawnStats[stat] / r.spawnStats.count) * 10) / 10,
+                ]),
+              )
+            : {},
+        },
+      ]),
+    );
+    return {
+      classes: correlate('classes'),
+      subclasses: correlate('subclasses'),
+      nodes: correlate('nodes'),
+      items: correlate('items'),
+      traits: correlate('traits'),
+      boons: correlate('boons'),
+      skills,
+      mobs,
+    };
+  },
+  export() {
+    const raw = this.read(),
+      payload = { ...raw, analysis: this.analysis(raw) },
+      data = JSON.stringify(payload, null, 2),
+      blob = new Blob([data], { type: 'application/json' }),
+      url = URL.createObjectURL(blob),
+      a = document.createElement('a');
+    a.href = url;
+    a.download = `deepward-metrics-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+  reset() {
+    if (confirm('Reset all locally stored balance metrics?')) {
+      localStorage.removeItem(this.key);
+      render();
+    }
+  },
 };
