@@ -507,6 +507,186 @@ const EFFECT_HANDLERS = {
       }
     }
   },
+  elementRelay: (ctx, v) => {
+    if (ctx.direction !== 'outgoing') return;
+    const previous = ctx.combat._webLastElement;
+    if (previous && previous !== ctx.element) {
+      ctx.damage = Math.round(ctx.damage * (1 + v / 100));
+      ctx.notes.push(`Crosscurrent carries power from ${previous} into ${ctx.element}.`);
+    }
+    ctx.combat._webLastElement = ctx.element;
+  },
+  afflictedDamage: (ctx, v) => {
+    if (ctx.direction === 'outgoing' && Object.keys(ctx.target?._ailments || {}).length)
+      ctx.damage = Math.round(ctx.damage * (1 + v / 100));
+  },
+  afflictionWard: (ctx, v, trait) => {
+    if (ctx.direction !== 'outgoing' || !Object.keys(ctx.target?._ailments || {}).length) return;
+    const ward = Math.max(1, Math.round((ctx.maxHp * v) / 100)),
+      cap = Math.round((ctx.maxHp * (trait.cap || 30)) / 100);
+    ctx.combat.elementalWard = Math.min(cap, (ctx.combat.elementalWard || 0) + ward);
+    ctx.notes.push(`Warded Confluence raises ${ward} ward.`);
+  },
+  ailmentLeech: (ctx, v) => {
+    if (ctx.direction !== 'outgoing' || !Object.keys(ctx.target?._ailments || {}).length) return;
+    const heal = Math.min(ctx.maxHp - ctx.player.hp, Math.max(1, Math.round((ctx.damage * v) / 100)));
+    ctx.player.hp += heal;
+    if (heal > 0) {
+      Metrics.addTotal('healing', heal);
+      Metrics.healing(ctx.combat, heal);
+    }
+  },
+  assaultCadence: (ctx, v, trait) => {
+    if (ctx.direction !== 'outgoing' || !['attack', 'cast'].includes(ctx.kind)) return;
+    ctx.combat._webBasicCadence = (ctx.combat._webBasicCadence || 0) + 1;
+    if (ctx.combat._webBasicCadence % (trait.cadence || 3) !== 0) return;
+    ctx.damage = Math.round(ctx.damage * (1 + v / 100));
+    for (const id of Object.keys(ctx.player.skillCooldowns))
+      ctx.player.skillCooldowns[id] = Math.max(0, ctx.player.skillCooldowns[id] - (trait.cooldown || 1));
+    ctx.notes.push('The Unbroken Tempo completes its cadence.');
+  },
+  fortressOath: (ctx, _v, trait) => {
+    if (ctx.direction === 'incoming') ctx.damage = Math.round(ctx.damage * (1 - trait.reduction / 100));
+    if (ctx.direction === 'outgoing') ctx.damage = Math.round(ctx.damage * (1 - trait.drawback / 100));
+  },
+  bloodFrenzy: (ctx, _v, trait) => {
+    if (ctx.direction === 'incoming') ctx.damage = Math.round(ctx.damage * (1 + trait.incoming / 100));
+    if (ctx.direction === 'outgoing' && (ctx.player.hp / ctx.maxHp) * 100 < trait.threshold) {
+      ctx.extraHit = true;
+      ctx.extraHitMult = Math.max(ctx.extraHitMult || 0, trait.echo / 100);
+      ctx.notes.push('Red Horizon echoes the attack.');
+    }
+  },
+  actionWeave: (ctx) => {
+    if (ctx.direction === 'outgoing' && ctx.combat._webWeaveBonus) {
+      ctx.damage = Math.round(ctx.damage * (1 + ctx.combat._webWeaveBonus / 100));
+      ctx.notes.push('Doctrine of Many Blades empowers the change in form.');
+    }
+  },
+  pyreSovereign: (ctx, v) => {
+    if (ctx.direction !== 'outgoing' || ctx.element !== 'fire') return;
+    ctx.forceAilment = true;
+    if (ctx.target?._ailments?.burn) ctx.damage = Math.round(ctx.damage * (1 + v / 100));
+  },
+  frozenDominion: (ctx, v) => {
+    if (ctx.direction !== 'outgoing' || ctx.element !== 'ice') return;
+    ctx.forceAilment = true;
+    if (ctx.target?._ailments?.chill || ctx.target?._stunned)
+      ctx.damage = Math.round(ctx.damage * (1 + v / 100));
+  },
+  stormSovereign: (ctx, v) => {
+    if (ctx.direction !== 'outgoing' || ctx.element !== 'lightning') return;
+    for (const enemy of ctx.combat.monsters)
+      if (enemy.hp > 0 && enemy !== ctx.target) {
+        const arc = Math.max(1, Math.round((ctx.damage * v) / 100));
+        enemy.hp = Math.max(0, enemy.hp - arc);
+        Metrics.addTotal('damageDealt', arc);
+        Metrics.combatFlow(ctx.combat, 'dealt', arc, enemy);
+      }
+    if (ctx.combat.monsters.some((enemy) => enemy.hp > 0 && enemy !== ctx.target))
+      ctx.notes.push('Sovereign lightning crosses the whole enemy line.');
+  },
+  perfectRiposte: (ctx, v) => {
+    if (ctx.direction === 'incoming') ctx.perfectRiposte = Math.max(ctx.perfectRiposte || 0, v);
+  },
+  shadowExecution: (ctx, _v, trait) => {
+    if (
+      ctx.direction !== 'outgoing' ||
+      !ctx.isCrit ||
+      !ctx.target?.maxHp ||
+      (ctx.target.hp / ctx.target.maxHp) * 100 > trait.threshold
+    )
+      return;
+    if (ctx.target.isBoss) ctx.damage = Math.round(ctx.damage * (1 + trait.bossBonus / 100));
+    else {
+      ctx.damage = ctx.target.hp;
+      ctx.notes.push('The Last Unseen Step executes its prey.');
+    }
+  },
+  toxinSovereign: (ctx, v, trait) => {
+    if (ctx.direction !== 'outgoing' || ctx.element !== 'poison') return;
+    const stacks = ctx.target?._ailments?.toxin?.stacks || 0;
+    ctx.forceAilment = true;
+    ctx.damage = Math.round(ctx.damage * (1 + (stacks * v) / 100));
+    ctx.toxinDetonate = trait.detonate || 70;
+  },
+  killMomentum: (ctx, _v, trait) => {
+    if (ctx.direction === 'outgoing') ctx.killMomentum = trait;
+  },
+  judgmentDoctrine: (ctx, v, trait) => {
+    if (ctx.direction !== 'outgoing') return;
+    const missing = 1 - ctx.player.hp / ctx.maxHp,
+      afflicted = Object.keys(ctx.target?._ailments || {}).length ? trait.afflicted || 0 : 0;
+    ctx.damage = Math.round(ctx.damage * (1 + (missing * v + afflicted) / 100));
+  },
+  purgeDoctrine: (ctx, v) => {
+    if (ctx.direction !== 'outgoing' || !['holy', 'dark'].includes(ctx.element)) return;
+    ctx.forceAilment = true;
+    if (Object.keys(ctx.target?._ailments || {}).length) ctx.damage = Math.round(ctx.damage * (1 + v / 100));
+  },
+  stoneConduit: (ctx, v, trait) => {
+    if (ctx.direction === 'outgoing')
+      ctx.damage += Math.round(Math.min(ctx.derived.def, ctx.derived.mdef) * (v / 100));
+    if (ctx.direction === 'incoming') ctx.damage = Math.round(ctx.damage * (1 - trait.reduction / 100));
+  },
+  soulCovenant: (ctx, v) => {
+    if (ctx.direction !== 'outgoing' || !Object.keys(ctx.target?._ailments || {}).length) return;
+    const heal = Math.min(ctx.maxHp - ctx.player.hp, Math.max(1, Math.round((ctx.damage * v) / 100))),
+      mana = Math.min(ctx.maxMp - ctx.player.mp, Math.max(1, Math.round(ctx.damage * 0.03)));
+    ctx.player.hp += heal;
+    ctx.player.mp += mana;
+    if (heal > 0) {
+      Metrics.addTotal('healing', heal);
+      Metrics.healing(ctx.combat, heal);
+    }
+  },
+  momentumDamage: (ctx, v, trait) => {
+    ctx.combat._webMomentum ||= {};
+    const key = trait.id || trait.name;
+    if (ctx.direction === 'incoming' && ctx.damage > 0) ctx.combat._webMomentum[key] = 0;
+    if (ctx.direction === 'outgoing') {
+      const stacks = ctx.combat._webMomentum[key] || 0;
+      ctx.damage = Math.round(ctx.damage * (1 + stacks / 100));
+      ctx.combat._webMomentum[key] = Math.min(trait.cap || 30, stacks + v);
+    }
+  },
+  executioner: (ctx, v, trait) => {
+    if (
+      ctx.direction === 'outgoing' &&
+      ctx.target?.maxHp &&
+      (ctx.target.hp / ctx.target.maxHp) * 100 < (trait.threshold || 50)
+    )
+      ctx.damage = Math.round(ctx.damage * (1 + v / 100));
+  },
+  statusCountDamage: (ctx, v, trait) => {
+    if (ctx.direction !== 'outgoing') return;
+    const count = Object.keys(ctx.target?._ailments || {}).length,
+      bonus = Math.min(trait.cap || 40, count * v);
+    ctx.damage = Math.round(ctx.damage * (1 + bonus / 100));
+  },
+  manaBattery: (ctx, v) => {
+    if (ctx.direction === 'outgoing' && ctx.kind === 'skill' && ctx.maxMp)
+      ctx.damage = Math.round(ctx.damage * (1 + (ctx.player.mp / ctx.maxMp) * (v / 100)));
+  },
+  battleRhythm: (ctx, _v, trait) => {
+    if (ctx.direction !== 'outgoing' || !['attack', 'cast'].includes(ctx.kind)) return;
+    ctx.combat._webBattleRhythm ||= {};
+    const key = trait.id || trait.name;
+    ctx.combat._webBattleRhythm[key] = (ctx.combat._webBattleRhythm[key] || 0) + 1;
+    if (ctx.combat._webBattleRhythm[key] % (trait.cadence || 3)) return;
+    for (const id of Object.keys(ctx.player.skillCooldowns))
+      ctx.player.skillCooldowns[id] = Math.max(0, ctx.player.skillCooldowns[id] - (trait.cooldown || 1));
+    ctx.notes.push('Battle Rhythm hastens every recovering skill.');
+  },
+  perfectTiming: () => {},
+  afflictionBurst: (ctx, v) => {
+    if (ctx.direction === 'outgoing' && Object.keys(ctx.target?._ailments || {}).length)
+      ctx.afflictionBurst = Math.max(ctx.afflictionBurst || 0, v);
+  },
+  elementalInstability: (ctx, v) => {
+    if (ctx.direction === 'outgoing' && Object.keys(ctx.target?._ailments || {}).length >= 2)
+      ctx.damage = Math.round(ctx.damage * (1 + v / 100));
+  },
 };
 const SKILL_ACTION_HANDLERS = {
   nuke(state, skill) {
@@ -517,14 +697,20 @@ const SKILL_ACTION_HANDLERS = {
       state.player.hp = Math.max(1, state.player.hp - cost);
       Engine.log(state, `${skill.name} consumes <b>${cost} HP</b>.`, 'bad');
     }
-    Engine.resolveAttack(state, state.derived, target, 'skill', true, null, {
+    const result = Engine.resolveAttack(state, state.derived, target, 'skill', true, null, {
       powerMult: skill.power || 1,
       forcedElement: skill.forcedElement,
       executeThreshold: skill.executeThreshold,
       skillName: skill.name,
       magic: !!skill.magic,
       guaranteedStatus: !!skill.guaranteedStatus,
+      defensePierce: skill.defensePierce || 0,
     });
+    if (result?.damage && skill.restoreMpPct) {
+      const restored = Math.max(1, Math.round((state.derived.maxMp * skill.restoreMpPct) / 100));
+      state.player.mp = Math.min(state.derived.maxMp, state.player.mp + restored);
+      Engine.log(state, `${skill.name} draws <b>${restored} MP</b> through the breach.`, 'good');
+    }
     if (target.hp <= 0) Engine.log(state, `${target.name} falls.`, 'good');
   },
   aoe(state, skill) {
@@ -536,6 +722,7 @@ const SKILL_ACTION_HANDLERS = {
         skillName: skill.name,
         magic: !!skill.magic,
         guaranteedStatus: !!skill.guaranteedStatus,
+        defensePierce: skill.defensePierce || 0,
       });
       if (t.hp <= 0) Engine.log(state, `${t.name} falls.`, 'good');
     }
@@ -549,6 +736,11 @@ const SKILL_ACTION_HANDLERS = {
     Engine.log(state, `${skill.name} restores <b>${amt} HP</b>.`, 'good');
   },
   buff(state, skill) {
+    if (skill.hpCostPct) {
+      const hpCost = Math.max(1, Math.round((state.derived.maxHp * skill.hpCostPct) / 100));
+      state.player.hp = Math.max(1, state.player.hp - hpCost);
+      Engine.log(state, `${skill.name} claims <b>${hpCost} HP</b> as its price.`, 'bad');
+    }
     state.combat.buffs.push({
       stat: skill.buffStat,
       pct: skill.buffValue,
@@ -606,9 +798,97 @@ const SKILL_ACTION_HANDLERS = {
     });
     if (target.hp <= 0) Engine.log(state, `${target.name} falls.`, 'good');
   },
+  channel(state, skill) {
+    state.combat._webChannelPower = skill.channelPower || 75;
+    Engine.log(
+      state,
+      `${skill.name} gathers power. Your next skill is empowered by ${state.combat._webChannelPower}%.`,
+      'good',
+    );
+  },
+  catalyst(state, skill) {
+    const targets = skill.allTargets
+      ? state.combat.monsters.filter((monster) => monster.hp > 0)
+      : [Engine.getTarget(state)].filter(Boolean);
+    for (const target of targets) {
+      const result = Engine.resolveAttack(state, state.derived, target, 'skill', true, null, {
+        powerMult: skill.power || 1,
+        forcedElement: skill.forcedElement,
+        skillName: skill.name,
+        magic: !!skill.magic,
+        defensePierce: skill.defensePierce || 0,
+      });
+      if (target.hp <= 0 || !Object.keys(target._ailments || {}).length) continue;
+      const force = Object.values(target._ailments).reduce((sum, ailment) => {
+          const stacks = ailment.stacks || 1;
+          return sum + stacks + ((ailment.damage || 0) * stacks) / Math.max(1, result?.damage || 1);
+        }, 0),
+        burst = Math.max(
+          1,
+          Math.round((result?.damage || 1) * Math.min(1.5, force * 0.18) * (skill.catalystPower || 1)),
+        );
+      target._ailments = {};
+      target.hp = Math.max(0, target.hp - burst);
+      Metrics.addTotal('damageDealt', burst);
+      Metrics.combatFlow(state.combat, 'dealt', burst, target);
+      Engine.log(
+        state,
+        `${skill.name} collapses every affliction on ${target.name} for <b>${burst}</b> damage.`,
+        'good',
+      );
+      if (target.hp <= 0) Engine.log(state, `${target.name} falls.`, 'good');
+    }
+  },
 };
 
 const Engine = {
+  consolidateItemTraits(traits) {
+    const caps = {
+      ailmentOnCrit: 100,
+      alternatingPower: 75,
+      cooldownOnKill: 3,
+      critInstantKillChance: 20,
+      damageBank: 100,
+      damageImmuneChance: 65,
+      dodgeChance: 50,
+      doubleHitChance: 65,
+      echoStrike: 75,
+      elementProcChance: 75,
+      extraTurnChance: 45,
+      fateMomentum: 60,
+      overkillSplash: 100,
+      resourceWeave: 30,
+      statusEcho: 90,
+      stunChance: 65,
+    };
+    const merged = [];
+    const groups = new Map();
+    for (const trait of traits) {
+      const legacyGenerated = trait.id?.match(
+        /^(weapon|helmet|chest|legs|arms|offhand|boots|accessory1|accessory2|artifact)_(ultra_rare|unique|legendary|mythic_legendary)_\d+$/,
+      );
+      const stackGroup =
+        trait.stackGroup || (legacyGenerated ? `generated:${legacyGenerated[2]}:${trait.type}` : null);
+      if (!stackGroup) {
+        merged.push(trait);
+        continue;
+      }
+      let combined = groups.get(stackGroup);
+      if (!combined) {
+        combined = { ...trait, stackGroup, stackCount: 1, baseStackValue: trait.value };
+        groups.set(stackGroup, combined);
+        merged.push(combined);
+        continue;
+      }
+      combined.stackCount++;
+      const cap = caps[combined.type] ?? combined.baseStackValue * 2.5;
+      combined.value = Math.round(Math.min(cap, combined.value + trait.value * 0.18) * 10) / 10;
+    }
+    for (const trait of groups.values())
+      if (trait.stackCount > 1)
+        trait.desc = `${trait.desc} ${trait.stackCount} matching gear effects combine with diminishing strength.`;
+    return merged;
+  },
   log(state, html, cls = 'combat') {
     state.log.push({ html, cls });
     if (state.log.length > 60) state.log.shift();
@@ -623,14 +903,20 @@ const Engine = {
         (cls.statMods[s.id] || 0) +
         Math.round(BALANCE.playerStatPerLevel[s.id] * (p.level - 1));
     for (const s of ELEMENT_STATS) totals[s.id] = 0;
-    const allTraits = [];
+    const itemTraits = [];
     for (const slotId of Object.keys(state.equipment)) {
       const item = state.equipment[slotId];
       if (!item) continue;
       for (const [k, v] of Object.entries(item.stats)) totals[k] = (totals[k] || 0) + v;
-      for (const t of item.uniqueTraits) allTraits.push(t);
-      if (item.mythicTrait) allTraits.push(item.mythicTrait);
+      for (const t of item.uniqueTraits) itemTraits.push(t);
+      if (item.mythicTrait)
+        itemTraits.push(
+          item.crafted || item.mythicTrait.stackGroup
+            ? item.mythicTrait
+            : { ...item.mythicTrait, stackGroup: `generated:mythic:${item.mythicTrait.id}` },
+        );
     }
+    const allTraits = this.consolidateItemTraits(itemTraits);
     for (const skillId of p.unlockedSkills) {
       const skill = cls.skillTree.find((sk) => sk.id === skillId);
       if (!skill || skill.kind !== 'passive') continue;
@@ -816,11 +1102,45 @@ const Engine = {
   },
 
   sell(state, item) {
-    const tierIdx = TIERS.findIndex((t) => t.id === item.tier);
-    const value = Math.round((8 + item.ilvl * 2.2) * (1 + tierIdx * 0.92));
+    const value = this.itemPrice(item, 'sell');
     state.player.gold += value;
     state.inventory = state.inventory.filter((i) => i.uid !== item.uid);
     this.log(state, `Sold ${item.name} for ${value} gold.`, 'good');
+  },
+  itemPrice(item, mode = 'buy') {
+    const tierIndex = Math.max(
+      0,
+      TIERS.findIndex((tier) => tier.id === item.tier),
+    );
+    const rarityMultipliers = [1, 1.65, 2.7, 4.6, 7.8, 13, 22];
+    const statWeights = {
+      hp: 0.18,
+      mp: 0.4,
+      critChance: 2,
+      critDamage: 0.6,
+      physicalDmg: 0.7,
+      fireDmg: 0.7,
+      iceDmg: 0.7,
+      lightningDmg: 0.7,
+      poisonDmg: 0.7,
+      holyDmg: 0.7,
+      darkDmg: 0.7,
+    };
+    const statScore = Object.entries(item.stats || {}).reduce(
+      (sum, [stat, value]) => sum + Math.abs(value) * (statWeights[stat] || 1),
+      0,
+    );
+    const level = Math.max(1, item.ilvl || 1);
+    const base = 20 + Math.pow(level, 1.32) * 7;
+    const rollQuality = U.clamp(0.9 + statScore / (35 + level * 11), 0.9, 1.7);
+    const traitValue = 1 + (item.uniqueTraits?.length || 0) * 0.3 + (item.mythicTrait ? 0.85 : 0);
+    const slotValue = item.slot === 'artifact' ? 1.22 : item.slot?.startsWith('accessory') ? 1.1 : 1;
+    const craftedValue = item.crafted ? 1.35 : 1;
+    const buyPrice = Math.max(
+      8,
+      Math.round(base * rarityMultipliers[tierIndex] * rollQuality * traitValue * slotValue * craftedValue),
+    );
+    return mode === 'sell' ? Math.max(2, Math.round(buyPrice * 0.2)) : buyPrice;
   },
   startCombat(state, monsters, opts = {}) {
     this.refreshDerived(state);
@@ -1006,6 +1326,9 @@ const Engine = {
   },
   executePlayerAction(state, action) {
     const c = state.combat;
+    const weave = state.derived.traits.find((trait) => trait.type === 'actionWeave');
+    c._webWeaveBonus = weave && c._webLastAction && c._webLastAction !== action.kind ? weave.value : 0;
+    c._webLastAction = action.kind;
     if (action.kind === 'attack' || action.kind === 'cast') {
       const target = this.getTarget(state);
       if (!target) return;
@@ -1026,12 +1349,29 @@ const Engine = {
       c._skillUses ||= {};
       c._skillUses[action.skill.id] = (c._skillUses[action.skill.id] || 0) + 1;
       state.player.skillCooldowns[action.skill.id] = (action.skill.cooldown || 2) + 1;
-      const handler = SKILL_ACTION_HANDLERS[action.skill.action];
+      const handler = SKILL_ACTION_HANDLERS[action.skill.action],
+        spentChannel = action.skill.action !== 'channel' && c._webChannelPower ? c._webChannelPower : 0;
       if (state.dungeon?.boons?.some((boon) => boon.skill?.id === action.skill.id))
         Metrics.count('boonSkillUses', action.skill.id);
       const flow = state.derived.traits.find((t) => t.type === 'manaFlow');
       if (flow) c._activeSkillDamageBonus = Math.min(flow.cap || 50, action.cost * flow.value);
       if (handler) handler(state, action.skill);
+      const timeDebt = state.derived.traits.find((trait) => trait.type === 'timeDebt');
+      if (timeDebt) {
+        c._webSkillCadence = (c._webSkillCadence || 0) + 1;
+        if (c._webSkillCadence % (timeDebt.cadence || 4) === 0) {
+          const hpCost = Math.max(1, Math.round((state.derived.maxHp * (timeDebt.hpCostPct || 5)) / 100));
+          state.player.hp = Math.max(1, state.player.hp - hpCost);
+          c._freeSkillRepeat = true;
+          if (handler) handler(state, action.skill);
+          c._freeSkillRepeat = false;
+          this.log(
+            state,
+            `Borrowed Tomorrow repeats ${action.skill.name}, claiming <b>${hpCost} HP</b>.`,
+            'good',
+          );
+        }
+      }
       const echo = state.derived.traits.find((t) => t.type === 'firstSkillEcho');
       if (echo && (c._skillEchoUses || 0) < echo.value) {
         c._skillEchoUses = (c._skillEchoUses || 0) + 1;
@@ -1046,6 +1386,7 @@ const Engine = {
         if (handler) handler(state, action.skill);
         c._freeSkillRepeat = false;
       });
+      if (spentChannel) c._webChannelPower = 0;
       c._activeSkillDamageBonus = 0;
       const hpAfter = c.monsters.reduce((sum, m) => sum + Math.max(0, m.hp), 0),
         killsAfter = c.monsters.filter((m) => m.hp <= 0).length;
@@ -1243,13 +1584,23 @@ const Engine = {
       a.damage = Math.max(a.damage, base);
       this.log(state, `${target.name} suffers <b>${name}</b> (${a.stacks}).`, 'good');
     } else if (element === 'ice') {
-      const a = (target._ailments.chill ||= { name, stacks: 0 });
+      const dominion = state.derived.traits.find((trait) => trait.type === 'frozenDominion'),
+        freezeAt = dominion ? 2 : 3,
+        a = (target._ailments.chill ||= { name, stacks: 0 });
       a.stacks++;
-      if (a.stacks >= 3) {
-        target._stunned = true;
+      if (a.stacks >= freezeAt) {
+        if (target.isBoss) {
+          if (!target._winterSlowed) {
+            target._winterSlowed = true;
+            target.spd = Math.max(1, Math.round(target.spd * 0.8));
+            this.log(state, `${target.name} cannot be frozen, but Absolute Winter slows it.`, 'good');
+          }
+        } else {
+          target._stunned = true;
+          this.log(state, `${target.name} is <b>frozen</b> solid!`, 'good');
+        }
         delete target._ailments.chill;
-        this.log(state, `${target.name} is <b>frozen</b> solid!`, 'good');
-      } else this.log(state, `${target.name} gains Chill (${a.stacks}/3).`, 'good');
+      } else this.log(state, `${target.name} gains Chill (${a.stacks}/${freezeAt}).`, 'good');
     } else if (element === 'lightning') {
       const other = state.combat.monsters.find((m) => m.hp > 0 && m.uid !== target.uid),
         arc = Math.max(1, Math.round(hitDamage * 0.35 * power));
@@ -1414,7 +1765,7 @@ const Engine = {
             derived: state.derived,
             notes: [],
           };
-          EFFECT_HANDLERS[t.type](ctx, t.value);
+          EFFECT_HANDLERS[t.type](ctx, t.value, t);
           if (ctx.player.hp > 0) {
             revived = true;
             if (t.id?.startsWith('boon_')) Metrics.count('boonEffectProcs', `${t.id.slice(5)}:${t.type}`);
@@ -1445,6 +1796,7 @@ const Engine = {
     const defStat = isPlayer ? targetRef.def || 0 : this.effectiveStat(state, 'def');
     const mdefStat = isPlayer ? targetRef.mdef || 0 : this.effectiveStat(state, 'mdef');
     let relevantDef = useMagic ? mdefStat : defStat;
+    if (isPlayer && opts.defensePierce) relevantDef *= 1 - U.clamp(opts.defensePierce, 0, 80) / 100;
     if (!isPlayer && opts.charged) relevantDef *= 1 - BALANCE.chargeDefPiercePct;
     const element = opts.forcedElement || (isPlayer ? c.playerElement : monsterObj.element);
     const elemBonusStat = element + 'Dmg';
@@ -1453,7 +1805,7 @@ const Engine = {
 
     let hitEff = isPlayer ? state.derived.hitEff : attackerStats.hitEff;
     let hitRes = isPlayer ? targetRef.hitRes || 0 : this.effectiveStat(state, 'hitRes');
-    const hitChance = U.clamp(85 + (hitEff - hitRes) * 0.5, 55, 98);
+    const hitChance = BALANCE.hitChance(hitEff, hitRes);
     const ctxBase = {
       notes: [],
       combat: c,
@@ -1470,7 +1822,7 @@ const Engine = {
       return { hit: false };
     }
 
-    let critChance = 5 + hitEff * 0.2;
+    let critChance = BALANCE.baseCritChance(hitEff);
     let critMult = 1.5;
     if (isPlayer) {
       critChance += state.derived.critChance || 0;
@@ -1483,11 +1835,23 @@ const Engine = {
         if (t.type === 'firstHitCrit' && !c._firstAttackResolved) critChance += t.value;
         if (t.type === 'fateMomentum') critChance += c._fateCrit || 0;
       }
+    critChance = U.clamp(critChance, 0, BALANCE.maxCritChance);
+    if (isPlayer && traits.some((trait) => trait.type === 'perfectTiming')) {
+      c._webPerfectTiming = (c._webPerfectTiming || 0) + 1;
+      const cadence = Math.min(
+        ...traits.filter((trait) => trait.type === 'perfectTiming').map((trait) => trait.cadence || 4),
+      );
+      if (c._webPerfectTiming % cadence === 0) critChance = 100;
+    }
     const isCrit = Math.random() * 100 < critChance;
     if (isPlayer && isCrit) Metrics.addTotal('crits');
     if (isPlayer) c._firstAttackResolved = true;
 
-    let dmg = Math.max(1, Math.round((atkStat * 1.0 - relevantDef * 0.5) * U.rand(0.85, 1.15)));
+    const mitigation = BALANCE.damageMitigation(relevantDef, atkStat);
+    let dmg = Math.max(
+      1,
+      Math.round(atkStat * (1 - mitigation) * U.rand(BALANCE.damageVariance[0], BALANCE.damageVariance[1])),
+    );
     dmg = Math.round(dmg * (1 + elemBonus / 100));
     let matchupNote = '';
     if (isPlayer && element !== 'physical' && targetRef.element && targetRef.element !== 'physical') {
@@ -1502,6 +1866,8 @@ const Engine = {
       }
     }
     if (isCrit) dmg = Math.round(dmg * critMult);
+    if (isPlayer && kind === 'skill' && c._webChannelPower)
+      dmg = Math.round(dmg * (1 + c._webChannelPower / 100));
 
     const ctx = {
       ...ctxBase,
@@ -1525,7 +1891,7 @@ const Engine = {
               `${ctx.damage}|${ctx.notes.length}|${state.player.hp}|${state.player.mp}|${ctx.target.hp}|${ctx.statusEcho}|${ctx.extraHit}|${ctx.overkillSplash}|${ctx.forceAilment}|${ctx.target._utilityCooldown}|${ctx.target._charging}`,
             before = isBoon ? snapshot() : '';
           if (isBoon) Metrics.count('boonEffectEvaluations', `${t.id.slice(5)}:${t.type}`);
-          h(ctx, t.value);
+          h(ctx, t.value, t);
           if (isBoon && before !== snapshot()) Metrics.count('boonEffectProcs', `${t.id.slice(5)}:${t.type}`);
         }
       }
@@ -1558,6 +1924,14 @@ const Engine = {
           dmg,
           !!opts.guaranteedStatus || !!ctx.forceAilment,
         );
+      if (ctx.toxinDetonate && targetRef._ailments?.toxin?.stacks >= 5 && targetRef.hp > 0) {
+        const blast = Math.max(1, Math.round((dmg * ctx.toxinDetonate) / 100));
+        targetRef.hp = Math.max(0, targetRef.hp - blast);
+        delete targetRef._ailments.toxin;
+        Metrics.addTotal('damageDealt', blast);
+        Metrics.combatFlow(c, 'dealt', blast, targetRef);
+        this.log(state, `Toxin reaches saturation and detonates for <b>${blast}</b> damage!`, 'good');
+      }
       if (afflicted && ctx.statusEcho) {
         const echoTarget = c.monsters.find((m) => m.hp > 0 && m.uid !== targetRef.uid);
         if (echoTarget) {
@@ -1589,6 +1963,44 @@ const Engine = {
         Metrics.combatFlow(c, 'dealt', ctx.echo, targetRef);
         this.log(state, `An echo of the strike deals <b>${ctx.echo}</b> more damage.`, 'combat');
       }
+      if (ctx.killMomentum && defenderHpBefore > 0 && targetRef.hp <= 0) {
+        const heal = Math.min(
+          state.derived.maxHp - state.player.hp,
+          Math.max(1, Math.round((state.derived.maxHp * ctx.killMomentum.healPct) / 100)),
+        );
+        state.player.hp += heal;
+        for (const id of Object.keys(state.player.skillCooldowns))
+          state.player.skillCooldowns[id] = Math.max(
+            0,
+            state.player.skillCooldowns[id] - (ctx.killMomentum.cooldown || 1),
+          );
+        if (heal > 0) {
+          Metrics.addTotal('healing', heal);
+          Metrics.healing(c, heal);
+        }
+        this.log(state, `Kill momentum restores <b>${heal} HP</b> and hastens every skill.`, 'good');
+      }
+      if (ctx.afflictionBurst && defenderHpBefore > 0 && targetRef.hp <= 0) {
+        const survivor = c.monsters.find((enemy) => enemy.hp > 0 && enemy.uid !== targetRef.uid),
+          afflictions = Object.values(targetRef._ailments || {});
+        if (survivor && afflictions.length) {
+          const strongest = afflictions.sort(
+            (a, b) => (b.damage || b.stacks || 1) - (a.damage || a.stacks || 1),
+          )[0];
+          survivor._ailments ||= {};
+          const key = Object.entries(targetRef._ailments).find(([, value]) => value === strongest)?.[0];
+          if (key) survivor._ailments[key] = { ...strongest };
+          const splash = Math.max(1, Math.round((dmg * ctx.afflictionBurst) / 100));
+          survivor.hp = Math.max(0, survivor.hp - splash);
+          Metrics.addTotal('damageDealt', splash);
+          Metrics.combatFlow(c, 'dealt', splash, survivor);
+          this.log(
+            state,
+            `${strongest.name} leaps into ${survivor.name} as the death bursts for <b>${splash}</b>.`,
+            'good',
+          );
+        }
+      }
       c._combo = (c._combo || 0) + 1;
       for (const t of traits)
         if (t.type === 'fateMomentum') c._fateCrit = isCrit ? 0 : Math.min(75, (c._fateCrit || 0) + t.value);
@@ -1611,7 +2023,7 @@ const Engine = {
               `${incomingCtx.damage}|${incomingCtx.notes.length}|${state.player.hp}|${state.player.mp}|${monsterObj?.hp}|${incomingCtx.dodged}|${c.elementalWard}`,
             before = isBoon ? snapshot() : '';
           if (isBoon) Metrics.count('boonEffectEvaluations', `${t.id.slice(5)}:${t.type}`);
-          h(incomingCtx, t.value);
+          h(incomingCtx, t.value, t);
           if (isBoon && before !== snapshot()) Metrics.count('boonEffectProcs', `${t.id.slice(5)}:${t.type}`);
         }
       }
@@ -1622,6 +2034,13 @@ const Engine = {
         if (guardBonus) mit = Math.min(0.95, mit + guardBonus.value / 100);
         finalDmg = Math.round(finalDmg * (1 - mit));
         incomingCtx.notes.push('Your guard absorbs much of the blow.');
+      }
+      if ((incomingCtx.dodged || c.playerGuarding) && incomingCtx.perfectRiposte && monsterObj?.hp > 0) {
+        const returned = Math.max(1, Math.round((incomingCtx.damage * incomingCtx.perfectRiposte) / 100));
+        monsterObj.hp = Math.max(0, monsterObj.hp - returned);
+        Metrics.addTotal('damageDealt', returned);
+        Metrics.combatFlow(c, 'dealt', returned, monsterObj);
+        incomingCtx.notes.push(`A perfect retort returns ${returned} damage.`);
       }
       if (finalDmg > 0 && c.elementalWard > 0) {
         const absorbed = Math.min(c.elementalWard, finalDmg);
@@ -1899,7 +2318,12 @@ const Engine = {
         mdef: 0.6,
         spd: 0.75,
       };
-      const monster = Generators.monsterFromTemplate(tpl, dlvl, state.dungeon.difficulty.monsterMult, false);
+      const monster = Generators.monsterFromTemplate(
+        tpl,
+        dlvl,
+        BALANCE.difficultyMultiplier(state.dungeon.difficulty, dlvl),
+        false,
+      );
       monster.goldDrop = Math.round(monster.goldDrop * 1.5);
       monster.xpDrop = Math.round(monster.xpDrop * 1.5);
       this.log(state, `The lid splits open into a maw of teeth — it was never a chest at all!`, 'bad');
@@ -1927,11 +2351,24 @@ const Engine = {
       );
     }
   },
+  skillRequirements(skill) {
+    if (skill.requiresAll?.length) return { mode: 'all', ids: skill.requiresAll };
+    if (skill.requiresAny?.length) return { mode: 'any', ids: skill.requiresAny };
+    if (skill.requires) return { mode: 'all', ids: [skill.requires] };
+    return { mode: 'all', ids: [] };
+  },
+  meetsSkillRequirements(state, skill) {
+    const requirements = this.skillRequirements(skill);
+    if (!requirements.ids.length) return true;
+    return requirements.mode === 'any'
+      ? requirements.ids.some((id) => state.player.unlockedSkills.includes(id))
+      : requirements.ids.every((id) => state.player.unlockedSkills.includes(id));
+  },
   canUnlock(state, skill) {
     if (state.mode === 'combat') return false;
     if (state.player.unlockedSkills.includes(skill.id)) return false;
     if (state.player.skillPoints < skill.cost) return false;
-    if (skill.requires && !state.player.unlockedSkills.includes(skill.requires)) return false;
+    if (!this.meetsSkillRequirements(state, skill)) return false;
     if (skill.choiceGroup) {
       const cls = CLASS_BY_ID[state.player.classId];
       const chosenRoot = cls.skillTree.find(
@@ -1953,6 +2390,7 @@ const Engine = {
     if (!skill || !this.canUnlock(state, skill)) return;
     state.player.skillPoints -= skill.cost;
     state.player.unlockedSkills.push(skillId);
+    Metrics.nodeUnlock(skill, state.player.classId);
     this.refreshDerived(state);
     this.log(state, `Learned <b>${skill.name}</b>.`, 'good');
     return true;

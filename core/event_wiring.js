@@ -34,8 +34,40 @@ function toggleCrafting() {
   render();
 }
 function toggleSkills() {
-  if (STATE.mode !== 'combat' || STATE.ui.skillsOpen) STATE.ui.skillsOpen = !STATE.ui.skillsOpen;
+  if (STATE.mode !== 'combat' || STATE.ui.skillsOpen) {
+    STATE.ui.skillsOpen = !STATE.ui.skillsOpen;
+    if (STATE.ui.skillsOpen) {
+      const cls = CLASS_BY_ID[STATE.player.classId];
+      STATE.ui.selectedSkillNode ||= cls.skillWeb?.coreId || cls.skillTree[0]?.id;
+      STATE.ui.skillWebScroll = null;
+    }
+  }
   render();
+}
+function rememberSkillWebScroll(viewport) {
+  if (STATE?.ui) STATE.ui.skillWebScroll = { left: viewport.scrollLeft, top: viewport.scrollTop };
+}
+function selectSkillNode(skillId) {
+  const viewport = document.getElementById('skillWebViewport');
+  if (viewport) rememberSkillWebScroll(viewport);
+  STATE.ui.selectedSkillNode = skillId;
+  render();
+}
+function focusSkillRegion(regionId) {
+  const cls = CLASS_BY_ID[STATE.player.classId],
+    viewport = document.getElementById('skillWebViewport'),
+    point =
+      regionId === 'core'
+        ? cls.skillWeb.center
+        : cls.skillWeb.regions.find((region) => region.id === regionId);
+  if (!viewport || !point) return;
+  const x = point.x ?? point.zoneX,
+    y = point.y ?? point.zoneY;
+  viewport.scrollTo({
+    left: Math.max(0, x - viewport.clientWidth / 2),
+    top: Math.max(0, y - viewport.clientHeight / 2),
+    behavior: STATE.settings?.reduceMotion ? 'auto' : 'smooth',
+  });
 }
 function toggleCharacter() {
   STATE.ui.characterOpen = !STATE.ui.characterOpen;
@@ -60,6 +92,8 @@ function resetMetrics() {
   Metrics.reset();
 }
 function onUnlockSkill(skillId) {
+  const viewport = document.getElementById('skillWebViewport');
+  if (viewport) rememberSkillWebScroll(viewport);
   Engine.unlockSkill(STATE, skillId);
   render();
 }
@@ -133,6 +167,7 @@ function onSelectTarget(monsterUid) {
 function onBuyItem(i, price) {
   const s = STATE;
   const item = s.ui.merchantStock[i];
+  price = item ? Engine.itemPrice(item) : 0;
   if (!item || s.player.gold < price) {
     Engine.log(s, 'Not enough gold.', 'bad');
     render();
@@ -155,9 +190,7 @@ function openTownView(view) {
 function buyTownItem(index) {
   const item = STATE.town.merchantStock[index];
   if (!item) return;
-  const price = Math.round(
-    (12 + item.ilvl * 4) * (1 + TIERS.findIndex((tier) => tier.id === item.tier) * 0.75),
-  );
+  const price = Engine.itemPrice(item);
   if (STATE.player.gold < price) return (Engine.log(STATE, 'Not enough gold.', 'bad'), render());
   STATE.player.gold -= price;
   Engine.grantItem(STATE, item);
@@ -166,7 +199,7 @@ function buyTownItem(index) {
   render();
 }
 function buyChurchBlessing() {
-  const cost = 30 + STATE.player.level * 5;
+  const cost = Math.round(35 + Math.pow(STATE.player.level, 1.22) * 9);
   if (STATE.town.blessing) return (Engine.log(STATE, 'You already carry a blessing.', 'bad'), render());
   if (STATE.player.gold < cost)
     return (Engine.log(STATE, 'Not enough gold for an offering.', 'bad'), render());
@@ -177,11 +210,19 @@ function buyChurchBlessing() {
   render();
 }
 function buyMaterialBundle() {
-  const cost = 20 + STATE.player.level * 3;
+  const cost = BALANCE.materialBundleCost(STATE.player.level);
   if (STATE.player.gold < cost) return (Engine.log(STATE, 'Not enough gold for supplies.', 'bad'), render());
   STATE.player.gold -= cost;
   const picks = [...CRAFTING_MATERIALS].sort(() => Math.random() - 0.5).slice(0, 2);
-  for (const material of picks) Engine.grantMaterial(STATE, material.id, U.randInt(1, 3));
+  let totalMaterials = 0;
+  for (const material of picks) {
+    const amount = U.randInt(1, 3);
+    Engine.grantMaterial(STATE, material.id, amount);
+    Metrics.count('purchasedMaterials', material.id, amount);
+    totalMaterials += amount;
+  }
+  Metrics.addTotal('materialBundleGoldSpent', cost);
+  Metrics.addTotal('materialsPurchased', totalMaterials);
   Metrics.count('townServices', 'materialBundle');
   Engine.log(STATE, `Packed ${picks.map((item) => item.name).join(' and ')}.`, 'good');
   render();

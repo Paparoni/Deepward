@@ -142,12 +142,648 @@ function elementalNodes(route) {
   ];
 }
 
+const WEB_ROUTE_MOTIFS = {
+  warrior: { battle: 'Tempered Edge', guard: 'Gatewall', berserker: 'Red Wake', warlord: 'Iron Standard' },
+  mage: { pyre: 'Cinder Crown', frost: 'Rimeglass', storm: 'Skywire', chrono: 'Broken Hour' },
+  rogue: { duel: 'Answering Blade', shadow: 'Gloamstep', venom: 'Viper Psalm', raider: 'Black Pennant' },
+  paladin: {
+    devotion: 'Last Grace',
+    wrath: 'Final Sentence',
+    aegis: 'Sun Rampart',
+    inquisitor: 'Ashen Censure',
+  },
+  elementalist: { flame: 'First Ember', frost: 'Deep Glacier', storm: 'Tempest Heart', earth: 'Worldstone' },
+  necromancer: { blight: 'Patient Rot', soul: 'Open Veil', grave: 'Sepulcher Host', bone: 'Ivory Marrow' },
+};
+
+function refineRouteNodes(classId, route, nodes) {
+  const profile = routeProfile(route),
+    motif = WEB_ROUTE_MOTIFS[classId]?.[route.id] || route.name,
+    statusRoutes = new Set(['pyre', 'frost', 'storm', 'venom', 'inquisitor', 'flame', 'blight']),
+    defensiveRoutes = new Set(['guard', 'devotion', 'aegis', 'earth', 'bone']),
+    bloodRoutes = new Set(['berserker', 'wrath', 'soul']),
+    tempoRoutes = new Set(['battle', 'warlord', 'chrono', 'duel', 'shadow', 'raider']),
+    isStatus = statusRoutes.has(route.id),
+    isDefensive = defensiveRoutes.has(route.id),
+    isBlood = bloodRoutes.has(route.id),
+    isTempo = tempoRoutes.has(route.id),
+    element = profile.element,
+    magic = profile.magic,
+    powerStat = magic ? 'matk' : 'atk',
+    defenseStat = magic ? 'mdef' : 'def',
+    ailment = ELEMENTAL_AILMENTS[element].name;
+
+  nodes[7] = P(
+    `${motif} Opportunist`,
+    { type: 'afflictedDamage', value: 14 },
+    `Deal 14% more damage to enemies carrying any affliction.`,
+  );
+  nodes[8] = A(
+    `${motif} Convergence`,
+    23,
+    'aoe',
+    `Strike every enemy for 115% ${element} damage and inflict ${ailment}.`,
+    {
+      power: 1.15,
+      magic,
+      forcedElement: element,
+      guaranteedStatus: true,
+    },
+  );
+  nodes[9] = isDefensive
+    ? P(
+        `${motif} Reprisal`,
+        { type: 'retaliationCharge', value: 12 },
+        'Taking damage stores a charge; your next hit gains 12% damage per charge, up to three.',
+      )
+    : isStatus
+      ? P(
+          `${motif} Cruelty`,
+          { type: 'statusCountDamage', value: 9, cap: 36 },
+          'Deal 9% more damage for each different affliction on the target, up to 36%.',
+        )
+      : isBlood
+        ? P(
+            `${motif} Desperation`,
+            { type: 'missingHpPower', value: 38 },
+            'Deal up to 38% more damage as your HP is lost.',
+          )
+        : isTempo
+          ? P(
+              `${motif} Momentum`,
+              { type: 'momentumDamage', value: 5, cap: 30 },
+              'Consecutive hits gain 5% damage, up to 30%; taking damage breaks the momentum.',
+            )
+          : P(
+              `${motif} Executioner`,
+              { type: 'executioner', value: 28, threshold: 50 },
+              'Deal 28% more damage to enemies below half HP.',
+            );
+  nodes[13] = magic
+    ? P(
+        `${motif} Mana Battery`,
+        { type: 'manaBattery', value: 24 },
+        'Skills gain up to 24% damage from your unspent MP.',
+      )
+    : P(
+        `${motif} Battle Rhythm`,
+        { type: 'battleRhythm', cadence: 3, cooldown: 1 },
+        'Every third basic attack reduces all skill cooldowns by 1 round.',
+      );
+  nodes[15] = P(
+    `${motif} Perfect Measure`,
+    { type: 'perfectTiming', cadence: 4 },
+    'Every fourth damaging hit is guaranteed to critically strike.',
+  );
+  nodes[16] = magic
+    ? P(`${motif} Soul Draw`, { type: 'manaOnKill', value: 9 }, 'Killing an enemy restores 9% maximum MP.')
+    : P(`${motif} Harvest`, { type: 'killHarvest', value: 4 }, 'Kills restore 4% of maximum HP and MP.');
+  nodes[17] = A(
+    `${motif} Breach`,
+    16,
+    'nuke',
+    `A 170% ${element} strike that ignores 28% of the target's defenses.`,
+    {
+      power: 1.7,
+      magic,
+      forcedElement: element,
+      defensePierce: 28,
+      restoreMpPct: magic ? 4 : 0,
+    },
+  );
+  nodes[18] = A(
+    `${motif} Wake`,
+    19,
+    'aoe',
+    `Carve through every enemy for 108% ${element} damage, leaving ${ailment} behind.`,
+    {
+      power: 1.08,
+      magic,
+      forcedElement: element,
+      guaranteedStatus: true,
+    },
+  );
+  nodes[19] = isDefensive
+    ? P(
+        `${motif} Answer`,
+        { type: 'counterStrike', value: 38 },
+        'Return 38% of incoming damage to its source.',
+      )
+    : isStatus
+      ? P(
+          `${motif} Contagion`,
+          { type: 'afflictionBurst', value: 45 },
+          'Killing an afflicted enemy spreads its strongest affliction to another enemy and deals 45% splash damage.',
+        )
+      : isTempo
+        ? P(
+            `${motif} Flow State`,
+            { type: 'momentumDamage', value: 4, cap: 24 },
+            'Each uninterrupted hit adds 4% damage, up to 24%; taking damage ends the chain.',
+          )
+        : P(
+            `${motif} Twin Stroke`,
+            { type: 'doubleHitChance', value: 12 },
+            'Hits have a 12% chance to repeat for half damage.',
+          );
+  nodes[21] = isDefensive
+    ? P(
+        `${motif} Pain Ledger`,
+        { type: 'damageBank', value: 28 },
+        'Store 28% of damage taken and release it through your next hit.',
+      )
+    : isStatus
+      ? P(
+          `${motif} Hunger`,
+          { type: 'ailmentLeech', value: 6 },
+          'Damage against afflicted enemies restores 6% of that damage as HP.',
+        )
+      : magic
+        ? P(`${motif} Feedback`, { type: 'manaOnHit', value: 2 }, 'Damaging hits restore 2 MP.')
+        : P(`${motif} Predation`, { type: 'lifesteal', value: 7 }, 'Restore HP equal to 7% of damage dealt.');
+  nodes[22] = magic
+    ? A(`${motif} Channel`, 11, 'channel', 'Give up the attack to empower your next skill by 75%.', {
+        channelPower: 75,
+      })
+    : A(`${motif} Ascendant Stance`, 18, 'buff', `Gain 42% ${powerStat.toUpperCase()} for the battle.`, {
+        buffStat: powerStat,
+        buffValue: 42,
+        hpCostPct: isBlood ? 7 : 0,
+      });
+  nodes[23] = isDefensive
+    ? P(
+        `${motif} Last Wall`,
+        { type: 'lowHpReduction', value: 24 },
+        'Take 24% less damage while below 35% HP.',
+      )
+    : isStatus
+      ? P(
+          `${motif} Catalytic Hunger`,
+          { type: 'statusCountDamage', value: 11, cap: 44 },
+          'Deal 11% more damage per different affliction on the target, up to 44%.',
+        )
+      : magic
+        ? P(
+            `${motif} Deep Reservoir`,
+            { type: 'manaBattery', value: 32 },
+            'Skills gain up to 32% damage from your unspent MP.',
+          )
+        : isBlood
+          ? P(
+              `${motif} Last Stand`,
+              { type: 'missingHpPower', value: 45 },
+              'Deal up to 45% more damage as your HP is lost.',
+            )
+          : P(
+              `${motif} Headsman`,
+              { type: 'executioner', value: 34, threshold: 50 },
+              'Deal 34% more damage to enemies below half HP.',
+            );
+  nodes[24] = P(
+    `${motif} Foundation`,
+    { type: 'statBonus', stat: defenseStat, value: 9 },
+    `+9 ${defenseStat.toUpperCase()}.`,
+  );
+  nodes[25] = A(
+    `${motif} Collapse`,
+    27,
+    'catalyst',
+    `Deal 150% ${element} damage, then consume every affliction on the target for a violent burst.`,
+    {
+      power: 1.5,
+      magic,
+      forcedElement: element,
+      catalystPower: 1,
+    },
+  );
+  nodes[26] = P(
+    `${motif} Instability`,
+    { type: 'elementalInstability', value: 18 },
+    'Targets carrying two or more different afflictions take 18% more damage.',
+  );
+  nodes[27] = P(
+    `${ailment} Inheritance`,
+    { type: 'afflictionBurst', value: 55 },
+    `When an afflicted enemy dies, ${ailment} seeks another victim and the death deals 55% splash damage.`,
+  );
+  nodes[28] = A(`${motif} Brand`, 18, 'nuke', `Deal 150% ${element} damage and guarantee ${ailment}.`, {
+    power: 1.5,
+    magic,
+    forcedElement: element,
+    guaranteedStatus: true,
+    defensePierce: 12,
+  });
+  nodes[29] = A(
+    `${motif} Grand Collapse`,
+    31,
+    'catalyst',
+    `Strike every enemy for 120% ${element} damage and collapse every existing affliction.`,
+    {
+      power: 1.2,
+      magic,
+      forcedElement: element,
+      catalystPower: 0.8,
+      allTargets: true,
+    },
+  );
+  return nodes;
+}
+
+const SKILL_WEB_LAYOUT = {
+  width: 3000,
+  height: 3000,
+  center: { x: 1500, y: 1500 },
+  routeAngles: [-90, 0, 90, 180],
+  rings: [
+    { radius: 240, offsets: [0] },
+    { radius: 390, offsets: [-24, -8, 8, 24] },
+    { radius: 550, offsets: [-32, -16, 0, 16, 32] },
+    { radius: 710, offsets: [-37, -22, -7, 7, 22, 37] },
+    { radius: 870, offsets: [-40, -27, -13, 0, 13, 27, 40] },
+    { radius: 1030, offsets: [-40, -27, -13, 0, 13, 27, 40] },
+  ],
+};
+
+const WEB_HYBRID_ARCHETYPES = [
+  {
+    title: 'Crosscurrent',
+    effect: { type: 'elementRelay', value: 28 },
+    text: (a, b) => `Alternating damage elements between ${a} and ${b} empowers the new element by 28%.`,
+  },
+  {
+    title: 'Ruinous Accord',
+    effect: { type: 'afflictedDamage', value: 22 },
+    text: (a, b) => `${a} and ${b} techniques deal 22% more damage to afflicted enemies.`,
+  },
+  {
+    title: 'Warded Confluence',
+    effect: { type: 'afflictionWard', value: 4, cap: 30 },
+    text: (a, b) => `Hitting an afflicted enemy through ${a} or ${b} builds a ward worth 4% maximum HP.`,
+  },
+  {
+    title: 'Hungry Circuit',
+    effect: { type: 'ailmentLeech', value: 6 },
+    text: (a, b) => `Damage against afflicted enemies from ${a} or ${b} restores 6% of that damage as HP.`,
+  },
+];
+
+const WEB_KEYSTONES = {
+  warrior: {
+    battle: {
+      name: 'The Unbroken Tempo',
+      effect: { type: 'assaultCadence', cadence: 3, value: 35, cooldown: 1 },
+      desc: 'Every third basic attack deals 35% more damage and reduces all skill cooldowns by 1 round.',
+    },
+    guard: {
+      name: 'Walking Fortress',
+      effect: { type: 'fortressOath', reduction: 25, drawback: 12 },
+      desc: 'Take 25% less damage, but deal 12% less damage. Defense becomes a permanent battle stance.',
+    },
+    berserker: {
+      name: 'Red Horizon',
+      effect: { type: 'bloodFrenzy', threshold: 50, echo: 70, incoming: 15 },
+      desc: 'Below 50% HP, attacks echo for 70% damage. You take 15% more damage at all times.',
+    },
+    warlord: {
+      name: 'Doctrine of Many Blades',
+      effect: { type: 'actionWeave', value: 35 },
+      desc: 'Changing action type between rounds empowers the new action by 35%. Repeating an action breaks the chain.',
+    },
+  },
+  mage: {
+    pyre: {
+      name: 'Crown of Living Cinders',
+      effect: { type: 'pyreSovereign', value: 30 },
+      desc: 'Fire hits always Burn and deal 30% more damage to Burning enemies.',
+    },
+    frost: {
+      name: 'The Winter Throne',
+      effect: { type: 'frozenDominion', value: 35 },
+      desc: 'Ice hits always Chill, Freeze ordinary enemies at 2 Chill, and deal 35% more damage to chilled targets.',
+    },
+    storm: {
+      name: 'Heaven-Split Circuit',
+      effect: { type: 'stormSovereign', value: 38 },
+      desc: 'Lightning hits arc 38% of their damage into every other living enemy.',
+    },
+    chrono: {
+      name: 'Borrowed Tomorrow',
+      effect: { type: 'timeDebt', cadence: 4, hpCostPct: 5 },
+      desc: 'Every fourth skill repeats immediately, but the repetition costs 5% maximum HP.',
+    },
+  },
+  rogue: {
+    duel: {
+      name: 'Perfect Answer',
+      effect: { type: 'perfectRiposte', value: 80 },
+      desc: 'Guarded or completely evaded hits immediately return 80% of their damage to the attacker.',
+    },
+    shadow: {
+      name: 'The Last Unseen Step',
+      effect: { type: 'shadowExecution', threshold: 30, bossBonus: 35 },
+      desc: 'Critical hits execute ordinary enemies below 30% HP and deal 35% more damage to bosses in that range.',
+    },
+    venom: {
+      name: 'Death Without End',
+      effect: { type: 'toxinSovereign', value: 14, detonate: 70 },
+      desc: 'Poison hits always add Toxin, gain 14% damage per existing stack, and detonate at maximum stacks.',
+    },
+    raider: {
+      name: 'No Pause for the Dead',
+      effect: { type: 'killMomentum', healPct: 7, cooldown: 1 },
+      desc: 'Kills restore 7% maximum HP and reduce every skill cooldown by 1 round.',
+    },
+  },
+  paladin: {
+    devotion: {
+      name: 'The Last Guardian',
+      effect: { type: 'reviveOncePerFight', value: 35 },
+      desc: 'Once per battle, fatal damage restores you to 35% maximum HP instead.',
+    },
+    wrath: {
+      name: 'Judgment Without Mercy',
+      effect: { type: 'judgmentDoctrine', value: 45, afflicted: 20 },
+      desc: 'Deal up to 45% more damage as HP is lost, plus 20% more against afflicted enemies.',
+    },
+    aegis: {
+      name: 'Bastion Retort',
+      effect: { type: 'perfectRiposte', value: 110 },
+      desc: 'Guarded or completely evaded hits immediately return 110% of their damage to the attacker.',
+    },
+    inquisitor: {
+      name: 'Purging Radiance',
+      effect: { type: 'purgeDoctrine', value: 30 },
+      desc: 'Holy and Dark hits always trigger their secondary effect and deal 30% more damage to afflicted enemies.',
+    },
+  },
+  elementalist: {
+    flame: {
+      name: 'Heart of the First Pyre',
+      effect: { type: 'pyreSovereign', value: 38 },
+      desc: 'Fire hits always Burn and deal 38% more damage to Burning enemies.',
+    },
+    frost: {
+      name: 'Absolute Winter',
+      effect: { type: 'frozenDominion', value: 42 },
+      desc: 'Ice hits always Chill, Freeze ordinary enemies at 2 Chill, and deal 42% more damage to chilled targets.',
+    },
+    storm: {
+      name: 'A Sky Made Weapon',
+      effect: { type: 'stormSovereign', value: 48 },
+      desc: 'Lightning hits arc 48% of their damage into every other living enemy.',
+    },
+    earth: {
+      name: 'The Mountain Answers',
+      effect: { type: 'stoneConduit', value: 32, reduction: 12 },
+      desc: 'Hits gain bonus damage equal to 32% of your lower defense; incoming damage is reduced by 12%.',
+    },
+  },
+  necromancer: {
+    blight: {
+      name: 'The Patient Apocalypse',
+      effect: { type: 'toxinSovereign', value: 12, detonate: 85 },
+      desc: 'Poison hits always add Toxin, gain 12% damage per existing stack, and violently detonate at maximum stacks.',
+    },
+    soul: {
+      name: 'Covenant of Open Veins',
+      effect: { type: 'soulCovenant', value: 7 },
+      desc: 'Damage against afflicted enemies restores 7% of damage as HP and 3% as MP.',
+    },
+    grave: {
+      name: 'Empire of the Fallen',
+      effect: { type: 'killMomentum', healPct: 5, cooldown: 2 },
+      desc: 'Kills restore 5% maximum HP and reduce every skill cooldown by 2 rounds.',
+    },
+    bone: {
+      name: 'The Ivory Citadel',
+      effect: { type: 'fortressOath', reduction: 30, drawback: 15 },
+      desc: 'Take 30% less damage, but deal 15% less damage. Your bones become the dungeon wall.',
+    },
+  },
+};
+
+function routeProfile(route) {
+  const elementalSkill = [...route.nodes].reverse().find((node) => node.forcedElement);
+  return {
+    element: elementalSkill?.forcedElement || 'physical',
+    magic: route.nodes.some((node) => node.magic),
+  };
+}
+
+function webPoint(radius, angle) {
+  const radians = (angle * Math.PI) / 180;
+  return {
+    x: Math.round(SKILL_WEB_LAYOUT.center.x + Math.cos(radians) * radius),
+    y: Math.round(SKILL_WEB_LAYOUT.center.y + Math.sin(radians) * radius),
+  };
+}
+
+function webNodePosition(index, routeAngle) {
+  let cursor = 0;
+  for (let ring = 0; ring < SKILL_WEB_LAYOUT.rings.length; ring++) {
+    const layout = SKILL_WEB_LAYOUT.rings[ring];
+    if (index < cursor + layout.offsets.length) {
+      const point = webPoint(layout.radius, routeAngle + layout.offsets[index - cursor]);
+      return { ...point, webRing: ring };
+    }
+    cursor += layout.offsets.length;
+  }
+  return { ...webPoint(1030, routeAngle), webRing: SKILL_WEB_LAYOUT.rings.length - 1 };
+}
+
+function buildSkillWeb(classId, className, statMods, routes, routeNodes) {
+  const coreId = `${classId}_web_core`;
+  const coreStat = Object.entries(statMods).sort((a, b) => b[1] - a[1])[0]?.[0] || 'atk';
+  const core = {
+    id: coreId,
+    name: `${className} Instinct`,
+    kind: 'passive',
+    effect: { type: 'statBonus', stat: coreStat, value: 2 },
+    desc: `The center of the web. +2 ${coreStat.toUpperCase()}.`,
+    cost: 0,
+    tier: 0,
+    branch: 'Class Core',
+    region: null,
+    regions: [],
+    requires: null,
+    choiceGroup: null,
+    nodeRole: 'core',
+    tags: ['Core', coreStat.toUpperCase()],
+    ...SKILL_WEB_LAYOUT.center,
+  };
+  const buckets = routes.map((route, routeIndex) => {
+    const angle = SKILL_WEB_LAYOUT.routeAngles[routeIndex],
+      profile = routeProfile(route),
+      nodes = routeNodes.filter((node) => node.region === route.id);
+    for (let index = 0; index < nodes.length; index++) {
+      Object.assign(nodes[index], webNodePosition(index, angle));
+      nodes[index].routeIndex = routeIndex;
+      const mechanic = nodes[index].effect?.type || nodes[index].action;
+      nodes[index].tags = [
+        nodes[index].kind === 'active' ? 'Active' : 'Passive',
+        profile.element,
+        mechanic?.replace(/([a-z])([A-Z])/g, '$1 $2'),
+      ].filter(Boolean);
+      if (index === 0) nodes[index].requires = coreId;
+    }
+    const label = webPoint(1310, angle),
+      zone = webPoint(650, angle);
+    return {
+      id: route.id,
+      name: route.name,
+      angle,
+      element: profile.element,
+      magic: profile.magic,
+      nodes,
+      labelX: label.x,
+      labelY: label.y,
+      zoneX: zone.x,
+      zoneY: zone.y,
+    };
+  });
+  const hybrids = buckets.map((bucket, index) => {
+    const next = buckets[(index + 1) % buckets.length],
+      archetype = WEB_HYBRID_ARCHETYPES[index],
+      point = webPoint(620, bucket.angle + 45),
+      id = `${classId}_web_hybrid_${index + 1}`,
+      hybrid = {
+        id,
+        name: `${archetype.title}: ${bucket.name} / ${next.name}`,
+        kind: 'passive',
+        effect: { ...archetype.effect },
+        desc: archetype.text(bucket.name, next.name),
+        cost: 4,
+        tier: 7,
+        branch: `${bucket.name} + ${next.name}`,
+        region: null,
+        regions: [bucket.id, next.id],
+        requiresAll: [bucket.nodes[14].id, next.nodes[14].id],
+        choiceGroup: null,
+        nodeRole: 'hybrid',
+        tags: ['Hybrid', bucket.element, next.element],
+        x: point.x,
+        y: point.y,
+        webRing: 3,
+      };
+    for (const exit of [bucket.nodes[22], next.nodes[23]]) {
+      exit.requiresAny = [...new Set([exit.requires, id].filter(Boolean))];
+    }
+    return hybrid;
+  });
+  const keystones = buckets.map((bucket) => {
+    const blueprint = WEB_KEYSTONES[classId]?.[bucket.id] || {
+        name: `${bucket.name} Apotheosis`,
+        effect: { type: 'bonusDamagePct', value: 25 },
+        desc: `${bucket.name} damage is increased by 25%.`,
+      },
+      point = webPoint(1220, bucket.angle);
+    return {
+      id: `${classId}_${bucket.id}_keystone`,
+      name: blueprint.name,
+      kind: 'passive',
+      effect: { ...blueprint.effect },
+      desc: blueprint.desc,
+      cost: 5,
+      tier: 12,
+      branch: bucket.name,
+      region: bucket.id,
+      regions: [bucket.id],
+      requiresAll: [bucket.nodes[25].id, bucket.nodes[29].id],
+      choiceGroup: null,
+      nodeRole: 'keystone',
+      tags: ['Keystone', bucket.element, bucket.name],
+      x: point.x,
+      y: point.y,
+      webRing: 6,
+    };
+  });
+  return {
+    nodes: [core, ...routeNodes, ...hybrids, ...keystones],
+    meta: {
+      version: 2,
+      width: SKILL_WEB_LAYOUT.width,
+      height: SKILL_WEB_LAYOUT.height,
+      center: { ...SKILL_WEB_LAYOUT.center },
+      coreId,
+      regions: buckets.map(({ nodes, ...region }) => region),
+      hybridIds: hybrids.map((node) => node.id),
+      keystoneIds: keystones.map((node) => node.id),
+    },
+  };
+}
+
 function makeClass(id, name, icon, desc, statMods, routes, innate = {}) {
   const choiceGroup = null;
   const innatePassive = innate.passive
     ? { ...innate.passive, id: `${id}_innate_passive`, kind: 'passive' }
     : null;
   const innateActive = innate.active ? { ...innate.active, id: `${id}_innate_active`, kind: 'active' } : null;
+  const routeNodes = routes.flatMap((route) =>
+    refineRouteNodes(id, route, [
+      ...route.nodes,
+      ...advancedNodes(route),
+      ...expansionNodes(route),
+      ...deepExpansionNodes(route),
+      ...elementalNodes(route),
+    ]).map((node, index) => {
+      const isBranch = index >= 10;
+      const branchIndex = index - 10;
+      const anchors = [1, 2, 3, 4, 5, 6, 7, 8, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 7, 8];
+      const outer = branchIndex >= 8;
+      const ailmentBranch = branchIndex >= 16;
+      const cost = isBranch
+        ? ailmentBranch
+          ? branchIndex === 19
+            ? 3
+            : 2
+          : outer
+            ? branchIndex >= 14
+              ? 3
+              : 2
+            : branchIndex >= 6
+              ? 2
+              : 1
+        : index >= 8
+          ? 3
+          : index >= 4
+            ? 2
+            : 1;
+      return {
+        ...node,
+        id: isBranch ? `${id}_${route.id}_x${branchIndex + 1}` : `${id}_${route.id}_${index + 1}`,
+        tier: isBranch ? anchors[branchIndex] + 1 : index + 1,
+        cost,
+        cooldown: node.kind === 'active' ? U.clamp(2 + Math.floor((cost - 1) / 2), 2, 4) : undefined,
+        branch: route.name,
+        region: route.id,
+        regions: [route.id],
+        requires: isBranch
+          ? branchIndex % 2
+            ? `${id}_${route.id}_x${branchIndex}`
+            : ailmentBranch
+              ? `${id}_${route.id}_x${branchIndex - 7}`
+              : outer
+                ? `${id}_${route.id}_x${branchIndex - 7}`
+                : `${id}_${route.id}_${anchors[branchIndex]}`
+          : index
+            ? `${id}_${route.id}_${index}`
+            : null,
+        choiceGroup: null,
+        nodeRole: isBranch
+          ? [15, 19].includes(branchIndex)
+            ? 'capstone'
+            : node.kind === 'active'
+              ? 'notable'
+              : 'minor'
+          : index === 9
+            ? 'capstone'
+            : index === 0
+              ? 'root'
+              : 'spine',
+      };
+    }),
+  );
+  const web = buildSkillWeb(id, name, statMods, routes, routeNodes);
   return {
     id,
     name,
@@ -156,79 +792,8 @@ function makeClass(id, name, icon, desc, statMods, routes, innate = {}) {
     statMods,
     innatePassive,
     innateActive,
-    skillTree: routes.flatMap((route) =>
-      [
-        ...route.nodes,
-        ...advancedNodes(route),
-        ...expansionNodes(route),
-        ...deepExpansionNodes(route),
-        ...elementalNodes(route),
-      ].map((node, index) => {
-        const isBranch = index >= 10;
-        const branchIndex = index - 10;
-        const anchors = [1, 2, 3, 4, 5, 6, 7, 8, 2, 3, 4, 5, 6, 7, 8, 9, 4, 5, 7, 8];
-        const outer = branchIndex >= 8;
-        const ailmentBranch = branchIndex >= 16;
-        const cost = isBranch
-          ? ailmentBranch
-            ? branchIndex === 19
-              ? 3
-              : 2
-            : outer
-              ? branchIndex >= 14
-                ? 3
-                : 2
-              : branchIndex >= 6
-                ? 2
-                : 1
-          : index >= 8
-            ? 3
-            : index >= 4
-              ? 2
-              : 1;
-        return {
-          ...node,
-          id: isBranch ? `${id}_${route.id}_x${branchIndex + 1}` : `${id}_${route.id}_${index + 1}`,
-          tier: isBranch ? anchors[branchIndex] + 1 : index + 1,
-          cost,
-          cooldown: node.kind === 'active' ? U.clamp(2 + Math.floor((cost - 1) / 2), 2, 4) : undefined,
-          branch: route.name,
-          requires: isBranch
-            ? branchIndex % 2
-              ? `${id}_${route.id}_x${branchIndex}`
-              : ailmentBranch
-                ? `${id}_${route.id}_x${branchIndex - 7}`
-                : outer
-                  ? `${id}_${route.id}_x${branchIndex - 7}`
-                  : `${id}_${route.id}_${anchors[branchIndex]}`
-            : index
-              ? `${id}_${route.id}_${index}`
-              : null,
-          choiceGroup: null,
-          x:
-            430 +
-            routes.indexOf(route) * 900 +
-            (isBranch
-              ? (Math.floor(branchIndex / 2) % 2 === 0 ? -1 : 1) *
-                ((ailmentBranch ? 390 : outer ? 285 : 125) + (branchIndex % 2) * 30)
-              : index % 2
-                ? 28
-                : -28),
-          y: 100 + (isBranch ? anchors[branchIndex] : index) * 120,
-          nodeRole: isBranch
-            ? [15, 19].includes(branchIndex)
-              ? 'capstone'
-              : node.kind === 'active'
-                ? 'notable'
-                : 'minor'
-            : index === 9
-              ? 'capstone'
-              : index === 0
-                ? 'root'
-                : 'spine',
-        };
-      }),
-    ),
+    skillTree: web.nodes,
+    skillWeb: web.meta,
   };
 }
 
@@ -237,7 +802,7 @@ const CLASSES = [
     'warrior',
     'Warrior',
     '⚔️',
-    'A frontline fighter who chooses one discipline and masters it.',
+    'A frontline fighter who can master one discipline or weave several together.',
     { atk: 4, def: 3, hitRes: 2 },
     [
       {
@@ -459,7 +1024,7 @@ const CLASSES = [
     'rogue',
     'Rogue',
     '🗡️',
-    'A quick killer who commits to a single lethal craft.',
+    'A quick killer who crosses lethal crafts to create an answer for every opening.',
     { spd: 5, hitEff: 3 },
     [
       {
@@ -555,7 +1120,7 @@ const CLASSES = [
     'paladin',
     'Paladin',
     '🛡️',
-    'A holy warrior defined by one sacred oath.',
+    'A holy warrior who binds sacred oaths into a personal doctrine.',
     { def: 4, mdef: 2, hitRes: 2 },
     [
       {
@@ -664,7 +1229,7 @@ const CLASSES = [
     'elementalist',
     'Elementalist',
     '🌪️',
-    'A conduit who dedicates their craft to one element.',
+    'A conduit who can deepen one element or make several collide.',
     { matk: 4, spd: 2, hitEff: 1 },
     [
       {
@@ -786,7 +1351,7 @@ const CLASSES = [
     'necromancer',
     'Necromancer',
     '☠️',
-    'A master of death who follows one forbidden art.',
+    'A master of death who stitches forbidden arts into a living covenant.',
     { matk: 3, mdef: 3, hitRes: 2 },
     [
       {

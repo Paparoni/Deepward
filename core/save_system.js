@@ -87,6 +87,15 @@ const SaveSystem = {
           : null,
       };
     };
+    const cls = CLASS_BY_ID[p.classId],
+      validSkillIds = new Set(cls.skillTree.map((skill) => skill.id)),
+      classCoreId = cls.skillWeb?.coreId,
+      unlockedSkills = [
+        ...new Set(
+          (Array.isArray(p.unlockedSkills) ? p.unlockedSkills : []).filter((id) => validSkillIds.has(id)),
+        ),
+      ];
+    if (classCoreId && !unlockedSkills.includes(classCoreId)) unlockedSkills.unshift(classCoreId);
     const player = {
       ...p,
       name: cleanText(p.name || 'Wanderer').slice(0, 18),
@@ -94,7 +103,7 @@ const SaveSystem = {
       xp: Math.max(0, Number(p.xp) || 0),
       gold: Math.max(0, Number(p.gold) || 0),
       skillPoints: Math.max(0, Number(p.skillPoints) || 0),
-      unlockedSkills: Array.isArray(p.unlockedSkills) ? p.unlockedSkills : [],
+      unlockedSkills,
       recipes: Array.isArray(p.recipes) ? p.recipes : [],
       materials: p.materials || {},
       skillCooldowns: {},
@@ -135,6 +144,8 @@ const SaveSystem = {
         slotOverlay: null,
         saveNotice: 'Game loaded.',
         townView: 'square',
+        selectedSkillNode: classCoreId || null,
+        skillWebScroll: null,
       },
     };
     if (!state.town.merchantStock.length) restockTown(state);

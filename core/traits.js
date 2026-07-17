@@ -697,6 +697,7 @@ const GEAR_TRAITS = Object.entries(SLOT_TRAIT_NAMES).flatMap(([slot, names]) =>
       desc: a[4],
       tier,
       allowedSlots: [slot],
+      stackGroup: `generated:${tier}:${a[0]}`,
     })),
   ),
 );

@@ -15,8 +15,8 @@ The project is actively developed in my spare time and will continue to grow wit
 
 - Turn-based battle system
 - Six playable classes with four subclasses each
-- 120-node constellation skill tree per class, 720 nodes total
-- Active skills, passives, branching paths, notables, and capstones
+- 129-node skill web per class, 774 nodes total
+- Active skills, passives, cross-region junctions, notables, and keystones
 - Inventory and ten equipment slots
 - Randomized loot with seven rarity tiers
 - Experience, leveling, gold, and stat progression
@@ -59,7 +59,7 @@ The project is actively developed in my spare time and will continue to grow wit
 - [ ] Quests
 - [x] Save system
 - [ ] Seasonal content
-- [x] Skill trees
+- [x] Skill webs
 - [ ] Story campaign
 
 ---
@@ -112,7 +112,7 @@ Players can:
 
 - Choose from unique classes
 - Explore four subclasses per class
-- Spend skill points across large connected skill trees
+- Spend skill points across large interconnected class skill webs
 - Unlock powerful active skills and passives
 - Build around different playstyles
 - Find increasingly rare equipment

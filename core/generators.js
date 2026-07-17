@@ -496,7 +496,8 @@ const Generators = {
     for (const s of chosen) {
       const scalar =
         s.kind === 'pct' ? BALANCE.itemStatScalar.elementDmg : (BALANCE.itemStatScalar[s.id] ?? 1);
-      const raw = scalar * dungeonLevel * tier.mult * U.rand(rollMin, rollMax);
+      const levelScale = Math.pow(Math.max(1, dungeonLevel), BALANCE.itemLevelExponent);
+      const raw = scalar * levelScale * tier.mult * U.rand(rollMin, rollMax);
       stats[s.id] = s.kind === 'pct' ? Math.max(1, Math.round(raw)) : Math.max(1, Math.round(raw));
     }
     return stats;
@@ -522,6 +523,7 @@ const Generators = {
         source: t.source,
         target: t.target,
         element: t.element,
+        stackGroup: t.stackGroup,
       });
     }
     return picked;
@@ -532,7 +534,14 @@ const Generators = {
     const t = U.pick(MYTHIC_TRAITS);
     const tvm = tier.traitValueMult ?? 1;
     const value = Math.round((t.base + t.perLvl * dungeonLevel) * tvm * 10) / 10;
-    return { id: t.id, name: t.name, type: t.type, value, desc: t.desc(value) };
+    return {
+      id: t.id,
+      name: t.name,
+      type: t.type,
+      value,
+      desc: t.desc(value),
+      stackGroup: `generated:mythic:${t.id}`,
+    };
   },
 
   nameItem(slot, tier) {
@@ -615,7 +624,10 @@ const Generators = {
     };
     const mod = (stat) => identity.mods?.[stat] || 1;
     const hp = Math.floor(
-      ((isBoss ? 82 : 31) + scale * (isBoss ? 14.2 : 8.1)) * mod('hp') * variance(0.96, 1.05),
+      ((isBoss ? 82 : 31) + scale * (isBoss ? 14.2 : 8.1)) *
+        mod('hp') *
+        variance(0.96, 1.05) *
+        (isBoss ? BALANCE.bossDurability(dungeonLevel) : 1),
     );
     const mercy = BALANCE.monsterEarlyMercy(dungeonLevel);
     return {
@@ -650,18 +662,26 @@ const Generators = {
   },
 
   generateBattleGroup(dungeonLevel, difficulty) {
-    const packSize = Math.random() < 0.44 ? U.randInt(2, 3) : 1;
+    const packSize = Math.random() < BALANCE.monsterPackChance(dungeonLevel) ? U.randInt(2, 3) : 1;
     const group = [];
+    const monsterMult = BALANCE.difficultyMultiplier(difficulty, dungeonLevel);
     for (let i = 0; i < packSize; i++) {
       const tpl = U.pick(MONSTER_TEMPLATES);
-      group.push(this.monsterFromTemplate(tpl, dungeonLevel, difficulty.monsterMult, false));
+      group.push(this.monsterFromTemplate(tpl, dungeonLevel, monsterMult, false));
     }
     return group;
   },
 
   generateBoss(dungeonLevel, difficulty) {
     const tpl = U.pick(BOSS_TEMPLATES);
-    return [this.monsterFromTemplate(tpl, dungeonLevel, difficulty.monsterMult, true)];
+    return [
+      this.monsterFromTemplate(
+        tpl,
+        dungeonLevel,
+        BALANCE.difficultyMultiplier(difficulty, dungeonLevel),
+        true,
+      ),
+    ];
   },
   COMBAT_ROOM_TYPES: new Set(['battle', 'ambush', 'guarded_cache']),
   enforceCombatPacing(roomTypes) {

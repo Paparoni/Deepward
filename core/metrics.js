@@ -19,6 +19,8 @@ const Metrics = {
         crits: 0,
         misses: 0,
         goldEarned: 0,
+        materialBundleGoldSpent: 0,
+        materialsPurchased: 0,
         xpEarned: 0,
         levelsGained: 0,
         itemsOffered: 0,
@@ -124,7 +126,10 @@ const Metrics = {
   },
   captureBuild(state, monsters) {
     const cls = CLASS_BY_ID[state.player.classId],
-      nodes = state.player.unlockedSkills.map((id) => cls.skillTree.find((n) => n.id === id)).filter(Boolean);
+      nodes = state.player.unlockedSkills.map((id) => cls.skillTree.find((n) => n.id === id)).filter(Boolean),
+      regionNames = Object.fromEntries(
+        (cls.skillWeb?.regions || []).map((region) => [region.id, region.name]),
+      );
     const items = Object.entries(state.equipment)
       .filter(([, item]) => item)
       .map(([slot, item]) => ({
@@ -158,9 +163,20 @@ const Metrics = {
         key: n.id,
         name: n.name,
         branch: n.branch,
+        region: n.region,
+        regions: n.regions || [],
         kind: n.kind,
+        nodeRole: n.nodeRole,
+        effectType: n.effect?.type || n.action,
       })),
-      subclasses: [...new Set(nodes.map((n) => n.branch))],
+      subclasses: [
+        ...new Set(
+          nodes
+            .flatMap((node) => node.regions || (node.region ? [node.region] : []))
+            .map((regionId) => regionNames[regionId])
+            .filter(Boolean),
+        ),
+      ],
       items,
       traits,
       boons,
@@ -264,7 +280,11 @@ const Metrics = {
             name: branch,
           }),
         );
-      for (const node of ctx.nodes) apply(this.ensurePerf(d, 'nodes', node.key, node));
+      for (const node of ctx.nodes) {
+        const record = this.ensurePerf(d, 'nodes', node.key);
+        Object.assign(record, node);
+        apply(record);
+      }
       for (const item of ctx.items) apply(this.ensurePerf(d, 'items', item.key, item));
       for (const trait of ctx.traits) apply(this.ensurePerf(d, 'traits', trait.key, trait));
       for (const boon of ctx.boons || []) apply(this.ensurePerf(d, 'boons', boon.key, boon));
@@ -371,12 +391,31 @@ const Metrics = {
       if (type === 'utility') p.utilities = (p.utilities || 0) + 1;
     });
   },
+  nodeUnlock(node, classId) {
+    this.mutate((data) => {
+      const record = this.ensurePerf(data, 'nodes', node.id);
+      Object.assign(record, {
+        key: node.id,
+        name: node.name,
+        classId,
+        branch: node.branch,
+        region: node.region,
+        regions: node.regions || [],
+        kind: node.kind,
+        nodeRole: node.nodeRole,
+        effectType: node.effect?.type || node.action,
+      });
+      record.unlocks = (record.unlocks || 0) + 1;
+    });
+  },
   skillPerformance(skill, data) {
     this.mutate((d) => {
       const p = this.ensurePerf(d, 'skills', skill.id, {
         name: skill.name,
         action: skill.action,
       });
+      p.name = skill.name;
+      p.action = skill.action;
       p.uses++;
       p.damageDealt += data.damage || 0;
       p.healing += data.healing || 0;

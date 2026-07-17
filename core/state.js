@@ -34,6 +34,7 @@ function restockTown(state) {
 }
 
 function newGame(name, classId) {
+  const classCoreId = CLASS_BY_ID[classId]?.skillWeb?.coreId;
   const player = {
     name,
     classId,
@@ -43,7 +44,7 @@ function newGame(name, classId) {
     hp: 1,
     mp: 1,
     skillPoints: 3,
-    unlockedSkills: [],
+    unlockedSkills: classCoreId ? [classCoreId] : [],
     recipes: [],
     materials: {},
     skillCooldowns: {},
@@ -88,6 +89,8 @@ function newGame(name, classId) {
       pendingItem: null,
       slotOverlay: null,
       townView: 'square',
+      selectedSkillNode: classCoreId || null,
+      skillWebScroll: null,
     },
   };
   restockTown(state);

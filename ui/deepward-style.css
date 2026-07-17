@@ -2389,3 +2389,332 @@ body::before {
 .skill-choice b {
   color: #d39456;
 }
+
+/* Skill webs use the visual language of a marked dungeon map: inked regions, carved seals, and old vellum. */
+.skill-web-nav {
+  display: flex;
+  gap: 6px;
+  padding: 8px 11px;
+  overflow-x: auto;
+  border-bottom: 1px solid #624929;
+  background: #120d08;
+}
+.skill-web-nav button {
+  flex: none;
+  padding: 5px 10px;
+  border: 1px solid #634929;
+  background: #21170e;
+  color: #c7ac7d;
+  font: 11px var(--font-body);
+  cursor: pointer;
+}
+.skill-web-nav button:hover {
+  border-color: #b17a40;
+  color: #efc47d;
+  transform: translateY(-1px);
+}
+.skill-web-workspace {
+  min-height: 0;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+}
+.skill-web-workspace .skill-tree-viewport {
+  min-width: 0;
+  background:
+    radial-gradient(circle at center, #3a2b1866 0 18%, transparent 48%),
+    repeating-radial-gradient(circle at center, transparent 0 148px, #9d74480a 149px 151px), #100c08;
+}
+.skill-tree-canvas {
+  isolation: isolate;
+  background:
+    linear-gradient(#c7a87808 1px, transparent 1px), linear-gradient(90deg, #c7a87808 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+.skill-web-region {
+  position: absolute;
+  z-index: 0;
+  width: 920px;
+  height: 920px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #8b673126;
+  border-radius: 50%;
+  background: radial-gradient(circle, #79592b12 0 45%, transparent 72%);
+  box-shadow: inset 0 0 90px #0004;
+  pointer-events: none;
+}
+.skill-web-region::before,
+.skill-web-region::after {
+  content: '';
+  position: absolute;
+  inset: 56px;
+  border: 1px dashed #8a6a3c24;
+  border-radius: 50%;
+}
+.skill-web-region::after {
+  inset: 145px;
+  border-style: solid;
+}
+.skill-web-region > span,
+.skill-web-region > small {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #9e7748;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  opacity: 0.32;
+}
+.skill-web-region > span {
+  font-size: 31px;
+}
+.skill-web-region > small {
+  margin-top: 28px;
+  font: 10px var(--font-body);
+  letter-spacing: 0.2em;
+}
+.skill-web-region.region-2,
+.skill-web-region.region-4 {
+  background: radial-gradient(circle, #51411f12 0 45%, transparent 72%);
+}
+.skill-web-workspace .tree-link {
+  stroke: #4e3b27;
+  stroke-width: 2;
+  opacity: 0.72;
+}
+.skill-web-workspace .tree-link.available {
+  stroke: #b3773d;
+  stroke-dasharray: 9 7;
+  opacity: 0.95;
+}
+.skill-web-workspace .tree-link.active {
+  stroke: #a3a971;
+  stroke-width: 3;
+  opacity: 1;
+}
+.skill-web-workspace .tree-node {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  clip-path: none;
+  border: 2px solid #5c4933;
+  background: radial-gradient(circle at 38% 34%, #382919, #130e09 70%);
+  box-shadow:
+    0 0 0 3px #100c08,
+    3px 5px 8px #0009;
+  transition:
+    transform 140ms ease,
+    border-color 140ms ease,
+    filter 140ms ease;
+}
+.skill-web-workspace .tree-node > span {
+  display: block;
+  font-size: 15px;
+}
+.skill-web-workspace .tree-node > small {
+  top: 54px;
+  width: 140px;
+  padding: 3px 5px;
+  opacity: 0;
+  color: #dfc89f;
+  background: #100b07ed;
+  border: 1px solid #60462a;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.skill-web-workspace .tree-node:hover > small,
+.skill-web-workspace .tree-node.selected > small {
+  opacity: 1;
+}
+.skill-web-workspace .tree-node:hover,
+.skill-web-workspace .tree-node.selected {
+  z-index: 5;
+  transform: translate(-50%, -50%) scale(1.13);
+  border-color: #e0a45c;
+  filter: brightness(1.15);
+}
+.skill-web-workspace .tree-node.selected {
+  box-shadow:
+    0 0 0 4px #2c1d10,
+    0 0 0 6px #c38242,
+    0 7px 15px #000;
+}
+.skill-web-workspace .tree-node.unlocked {
+  border-color: #89986b;
+  color: #dce2b5;
+  background: radial-gradient(circle at 38% 34%, #344227, #10140d 70%);
+  box-shadow:
+    0 0 0 3px #100c08,
+    0 0 13px #7e9b593d;
+}
+.skill-web-workspace .tree-node.available {
+  border-color: #c08343;
+  color: #f2bc71;
+  background: radial-gradient(circle at 38% 34%, #58341a, #1c1009 72%);
+  animation: node-ready 2.3s ease-in-out infinite;
+}
+.skill-web-workspace .tree-node.locked {
+  opacity: 0.6;
+  filter: sepia(0.65) saturate(0.7);
+}
+.skill-web-workspace .tree-node.notable,
+.skill-web-workspace .tree-node.capstone {
+  width: 58px;
+  height: 58px;
+  border: 4px double #82633c;
+}
+.skill-web-workspace .tree-node.active {
+  border-radius: 12px;
+}
+.skill-web-workspace .tree-node.core {
+  width: 92px;
+  height: 92px;
+  border: 5px double #bd914f;
+  border-radius: 50%;
+  color: #ffd58a;
+  background: radial-gradient(circle, #60431d, #1c1209 65%);
+}
+.skill-web-workspace .tree-node.core > span {
+  font-size: 27px;
+}
+.skill-web-workspace .tree-node.hybrid {
+  width: 66px;
+  height: 66px;
+  border: 4px double #9b7452;
+  border-radius: 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: radial-gradient(circle, #4a3527, #17100c 72%);
+}
+.skill-web-workspace .tree-node.hybrid > span,
+.skill-web-workspace .tree-node.hybrid > em,
+.skill-web-workspace .tree-node.hybrid > small {
+  transform: rotate(-45deg);
+}
+.skill-web-workspace .tree-node.hybrid > small {
+  left: -55%;
+  top: 75px;
+}
+.skill-web-workspace .tree-node.hybrid:hover,
+.skill-web-workspace .tree-node.hybrid.selected {
+  transform: translate(-50%, -50%) rotate(45deg) scale(1.1);
+}
+.skill-web-workspace .tree-node.keystone {
+  width: 86px;
+  height: 86px;
+  border: 5px double #bf8b43;
+  outline: 1px solid #684520;
+  outline-offset: 5px;
+  color: #f0c06f;
+  background: radial-gradient(circle, #5a3517, #170d07 70%);
+}
+.skill-web-workspace .tree-node.keystone > span {
+  font-size: 25px;
+}
+.skill-node-inspector {
+  position: relative;
+  z-index: 7;
+  overflow-y: auto;
+  padding: 20px;
+  border-left: 4px double #6b4d2d;
+  background:
+    linear-gradient(100deg, #0004, transparent 30%),
+    repeating-linear-gradient(0deg, #ffffff03 0 1px, transparent 1px 5px), #1b130c;
+  box-shadow: -8px 0 24px #0008;
+}
+.skill-node-role {
+  color: #9e794c;
+  font: 10px var(--font-body);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.skill-node-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 12px 0 8px;
+}
+.skill-node-heading > span {
+  color: #d69a51;
+  font-size: 25px;
+}
+.skill-node-heading h2 {
+  margin: 0;
+  color: #e5c797;
+  font: 21px var(--font-display);
+  line-height: 1.08;
+}
+.skill-node-inspector p {
+  color: #c1ad8d;
+  line-height: 1.55;
+}
+.skill-node-details,
+.skill-node-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 12px 0;
+}
+.skill-node-details span,
+.skill-node-tags span {
+  padding: 4px 7px;
+  border: 1px solid #5e452b;
+  color: #bfa277;
+  background: #110c08;
+  font: 10px var(--font-body);
+}
+.skill-node-tags span {
+  color: #899d72;
+  border-color: #465239;
+}
+.skill-node-requirements {
+  margin-top: 16px;
+  padding: 11px;
+  border-left: 3px solid #765237;
+  color: #b69e7e;
+  background: #100b0799;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.skill-node-requirements.met {
+  border-color: #78875b;
+  color: #c3ce9d;
+}
+.skill-node-cost {
+  margin: 14px 0 8px;
+  color: #d3a35f;
+  font: 12px var(--font-body);
+}
+.skill-node-awakened {
+  padding: 9px;
+  border: 1px solid #69784e;
+  color: #c8d89a;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  background: #25301966;
+}
+.skill-node-unlock {
+  width: 100%;
+}
+@media (max-width: 900px) {
+  .skill-tree-panel {
+    height: 96vh;
+  }
+  .skill-web-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(360px, 1fr) auto;
+  }
+  .skill-node-inspector {
+    max-height: 250px;
+    border-top: 4px double #6b4d2d;
+    border-left: 0;
+  }
+  .tree-toolbar {
+    gap: 6px;
+  }
+  .tree-legend span:last-child {
+    display: none;
+  }
+}

@@ -303,7 +303,7 @@ function renderMerchantPanel(s) {
   const stock = s.ui.merchantStock || [];
   const cards = stock
     .map((item, i) => {
-      const price = Math.round((10 + item.ilvl * 3) * (1 + TIERS.findIndex((t) => t.id === item.tier) * 0.9));
+      const price = Engine.itemPrice(item);
       return renderItemCard(
         item,
         `<button class="btn" onclick="onBuyItem(${i}, ${price})">Buy — ${price}g</button>`,
@@ -376,9 +376,7 @@ function renderTown(s) {
   if (view === 'merchant') {
     const cards = s.town.merchantStock
       .map((item, index) => {
-        const price = Math.round(
-          (12 + item.ilvl * 4) * (1 + TIERS.findIndex((tier) => tier.id === item.tier) * 0.75),
-        );
+        const price = Engine.itemPrice(item);
         return renderItemCard(
           item,
           `<button class="btn" onclick="buyTownItem(${index})">Buy — ${price}g</button>`,
@@ -388,13 +386,13 @@ function renderTown(s) {
     return `<div class="panel scene"><div class="panel-title">The Bent Nail</div><div class="scene-body"><p>Expedition salvage, restocked after every descent.</p><div class="town-stock">${cards || '<div class="empty-note">Sold out until your next descent.</div>'}</div><button class="btn" onclick="openTownView('square')">Return to the square</button></div></div>`;
   }
   if (view === 'church') {
-    const cost = 30 + s.player.level * 5,
+    const cost = Math.round(35 + Math.pow(s.player.level, 1.22) * 9),
       blessing = s.town.blessing;
     return `<div class="panel scene"><div class="panel-title">Church of the Last Flame</div><div class="scene-body"><p>The clergy will grant one random blessing for your next dungeon only.</p>${blessing ? `<div class="town-service-result"><b>${blessing.name}</b><span>${blessing.desc}</span></div>` : `<button class="btn btn-primary" onclick="buyChurchBlessing()">Make an offering — ${cost}g</button>`}<button class="btn" onclick="openTownView('square')">Return to the square</button></div></div>`;
   }
   if (view === 'provisioner') {
-    const cost = 20 + s.player.level * 3;
-    return `<div class="panel scene"><div class="panel-title">Mara's Provisions</div><div class="scene-body"><p>Purchase a bundle containing two random crafting materials, each in quantities of 1–3.</p><button class="btn btn-primary" onclick="buyMaterialBundle()">Purchase bundle — ${cost}g</button><button class="btn" onclick="openTownView('square')">Return to the square</button></div></div>`;
+    const cost = BALANCE.materialBundleCost(s.player.level);
+    return `<div class="panel scene"><div class="panel-title">Mara's Provisions</div><div class="scene-body"><p>Purchase a bundle containing two random crafting materials, each in quantities of 1–3.</p><button class="btn btn-primary" onclick="buyMaterialBundle()" ${s.player.gold < cost ? 'disabled' : ''}>Purchase bundle — ${cost}g</button><button class="btn" onclick="openTownView('square')">Return to the square</button></div></div>`;
   }
   return `<div class="panel scene">
     <div class="panel-title">Town of Last Light</div>
@@ -576,61 +574,95 @@ function renderTitle() {
 }
 
 function renderSkillGraph(s, cls) {
-  const width = 3600,
-    height = 1260;
-  const byId = Object.fromEntries(cls.skillTree.map((node) => [node.id, node]));
-  const lines = cls.skillTree
-    .filter((node) => node.requires && byId[node.requires])
-    .map((node) => {
-      const parent = byId[node.requires];
-      const active = s.player.unlockedSkills.includes(parent.id) && s.player.unlockedSkills.includes(node.id);
-      const available =
-        s.player.unlockedSkills.includes(parent.id) && !s.player.unlockedSkills.includes(node.id);
-      return `<line x1="${parent.x}" y1="${parent.y}" x2="${node.x}" y2="${node.y}" class="tree-link ${active ? 'active' : available ? 'available' : ''}"/>`;
+  const { width, height, regions, coreId } = cls.skillWeb,
+    byId = Object.fromEntries(cls.skillTree.map((node) => [node.id, node])),
+    selected = byId[s.ui.selectedSkillNode] || byId[coreId],
+    learnedIds = new Set(s.player.unlockedSkills),
+    iconFor = (node) =>
+      node.nodeRole === 'core'
+        ? cls.icon
+        : node.nodeRole === 'keystone'
+          ? '✹'
+          : node.nodeRole === 'hybrid'
+            ? '◇'
+            : node.kind === 'active'
+              ? '⚔'
+              : ['capstone', 'notable'].includes(node.nodeRole)
+                ? '✦'
+                : '•';
+  const links = cls.skillTree
+    .flatMap((node) =>
+      Engine.skillRequirements(node)
+        .ids.map((parentId) => ({ node, parent: byId[parentId] }))
+        .filter((x) => x.parent),
+    )
+    .map(({ node, parent }) => {
+      const parentLearned = learnedIds.has(parent.id),
+        nodeLearned = learnedIds.has(node.id),
+        linkState = parentLearned && nodeLearned ? 'active' : parentLearned ? 'available' : '';
+      return `<line x1="${parent.x}" y1="${parent.y}" x2="${node.x}" y2="${node.y}" class="tree-link ${linkState}"/>`;
     })
     .join('');
-  const branches = [...new Set(cls.skillTree.map((node) => node.branch))];
-  const headers = branches
-    .map((branch) => {
-      const nodes = cls.skillTree.filter((node) => node.branch === branch);
-      const x = Math.round(nodes.reduce((sum, node) => sum + node.x, 0) / nodes.length);
-      return `<div class="tree-branch-title" style="left:${x}px">${branch}</div>`;
-    })
+  const regionZones = regions
+    .map(
+      (
+        region,
+        index,
+      ) => `<div class="skill-web-region region-${index + 1}" style="left:${region.zoneX}px;top:${region.zoneY}px">
+        <span>${region.name}</span><small>${region.element} ${region.magic ? 'arts' : 'arms'}</small>
+      </div>`,
+    )
     .join('');
   const nodes = cls.skillTree
     .map((node) => {
-      const unlocked = s.player.unlockedSkills.includes(node.id);
-      const can = Engine.canUnlock(s, node);
-      const parent = node.requires ? byId[node.requires] : null;
-      const reason =
-        !unlocked && !can
-          ? parent && !s.player.unlockedSkills.includes(parent.id)
-            ? `Requires ${parent.name}`
-            : s.player.skillPoints < node.cost
-              ? `Requires ${node.cost} points`
-              : 'Locked'
-          : '';
-      const icon =
-        node.kind === 'active'
-          ? '⚡'
-          : node.nodeRole === 'capstone'
-            ? '★'
-            : node.nodeRole === 'notable'
-              ? '✦'
-              : '◆';
-      const title = `${node.name}\n${node.kind.toUpperCase()} · ${node.cost} point${node.cost === 1 ? '' : 's'}\n${node.desc}${reason ? '\n' + reason : ''}`;
-      return `<button class="tree-node ${node.nodeRole || ''} ${node.kind} ${unlocked ? 'unlocked' : can ? 'available' : 'locked'}" style="left:${node.x}px;top:${node.y}px" title="${U.escapeHtml(title)}" onclick="onUnlockSkill('${node.id}')" ${unlocked || !can ? 'disabled' : ''}><span>${icon}</span><small>${node.name}</small><em>${unlocked ? '✓' : node.cost}</em></button>`;
+      const unlocked = learnedIds.has(node.id),
+        can = Engine.canUnlock(s, node),
+        stateClass = unlocked ? 'unlocked' : can ? 'available' : 'locked',
+        active = selected?.id === node.id ? 'selected' : '';
+      return `<button type="button" class="tree-node ${node.nodeRole || ''} ${node.kind} ${stateClass} ${active}" style="left:${node.x}px;top:${node.y}px" aria-label="Inspect ${U.escapeHtml(node.name)}" onclick="selectSkillNode('${node.id}')"><span>${iconFor(node)}</span><small>${node.name}</small><em>${unlocked ? '✓' : node.cost}</em></button>`;
     })
     .join('');
+  const requirements = Engine.skillRequirements(selected),
+    requirementNodes = requirements.ids.map((id) => byId[id]).filter(Boolean),
+    requirementsText = !requirementNodes.length
+      ? 'This is your awakened class core.'
+      : `${requirements.mode === 'any' ? 'Requires any one' : 'Requires all'}: ${requirementNodes
+          .map((node) => `${learnedIds.has(node.id) ? '✓' : '○'} ${node.name}`)
+          .join(' · ')}`,
+    unlocked = learnedIds.has(selected.id),
+    canUnlock = Engine.canUnlock(s, selected),
+    details = [
+      selected.kind === 'active' ? `${selected.manaCost} MP` : null,
+      selected.kind === 'active' ? `${selected.cooldown || 2} round cooldown` : null,
+      selected.forcedElement ? `${selected.forcedElement} damage` : null,
+      selected.power ? `${Math.round(selected.power * 100)}% power` : null,
+    ].filter(Boolean);
   const learned = s.player.unlockedSkills.filter((id) => byId[id]).length;
   return `<div class="overlay skill-tree-overlay" onclick="if(event.target===this) toggleSkills()">
     <div class="panel skill-tree-panel">
-      <div class="panel-title tree-toolbar"><span>${cls.icon} ${cls.name} Constellation <small>${learned}/${cls.skillTree.length} learned</small></span><span>Points: <b>${s.player.skillPoints}</b> <button onclick="toggleSkills()">Close ×</button></span></div>
-      <div class="tree-legend"><span class="legend-dot available"></span>Available <span class="legend-dot unlocked"></span>Learned <span>⚡ Active</span><span>★ Capstone</span><span>Drag the scrollbars to explore · hover any node for details</span></div>
-      <div class="skill-tree-viewport">
-        <div class="skill-tree-canvas" style="width:${width}px;height:${height}px">
-          <svg width="${width}" height="${height}" aria-hidden="true">${lines}</svg>${headers}${nodes}
+      <div class="panel-title tree-toolbar"><span>${cls.icon} ${cls.name} Skill Web <small>${learned}/${cls.skillTree.length} awakened</small></span><span>Points: <b>${s.player.skillPoints}</b> <button onclick="toggleSkills()">Close ×</button></span></div>
+      <div class="skill-web-nav"><button onclick="focusSkillRegion('core')">Core</button>${regions.map((region) => `<button onclick="focusSkillRegion('${region.id}')">${region.name}</button>`).join('')}</div>
+      <div class="tree-legend"><span class="legend-dot available"></span>Reachable <span class="legend-dot unlocked"></span>Awakened <span>⚔ Active</span><span>◇ Hybrid junction</span><span>✹ Keystone</span><span>Select a node to inspect it</span></div>
+      <div class="skill-web-workspace">
+        <div class="skill-tree-viewport" id="skillWebViewport" onscroll="rememberSkillWebScroll(this)">
+          <div class="skill-tree-canvas" style="width:${width}px;height:${height}px">
+            ${regionZones}<svg width="${width}" height="${height}" aria-hidden="true">${links}</svg>${nodes}
+          </div>
         </div>
+        <aside class="skill-node-inspector">
+          <div class="skill-node-role">${selected.nodeRole || selected.kind} · ${selected.branch}</div>
+          <div class="skill-node-heading"><span>${iconFor(selected)}</span><h2>${selected.name}</h2></div>
+          <p>${selected.desc}</p>
+          ${details.length ? `<div class="skill-node-details">${details.map((detail) => `<span>${detail}</span>`).join('')}</div>` : ''}
+          <div class="skill-node-tags">${(selected.tags || []).map((tag) => `<span>${tag}</span>`).join('')}</div>
+          <div class="skill-node-requirements ${Engine.meetsSkillRequirements(s, selected) ? 'met' : ''}">${requirementsText}</div>
+          <div class="skill-node-cost">${selected.cost ? `${selected.cost} skill point${selected.cost === 1 ? '' : 's'}` : 'Innate awakening'}</div>
+          ${
+            unlocked
+              ? '<div class="skill-node-awakened">Awakened</div>'
+              : `<button class="btn btn-primary skill-node-unlock" onclick="onUnlockSkill('${selected.id}')" ${canUnlock ? '' : 'disabled'}>${s.mode === 'combat' ? 'Unavailable in combat' : s.player.skillPoints < selected.cost ? 'Not enough points' : 'Awaken node'}</button>`
+          }
+        </aside>
       </div>
     </div>
   </div>`;
@@ -640,77 +672,6 @@ function renderSkillsOverlay(s) {
   if (!s.ui.skillsOpen) return '';
   const cls = CLASS_BY_ID[s.player.classId];
   return renderSkillGraph(s, cls);
-  const maxTier = Math.max(...cls.skillTree.map((sk) => sk.tier));
-  const byTier = Array.from({ length: maxTier }, (_, i) => cls.skillTree.filter((sk) => sk.tier === i + 1));
-  const tierHtml = byTier
-    .map((skills, i) => {
-      const cards = skills
-        .map((sk) => {
-          const unlocked = s.player.unlockedSkills.includes(sk.id);
-          const can = Engine.canUnlock(s, sk);
-          const prerequisite =
-            sk.requires && !s.player.unlockedSkills.includes(sk.requires)
-              ? `<div class="small">Requires: ${cls.skillTree.find((x) => x.id === sk.requires).name}</div>`
-              : '';
-          const chosenRoot =
-            sk.choiceGroup &&
-            cls.skillTree.find(
-              (x) => x.choiceGroup === sk.choiceGroup && s.player.unlockedSkills.includes(x.id),
-            );
-          const routeLock =
-            chosenRoot && chosenRoot.id !== sk.id
-              ? `<div class="small" style="color:var(--bad);">Committed to ${chosenRoot.branch}</div>`
-              : '';
-          return `<div class="item-card" style="${unlocked ? 'border-color:var(--good);' : ''}">
-        <div class="item-name" style="font-size:13px;color:${sk.kind === 'active' ? 'var(--ember)' : 'var(--ink)'}">${sk.kind === 'active' ? '⚡' : '◆'} ${sk.name}</div>
-        <div class="item-meta">${sk.kind.toUpperCase()}${sk.kind === 'active' ? ' · ' + sk.manaCost + ' MP' : ''} · cost ${sk.cost} pt</div>
-        <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${sk.desc}</div>
-        <div class="small" style="color:var(--gold);">${sk.branch}</div>
-        ${prerequisite}${routeLock}
-        <div class="item-actions">${unlocked ? '<span class="small" style="color:var(--good);">Learned</span>' : `<button class="btn" onclick="onUnlockSkill('${sk.id}')" ${can ? '' : 'disabled'}>Unlock</button>`}</div>
-      </div>`;
-        })
-        .join('');
-      return `<div style="margin-bottom:14px;"><div class="panel-title" style="border:none;padding:4px 0;">Tier ${i + 1}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${cards}</div></div>`;
-    })
-    .join('');
-  const innateHtml =
-    cls.innatePassive || cls.innateActive
-      ? `
-    <div style="margin-bottom:14px;">
-      <div class="panel-title" style="border:none;padding:4px 0;">Class Innate <span class="small">(no discipline required, always active)</span></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        ${
-          cls.innatePassive
-            ? `<div class="item-card" style="border-color:var(--good);">
-          <div class="item-name" style="font-size:13px;">◆ ${cls.innatePassive.name}</div>
-          <div class="item-meta">INNATE PASSIVE</div>
-          <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${cls.innatePassive.desc}</div>
-        </div>`
-            : ''
-        }
-        ${
-          cls.innateActive
-            ? `<div class="item-card" style="border-color:var(--good);">
-          <div class="item-name" style="font-size:13px;color:var(--ember);">⚡ ${cls.innateActive.name}</div>
-          <div class="item-meta">INNATE ACTIVE · ${cls.innateActive.manaCost} MP</div>
-          <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${cls.innateActive.desc}</div>
-        </div>`
-            : ''
-        }
-      </div>
-    </div>`
-      : '';
-  return `<div class="overlay" onclick="if(event.target===this) toggleSkills()">
-    <div class="panel overlay-panel">
-      <div class="panel-title">${cls.icon} ${cls.name} Skill Tree <span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleSkills()">Close ✕</span></div>
-      <div class="overlay-body">
-        <div class="small" style="margin-bottom:10px;">Skill points available: <b style="color:var(--gold)">${s.player.skillPoints}</b></div>
-        ${innateHtml}
-        ${tierHtml}
-      </div>
-    </div>
-  </div>`;
 }
 
 function renderCharacterOverlay(s) {
@@ -815,4 +776,15 @@ function render() {
     ${renderSystemOverlay(s)}
   `;
   enhanceTooltips(app);
+  if (s.ui.skillsOpen) {
+    requestAnimationFrame(() => {
+      const viewport = document.getElementById('skillWebViewport'),
+        cls = CLASS_BY_ID[s.player.classId];
+      if (!viewport || !cls.skillWeb) return;
+      const saved = s.ui.skillWebScroll,
+        center = cls.skillWeb.center;
+      viewport.scrollLeft = saved?.left ?? Math.max(0, center.x - viewport.clientWidth / 2);
+      viewport.scrollTop = saved?.top ?? Math.max(0, center.y - viewport.clientHeight / 2);
+    });
+  }
 }
