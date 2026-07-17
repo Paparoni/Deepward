@@ -148,6 +148,44 @@ function onLeaveMerchant() {
   Engine.finishRoom(STATE);
   render();
 }
+function openTownView(view) {
+  STATE.ui.townView = view;
+  render();
+}
+function buyTownItem(index) {
+  const item = STATE.town.merchantStock[index];
+  if (!item) return;
+  const price = Math.round(
+    (12 + item.ilvl * 4) * (1 + TIERS.findIndex((tier) => tier.id === item.tier) * 0.75),
+  );
+  if (STATE.player.gold < price) return (Engine.log(STATE, 'Not enough gold.', 'bad'), render());
+  STATE.player.gold -= price;
+  Engine.grantItem(STATE, item);
+  STATE.town.merchantStock.splice(index, 1);
+  Engine.log(STATE, `Purchased ${item.name}.`, 'good');
+  render();
+}
+function buyChurchBlessing() {
+  const cost = 30 + STATE.player.level * 5;
+  if (STATE.town.blessing) return (Engine.log(STATE, 'You already carry a blessing.', 'bad'), render());
+  if (STATE.player.gold < cost)
+    return (Engine.log(STATE, 'Not enough gold for an offering.', 'bad'), render());
+  STATE.player.gold -= cost;
+  STATE.town.blessing = U.pick(TOWN_BLESSINGS);
+  Metrics.count('townBlessings', STATE.town.blessing.id);
+  Engine.log(STATE, `The church grants <b>${STATE.town.blessing.name}</b>.`, 'good');
+  render();
+}
+function buyMaterialBundle() {
+  const cost = 20 + STATE.player.level * 3;
+  if (STATE.player.gold < cost) return (Engine.log(STATE, 'Not enough gold for supplies.', 'bad'), render());
+  STATE.player.gold -= cost;
+  const picks = [...CRAFTING_MATERIALS].sort(() => Math.random() - 0.5).slice(0, 2);
+  for (const material of picks) Engine.grantMaterial(STATE, material.id, U.randInt(1, 3));
+  Metrics.count('townServices', 'materialBundle');
+  Engine.log(STATE, `Packed ${picks.map((item) => item.name).join(' and ')}.`, 'good');
+  render();
+}
 function onDefeatContinue() {
   const penalty = Engine.applyDeathPenalty(STATE);
   if (penalty) {

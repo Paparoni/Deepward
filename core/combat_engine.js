@@ -684,6 +684,13 @@ const Engine = {
           totals[stat.id] = Math.round((totals[stat.id] || 0) * (1 + mutator.elementPct / 100));
       if (mutator.maxHpMult) maxHp = Math.max(1, Math.round(maxHp * mutator.maxHpMult));
     }
+    const blessing = state.dungeon?.blessing;
+    if (blessing) {
+      for (const [stat, pct] of Object.entries(blessing.playerPct || {}))
+        totals[stat] = Math.round((totals[stat] || 0) * (1 + pct / 100));
+      if (blessing.maxHpMult) maxHp = Math.round(maxHp * blessing.maxHpMult);
+      if (blessing.maxMpMult) maxMp = Math.round(maxMp * blessing.maxMpMult);
+    }
     for (const trait of allTraits) {
       if (trait.type === 'statConversion') {
         const source =
@@ -906,6 +913,9 @@ const Engine = {
           baked: true,
         });
     }
+    const blessingPct = state.dungeon?.blessing?.playerPct?.[statId];
+    if (blessingPct)
+      mods.push({ name: `Blessing: ${state.dungeon.blessing.name}`, pct: blessingPct, baked: true });
     if (state.dungeon?._altarPact && (statId === 'atk' || statId === 'matk'))
       mods.push({ name: 'Cursed Altar pact', pct: 30, baked: true });
     return mods;
@@ -1700,6 +1710,7 @@ const Engine = {
             state.dungeon.difficulty.lootBonus +
             mutatorLoot +
             boonLoot +
+            (state.dungeon.blessing?.lootBonus || 0) +
             (isBoss ? 0.65 : c.bonusLoot ? 0.25 : 0),
           rarityPenalty: isBoss ? 0.18 : 0.42,
           forcedMinTier: isBoss ? 'rare' : c.bonusLoot ? 'uncommon' : undefined,

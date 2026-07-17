@@ -1,5 +1,37 @@
 let STATE = null;
 let PENDING_CLASS = CLASSES[0].id;
+const TOWN_BLESSINGS = [
+  {
+    id: 'valor',
+    name: "Martyr's Valor",
+    desc: '+15% ATK and MATK next dungeon.',
+    playerPct: { atk: 15, matk: 15 },
+  },
+  {
+    id: 'aegis',
+    name: 'Sainted Aegis',
+    desc: '+18% DEF and MDEF next dungeon.',
+    playerPct: { def: 18, mdef: 18 },
+  },
+  { id: 'pilgrim', name: "Pilgrim's Haste", desc: '+16% SPD next dungeon.', playerPct: { spd: 16 } },
+  { id: 'vitality', name: 'Litany of Vitality', desc: '+22% maximum HP next dungeon.', maxHpMult: 1.22 },
+  {
+    id: 'wellspring',
+    name: 'Hymn of the Wellspring',
+    desc: '+25% maximum MP next dungeon.',
+    maxMpMult: 1.25,
+  },
+  { id: 'providence', name: 'Providence', desc: 'Better gear rarity next dungeon.', lootBonus: 0.28 },
+];
+function restockTown(state) {
+  state.town ||= {};
+  state.town.merchantStock = Array.from({ length: 5 }, () =>
+    Generators.generateItem(state.player.level, {
+      lootBonus: 0.18,
+      affinities: Engine.lootAffinities(state),
+    }),
+  );
+}
 
 function newGame(name, classId) {
   const player = {
@@ -39,6 +71,7 @@ function newGame(name, classId) {
     player,
     equipment,
     inventory: [],
+    town: { merchantStock: [], blessing: null, descents: 0 },
     dungeon: null,
     mode: 'explore',
     combat: null,
@@ -54,8 +87,10 @@ function newGame(name, classId) {
       merchantStock: null,
       pendingItem: null,
       slotOverlay: null,
+      townView: 'square',
     },
   };
+  restockTown(state);
   Engine.refreshDerived(state);
   state.player.hp = state.derived.maxHp;
   state.player.mp = state.derived.maxMp;
@@ -68,6 +103,12 @@ function descend(difficultyId) {
   Metrics.dungeonStarted(difficultyId);
   s.player._revivedThisDungeon = false;
   s.dungeon = Generators.generateDungeon(s.player.level, difficultyId);
+  if (s.town?.blessing) {
+    s.dungeon.blessing = s.town.blessing;
+    s.town.blessing = null;
+  }
+  s.town.descents = (s.town.descents || 0) + 1;
+  restockTown(s);
   s.screen = 'dungeon';
   Engine.refreshDerived(s);
   s.player.hp = s.derived.maxHp;

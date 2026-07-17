@@ -372,12 +372,40 @@ function renderScene(s) {
 }
 
 function renderTown(s) {
+  const view = s.ui.townView || 'square';
+  if (view === 'merchant') {
+    const cards = s.town.merchantStock
+      .map((item, index) => {
+        const price = Math.round(
+          (12 + item.ilvl * 4) * (1 + TIERS.findIndex((tier) => tier.id === item.tier) * 0.75),
+        );
+        return renderItemCard(
+          item,
+          `<button class="btn" onclick="buyTownItem(${index})">Buy — ${price}g</button>`,
+        );
+      })
+      .join('');
+    return `<div class="panel scene"><div class="panel-title">The Bent Nail</div><div class="scene-body"><p>Expedition salvage, restocked after every descent.</p><div class="town-stock">${cards || '<div class="empty-note">Sold out until your next descent.</div>'}</div><button class="btn" onclick="openTownView('square')">Return to the square</button></div></div>`;
+  }
+  if (view === 'church') {
+    const cost = 30 + s.player.level * 5,
+      blessing = s.town.blessing;
+    return `<div class="panel scene"><div class="panel-title">Church of the Last Flame</div><div class="scene-body"><p>The clergy will grant one random blessing for your next dungeon only.</p>${blessing ? `<div class="town-service-result"><b>${blessing.name}</b><span>${blessing.desc}</span></div>` : `<button class="btn btn-primary" onclick="buyChurchBlessing()">Make an offering — ${cost}g</button>`}<button class="btn" onclick="openTownView('square')">Return to the square</button></div></div>`;
+  }
+  if (view === 'provisioner') {
+    const cost = 20 + s.player.level * 3;
+    return `<div class="panel scene"><div class="panel-title">Mara's Provisions</div><div class="scene-body"><p>Purchase a bundle containing two random crafting materials, each in quantities of 1–3.</p><button class="btn btn-primary" onclick="buyMaterialBundle()">Purchase bundle — ${cost}g</button><button class="btn" onclick="openTownView('square')">Return to the square</button></div></div>`;
+  }
   return `<div class="panel scene">
     <div class="panel-title">Town of Last Light</div>
     <div class="scene-body">
-      <div class="log-feed"><p class="log-flavor">The town is quiet. Torches gutter along the wall. Somewhere below, the dungeon waits — and it will not have gotten any easier.</p>
-      <p>Choose your descent, ${s.player.name}.</p></div>
-      <div class="choices">
+      <div class="log-feed"><p class="log-flavor">Last Light gathers around the sealed mouth of the depths.</p><p>Prepare before you descend, ${s.player.name}.</p></div>
+      <div class="town-grid">
+        <button class="town-place" onclick="openTownView('merchant')"><b>The Bent Nail</b><span>Buy class-weighted equipment. Stock returns after each descent.</span></button>
+        <button class="town-place" onclick="openTownView('church')"><b>Church of the Last Flame</b><span>${s.town.blessing ? s.town.blessing.name + ': ' + s.town.blessing.desc : 'Purchase a random blessing for your next run.'}</span></button>
+        <button class="town-place" onclick="openTownView('provisioner')"><b>Mara's Provisions</b><span>Purchase small bundles of crafting materials.</span></button>
+        <button class="town-place" onclick="toggleCrafting()"><b>The Soulforge</b><span>Forge discovered Mythic recipes.</span></button>
+      </div><div class="choices town-descent">
         <button class="btn btn-primary" onclick="descend('normal')">Descend — Normal</button>
         <button class="btn" onclick="descend('hard')">Descend — Hard <span class="small">(tougher foes, better loot)</span></button>
         <button class="btn btn-danger" onclick="descend('nightmare')">Descend — Nightmare <span class="small">(brutal, best loot)</span></button>

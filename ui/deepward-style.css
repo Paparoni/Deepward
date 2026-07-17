@@ -1679,6 +1679,75 @@ a.link {
   cursor: pointer;
   text-decoration: underline;
 }
+.town-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 18px 0;
+}
+.town-place {
+  min-height: 105px;
+  padding: 16px;
+  border: 1px solid #735536;
+  border-left: 4px double #a06a3b;
+  background: linear-gradient(145deg, #302417, #18120c);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 3px 4px #0b0805;
+}
+.town-place:hover {
+  border-color: #c08147;
+  transform: translate(1px, 1px);
+  box-shadow: 2px 3px #0b0805;
+}
+.town-place b,
+.town-place span {
+  display: block;
+}
+.town-place b {
+  color: #d7a263;
+  font: 15px var(--font-display);
+  margin-bottom: 7px;
+}
+.town-place span {
+  color: var(--ink-dim);
+  line-height: 1.3;
+}
+.town-descent {
+  padding-top: 14px;
+  border-top: 3px double #654b2d;
+}
+.town-stock {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 14px 0;
+}
+.town-service-result {
+  margin: 16px 0;
+  padding: 16px;
+  border: 3px double #7a6039;
+  background: #21180f;
+}
+.town-service-result b,
+.town-service-result span {
+  display: block;
+}
+.town-service-result b {
+  color: var(--gold);
+  font: 17px var(--font-display);
+  margin-bottom: 6px;
+}
+.town-service-result span {
+  color: var(--ink-dim);
+}
+@media (max-width: 720px) {
+  .town-grid,
+  .town-stock {
+    grid-template-columns: 1fr;
+  }
+}
 :root {
   --bg-deep: #100d08;
   --bg-panel: #211a10;

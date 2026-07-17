@@ -15,6 +15,7 @@ const SaveSystem = {
       player,
       equipment: state.equipment,
       inventory: state.inventory,
+      town: state.town,
       settings: state.settings || {},
     };
   },
@@ -107,6 +108,11 @@ const SaveSystem = {
       player,
       equipment,
       inventory,
+      town: {
+        merchantStock: (data.town?.merchantStock || []).map(cleanItem).filter(Boolean),
+        blessing: TOWN_BLESSINGS.find((entry) => entry.id === data.town?.blessing?.id) || null,
+        descents: Math.max(0, Number(data.town?.descents) || 0),
+      },
       dungeon: null,
       mode: 'explore',
       combat: null,
@@ -128,8 +134,10 @@ const SaveSystem = {
         pendingItem: null,
         slotOverlay: null,
         saveNotice: 'Game loaded.',
+        townView: 'square',
       },
     };
+    if (!state.town.merchantStock.length) restockTown(state);
     Engine.refreshDerived(state);
     player.hp = state.derived.maxHp;
     player.mp = state.derived.maxMp;
