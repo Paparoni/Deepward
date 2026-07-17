@@ -143,11 +143,12 @@ function renderDepthTrack(s){
     if(i<s.dungeon.currentIndex) cls+=' done';
     else if(i===s.dungeon.currentIndex) cls+=' current';
     if(type==='boss') cls+=' boss';
-    return `<div class="${cls}" title="${type}"></div>`;
+    return `<div class="${cls}" title="Room ${i+1}: ${type}"><span>${i+1}</span></div>`;
   }).join('');
   const laws=(s.dungeon.mutators||[]).map(m=>`<span class="depth-law" title="${U.escapeHtml(m.desc)}">✦ ${U.escapeHtml(m.name)}</span>`).join('');
   const boons=(s.dungeon.boons||[]).map(b=>`<span class="depth-law boon-law" title="${U.escapeHtml(b.desc)}">◆ ${U.escapeHtml(b.name)}</span>`).join('');
-  return `<div class="depth-track">${nodes}</div>${laws?`<div class="depth-laws"><small>Depth Laws</small>${laws}</div>`:''}${boons?`<div class="depth-laws"><small>Run Boons</small>${boons}</div>`:''}`;
+  const floor=Math.min(s.dungeon.currentIndex+1,s.dungeon.roomCount);
+  return `<section class="run-status"><header><div><small>Current descent</small><b>Floor ${floor} <i>/ ${s.dungeon.roomCount}</i></b></div><span>${U.escapeHtml(s.dungeon.theme?.name||'The Depths')}</span></header><div class="depth-track" style="--room-count:${s.dungeon.roomCount}">${nodes}</div><div class="run-effect-grid"><div class="run-effect-group"><small>Depth Laws</small><div>${laws}</div></div><div class="run-effect-group"><small>Run Boons <em>${s.dungeon.boons?.length||0}</em></small><div>${boons||'<span class="run-empty">None claimed yet</span>'}</div></div></div></section>`;
 }
 
 function renderLog(s){
@@ -242,7 +243,7 @@ function renderChoices(s){
     return `${renderLog(s)}<div class="loot-choice-head"><b>Choose one reward</b><span>Unchosen gear is left in the depths.</span></div><div class="loot-choice-grid">${cards}</div><div class="choices"><button class="btn" onclick="onChoiceClick(${s.ui.pendingItems.length})">Leave all three</button></div>`;
   }
   if(s.ui.boonChoices?.length){
-    const boons=s.ui.boonChoices.map((boon,i)=>{const power=BOON_POWER_TIERS[boon.powerTier]||BOON_POWER_TIERS.lesser;return `<button class="boon-card boon-${boon.powerTier}" onclick="onChoiceClick(${i})"><span style="color:${power.color}">${power.name.toUpperCase()} BOON · RANK ${boon.tier}${boon.tier>1?' · UPGRADE':''}</span><b>${U.escapeHtml(boon.name)}</b><p>${U.escapeHtml(boon.desc)}</p><em>${boon.tier>1?'Replace the previous rank':'Claim boon'}</em></button>`;}).join('');
+    const boons=s.ui.boonChoices.map((boon,i)=>{const power=BOON_POWER_TIERS[boon.powerTier]||BOON_POWER_TIERS.lesser,attuned=boon.buildWeight>=1.16;return `<button class="boon-card boon-${boon.powerTier}" onclick="onChoiceClick(${i})"><span style="color:${power.color}">${power.name.toUpperCase()} BOON · RANK ${boon.tier}${boon.tier>1?' · UPGRADE':''}</span>${attuned?'<i class="attuned-tag" title="This option is modestly favored by your class, stats, skills, or active element.">ATTUNED TO BUILD</i>':''}<b>${U.escapeHtml(boon.name)}</b><p>${U.escapeHtml(boon.desc)}</p><em>${boon.tier>1?'Replace the previous rank':'Claim boon'}</em></button>`;}).join('');
     return `${renderLog(s)}<div class="loot-choice-head"><b>Choose a boon</b><span>It lasts until you leave the dungeon.</span></div><div class="boon-choice-grid">${boons}</div>`;
   }
   const itemCard = s.ui.pendingItem ? renderItemCard(s.ui.pendingItem, '') : '';

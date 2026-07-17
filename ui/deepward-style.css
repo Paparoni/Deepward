@@ -271,5 +271,73 @@ body{
 
 .boon-choice-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.boon-card{padding:18px 14px;border:1px solid #7b5c28;border-radius:7px;background:radial-gradient(circle at 50% 0,#694a2038,transparent 55%),#151008;color:var(--ink);cursor:pointer;text-align:left;transition:.18s transform,.18s border-color,.18s box-shadow}.boon-card:hover{transform:translateY(-3px);border-color:var(--gold);box-shadow:0 8px 25px #0008,0 0 20px #d4af3722}.boon-card>span{display:block;color:var(--ember);font:8px var(--font-mono);letter-spacing:.1em}.boon-card>b{display:block;margin:8px 0;color:var(--gold);font:16px var(--font-display)}.boon-card p{min-height:50px;color:var(--ink-dim)}.boon-card em{color:#e9cf8b;font:9px var(--font-mono)}@media(max-width:750px){.boon-choice-grid{grid-template-columns:1fr}}
 .boon-card.boon-greater{border-color:#456f96;background:radial-gradient(circle at 50% 0,#3579b438,transparent 58%),#10141a}.boon-card.boon-mythic{border-color:#8656a3;background:radial-gradient(circle at 50% 0,#9b4ed044,transparent 60%),#17101b;box-shadow:inset 0 0 24px #9d52cf12}.boon-card.boon-mythic:hover{border-color:#d99bff;box-shadow:0 8px 28px #0009,0 0 24px #b95cff42}
+.run-status{margin:10px 0 14px;padding:11px 12px;border:1px solid var(--stone);border-radius:8px;background:linear-gradient(145deg,#17130e,#0d0b09);box-shadow:inset 0 1px #ffffff08,0 8px 22px #0003;overflow:hidden}.run-status header{display:flex;align-items:end;justify-content:space-between;gap:12px;padding:0 2px 9px;border-bottom:1px solid #ffffff0a}.run-status header small,.run-effect-group>small{display:block;color:var(--ink-faint);font:8px var(--font-mono);letter-spacing:.1em;text-transform:uppercase}.run-status header b{display:block;color:var(--gold);font:14px var(--font-display);margin-top:2px}.run-status header b i{color:var(--ink-faint);font:9px var(--font-mono);font-style:normal}.run-status header>span{color:var(--ink-dim);font:10px var(--font-body);font-style:italic}.run-status .depth-track{display:grid;grid-template-columns:repeat(var(--room-count),minmax(8px,1fr));gap:4px;padding:10px 2px;margin:0;flex-wrap:nowrap}.run-status .depth-node{width:auto;height:9px;border-radius:2px;position:relative}.run-status .depth-node span{display:none}.run-status .depth-node.current{transform:scaleY(1.45)}.run-status .depth-node.boss{border-radius:2px}.run-effect-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:10px;padding-top:2px}.run-effect-group{min-width:0;padding:8px;border:1px solid #ffffff0a;border-radius:6px;background:#07060538}.run-effect-group>small{margin-bottom:6px}.run-effect-group>small em{padding:1px 5px;border-radius:999px;background:#ffffff0b;color:var(--ink-dim);font-style:normal}.run-effect-group>div{display:flex;flex-wrap:wrap;gap:5px;max-height:66px;overflow:auto;scrollbar-width:thin}.run-status .depth-laws{display:contents;margin:0}.run-status .depth-law{display:inline-flex;align-items:center;max-width:100%;padding:4px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.run-status .boon-law{border-color:#4c6c4d;background:#101a11;color:#a9d7ac}.run-empty{color:var(--ink-faint);font:9px var(--font-body);font-style:italic}.attuned-tag{display:inline-block;margin-top:7px;padding:3px 6px;border:1px solid #467b63;border-radius:999px;background:#102019;color:#8fe0b7;font:7px var(--font-mono);font-style:normal;letter-spacing:.08em}@media(max-width:720px){.run-effect-grid{grid-template-columns:1fr}.run-status header>span{display:none}.run-status .depth-track{gap:2px}.run-effect-group>div{max-height:58px}}
 .small{font-size:11px;color:var(--ink-faint);}
 a.link{color:var(--ember);cursor:pointer;text-decoration:underline;}
+
+/* ============================================================
+   THE SUNKEN LEDGER — tactile dungeon-book visual language
+   ============================================================ */
+:root{
+  --bg-deep:#100d08;--bg-panel:#211a10;--bg-panel-2:#17120c;--bg-raised:#2b2114;
+  --stone:#59462d;--stone-lite:#806544;--ink:#e6d3aa;--ink-dim:#b39c75;
+  --ink-faint:#786548;--ember:#c66b32;--ember-dim:#874521;--gold:#c39a4a;
+  --blood:#a63d32;--mana:#547f8a;--good:#718b55;
+  --font-mono:'EB Garamond',serif;
+}
+body{
+  background-color:var(--bg-deep);
+  background-image:
+    linear-gradient(90deg,transparent 49.7%,#0002 50%,transparent 50.3%),
+    repeating-linear-gradient(7deg,#ffffff05 0 1px,transparent 1px 7px),
+    radial-gradient(ellipse at 50% -20%,#6f482219,transparent 58%);
+  color:var(--ink);letter-spacing:.008em;
+}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1000;opacity:.32;background:repeating-radial-gradient(ellipse at 30% 40%,transparent 0 3px,#0002 3.5px 4px);mix-blend-mode:multiply}
+::-webkit-scrollbar{width:12px}::-webkit-scrollbar-track{background:#100c07;border-left:1px solid #493821}::-webkit-scrollbar-thumb{background:#725738;border:2px solid #17110a;border-radius:0}
+#app{max-width:1260px;padding:22px 20px 70px}
+.panel{
+  position:relative;border:1px solid #745a36;border-radius:0;
+  background:
+    linear-gradient(90deg,#0002,transparent 4%,transparent 96%,#0002),
+    repeating-linear-gradient(0deg,#ffffff05 0 1px,transparent 1px 5px),
+    linear-gradient(155deg,#2a2115,#18120b 72%);
+  box-shadow:5px 7px 0 #090704,0 14px 28px #0005,inset 0 0 0 3px #161009;
+}
+.panel::before,.run-status::before{content:"";position:absolute;left:9px;right:9px;top:4px;height:1px;background:linear-gradient(90deg,transparent,#9c7a48aa,transparent);pointer-events:none}
+.panel-title{
+  min-height:36px;padding:10px 14px 8px;border-bottom:1px solid #6b502f;border-radius:0;
+  color:#d29452;font:600 12px var(--font-display);letter-spacing:.18em;
+  background:linear-gradient(90deg,#3b2515,#25180f 70%,transparent);
+  text-shadow:1px 1px #000;
+}
+.panel-title::before{content:"§";margin-right:7px;color:#8d6138;font-family:Georgia,serif}
+.hud{position:relative;padding:16px 18px;margin-bottom:18px;gap:18px;border-width:1px 1px 3px;background:linear-gradient(100deg,#2c2114,#17120b)}
+.hud-name{font-size:22px;color:#ddbd78;text-shadow:2px 2px #0b0805}.hud-sub,.hud-gold,.hud-diff,.bar-label{font-family:var(--font-body);letter-spacing:.05em}.hud-diff{padding:2px 9px;border:0;border-left:3px double #80613b;border-radius:0;background:none;font-style:italic}
+.bar-wrap{width:190px}.bar-track{height:11px;border:1px solid #80613b;border-radius:0;background:#0d0a07;box-shadow:inset 2px 2px 3px #000}.bar-fill{position:relative;filter:saturate(.78)}.bar-fill::after{content:"";position:absolute;inset:1px 0 auto;height:1px;background:#fff3}.bar-hp{background:#8f372e}.bar-mp{background:#426c78}.bar-xp{background:#9b7437}
+.layout{grid-template-columns:230px minmax(0,1fr) 250px;gap:18px}
+.panel-tabs{gap:0;padding:0;border-bottom:1px solid #5c452a;background:#14100a}.panel-tab{flex:1;padding:8px 5px;border:0;border-right:1px solid #4b3822;border-radius:0;background:none;color:#c89055;text-align:center;font:600 10px var(--font-body);letter-spacing:.04em}.panel-tab:last-child{border-right:0}.panel-tab:hover{background:#342416;color:#efc681}
+.slots{gap:6px;padding:10px}.slot{min-height:55px;padding:8px;border:1px solid #564126;border-radius:0;background:linear-gradient(140deg,#2c2216,#1d160e);box-shadow:inset 2px 2px #ffffff04}.slot:nth-child(3n+1){transform:translateX(-1px)}.slot:hover{border-color:#ad7541;background:#332317}.slot-label{font:600 9px var(--font-body);letter-spacing:.12em;color:#816d50}.slot-empty{font-family:var(--font-body)}
+.scene-body{padding:18px 20px}.log-feed{font-size:17px;line-height:1.6}.log-feed p{position:relative;margin:0;padding:5px 5px 7px 15px;border-left:1px solid #47351f}.log-feed p::before{content:"";position:absolute;left:-3px;top:14px;width:5px;height:5px;background:#765330;transform:rotate(45deg)}.combat-log{height:180px;padding:8px 12px;border:1px solid #574125;border-radius:0;background:#100c08aa;box-shadow:inset 4px 0 #2d2115}.combat-log p{border-bottom:1px solid #80613b20}
+.btn{position:relative;border:1px solid #735536;border-left:4px solid #735536;border-radius:0;background:linear-gradient(90deg,#2d2115,#1d160e);color:#d8c29a;font-family:var(--font-body);font-size:14px;box-shadow:2px 3px #0b0805;transition:transform .12s,background .12s,border-color .12s}.btn::after{content:"›";position:absolute;right:11px;color:#805c37}.btn:hover{transform:translate(2px,1px);border-color:#bb7940;background:#3a2817;box-shadow:1px 2px #0b0805}.btn:active{transform:translate(3px,2px);box-shadow:none}.btn-primary{color:#e2ae70;border-color:#9a5b31;font-size:14px;letter-spacing:.08em}.btn-danger{border-color:#7d3028;color:#d77b6d}
+.save-controls{gap:0;border:1px solid #574126}.save-controls button{padding:5px 8px;border:0;border-right:1px solid #574126;border-radius:0;background:#19120b;color:#a99270;font-family:var(--font-body)}.save-controls button:last-child{border-right:0}.save-controls button:hover{background:#352417;color:#e0b675}
+.statsheet{padding:12px 15px;background:linear-gradient(90deg,transparent 24px,#7c3c2d30 25px,transparent 26px)}.stat-row{padding:5px 3px 4px 16px;border-bottom:1px solid #ad8b5630;color:#a99270;font-family:var(--font-body);font-size:13px}.stat-row b{color:#e0c99e}.stat-mod{border-radius:0!important;border-bottom:1px solid currentColor;padding:0 2px!important}
+.trait-tag,.enemy-ailment,.affliction-tag,.depth-law,.run-chip{border-radius:2px!important;box-shadow:none!important}
+.combatants{gap:12px}.combatant{min-width:170px;padding:12px;border:1px solid #654b2d;border-radius:0;background:linear-gradient(145deg,#302316,#19120c);box-shadow:3px 4px #0c0906;transition:transform .15s,border-color .15s}.combatant:hover{border-color:#a86b3d;transform:translateY(-1px)}.combatant.targeted{border:2px solid #bd7943;box-shadow:3px 4px #0c0906,inset 0 0 0 2px #28170e}.combatant.acting{border-color:#c29a4e;box-shadow:3px 4px #0c0906;transform:translateY(-2px)}.combatant.acting::after{border-radius:0;box-shadow:none}.combatant-name{color:#d79a5e;letter-spacing:.06em}
+.item-card,.boon-card{border-radius:0;background:linear-gradient(150deg,#2c2115,#17110b);box-shadow:3px 4px #0b0805}.item-card:hover,.boon-card:hover{transform:translate(2px,1px);box-shadow:1px 2px #0b0805;border-color:#a66d3b}.item-card.tier-glow::before{filter:saturate(.5);opacity:.28}.boon-card.boon-greater,.boon-card.boon-mythic{background:linear-gradient(150deg,#30251a,#17110b);box-shadow:3px 4px #0b0805}.attuned-tag{border-radius:0;background:#1f2a1b;border-color:#61734c;color:#a8bd83}
+.overlay{background:#090704e8;backdrop-filter:none;animation:none}.overlay>.panel{animation:ledger-open .2s ease-out;transform-origin:top center}@keyframes ledger-open{from{opacity:0;transform:translateY(-9px) rotateX(3deg)}to{opacity:1;transform:none}}.overlay-panel{border-top:4px double #8c6c40}
+.segmented{gap:0}.segmented button,.tree-toolbar button{border-radius:0;background:#1d160e}.segmented button.selected{box-shadow:inset 4px 0 #b3753f;border-color:#745735}.setting-toggle{border-radius:0;background:#1a140d}.menu-actions{gap:7px}
+.run-status{position:relative;border:1px solid #745936;border-radius:0;background:linear-gradient(155deg,#2a2014,#17110b);box-shadow:3px 4px #0a0704}.run-effect-group{border-radius:0;border-color:#594329;background:#130e09}.run-chip,.run-status .depth-law{border-radius:2px;background:#2b2014}.run-status .depth-node{border-radius:0;background:#4e3b25}.run-status .depth-node.done{background:#89502d}.run-status .depth-node.current{background:#c0793d;box-shadow:none}.run-status .depth-node.boss{background:#8c352d}.run-status header{border-color:#684e2f}.run-status header b{color:#dab16a}
+.title-screen{padding-top:95px}.title-screen h1{font-size:58px;color:#d6ad61;text-shadow:3px 4px #090704;letter-spacing:.13em}.title-screen h1::before,.title-screen h1::after{content:" — ";color:#6d4c2c;font-size:.5em;vertical-align:middle}.title-screen input{border-radius:0!important;background:#1b140d!important;border:0!important;border-bottom:2px solid #8d6037!important;box-shadow:none!important;font-family:var(--font-body)!important}
+@media(max-width:880px){#app{padding:10px 9px 45px}.layout{gap:12px}.hud{gap:11px}.bar-wrap{width:min(180px,44vw)}.panel{box-shadow:3px 4px 0 #090704,0 8px 18px #0004}.title-screen h1{font-size:40px}}
+@media(prefers-reduced-motion:reduce){.overlay>.panel{animation:none}.btn,.combatant,.item-card,.boon-card{transition:none}}
+
+/* The skill atlas reads as an annotated cartographer's chart, not a circuit board. */
+.skill-tree-viewport{background:repeating-linear-gradient(0deg,#ffffff04 0 1px,transparent 1px 28px),repeating-linear-gradient(90deg,#ffffff03 0 1px,transparent 1px 28px),#15110b;scrollbar-color:#735738 #0d0a07}
+.skill-tree-canvas{background-image:linear-gradient(30deg,#6f543018 1px,transparent 1px),linear-gradient(150deg,#6f543012 1px,transparent 1px);background-size:34px 58px}
+.tree-link{stroke:#5a4830;stroke-width:2}.tree-link.available{stroke:#9b713e;stroke-dasharray:3 7}.tree-link.active{stroke:#8b7545;stroke-width:3;filter:none}
+.tree-branch-title{padding:4px 13px;border-top:1px solid #82613a;border-bottom:1px solid #82613a;color:#c99b58;background:#171109cc;text-shadow:2px 2px #000}
+.tree-node{width:58px;height:58px;border:2px solid #755a38;border-radius:0;clip-path:polygon(20% 0,80% 0,100% 20%,100% 80%,80% 100%,20% 100%,0 80%,0 20%);background:linear-gradient(145deg,#312518,#17110b);box-shadow:3px 4px #090704;color:#b6a17c}
+.tree-node.active,.tree-node.available,.tree-node.unlocked{border-radius:0}.tree-node.available{border-color:#bc7c41;color:#dfa25f;animation:none;background:#322116}.tree-node.available:hover{transform:translate(-50%,-50%) scale(1.06)}.tree-node.unlocked{border-color:#78885a;color:#c4ce9d;background:linear-gradient(145deg,#29301d,#14170f);box-shadow:3px 4px #090704}.tree-node.locked{opacity:.58;filter:sepia(.5)}.tree-node.notable{border-style:double;border-width:4px}.tree-node.capstone{outline:2px solid #9b713e;outline-offset:3px}.tree-node>small{text-shadow:2px 2px #000}.tree-node>em{border-radius:0;background:#1a130c;border-color:#745738;box-shadow:1px 2px #000}
+.tree-legend{font-family:var(--font-body);border-color:#624929;background:#151009}.tree-toolbar small{font-family:var(--font-body)}
+.combat-skill-menu{border:1px solid #745535;border-left:4px double #a26737;border-radius:0;background:linear-gradient(150deg,#2c2115,#16100a);box-shadow:3px 4px #090704}.skill-choice{border-radius:0;background:#231a10;border-color:#5d452b;box-shadow:2px 2px #090704}.skill-choice:hover{background:#342316;border-color:#9b6638}.skill-choice b{color:#d39456}

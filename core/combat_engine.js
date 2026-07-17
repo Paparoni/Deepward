@@ -386,6 +386,11 @@ const Engine = {
     if(state.dungeon?._buffs){
       for(const b of state.dungeon._buffs) if(b.stat===statId) mods.push({name:b.name||'Dungeon preparation', flat:b.flat});
     }
+    for(const law of state.dungeon?.mutators||[]){
+      const pct=law.playerPct?.[statId];
+      if(pct)mods.push({name:`Depth Law: ${law.name}`,pct,baked:true});
+      if(law.elementPct&&ELEMENT_STATS.some(stat=>stat.id===statId))mods.push({name:`Depth Law: ${law.name}`,pct:law.elementPct,baked:true});
+    }
     if(state.dungeon?._altarPact && (statId==='atk'||statId==='matk')) mods.push({name:'Cursed Altar pact', pct:30, baked:true});
     return mods;
   },
@@ -1146,10 +1151,25 @@ const Engine = {
   offerBoonChoices(state){
     const owned=new Map(state.dungeon.boons.map(boon=>[boon.baseId||boon.id,boon]));
     const difficultyBonus=state.dungeon.difficulty.boonRarityBonus||0;
+    const affinities=this.lootAffinities(state),weaponElement=state.equipment.weapon?.element||'physical';
+    const boonAffinity=boon=>{
+      let weight=1;
+      const effects=boon.effects||[boon.effect].filter(Boolean),skill=boon.skill;
+      for(const effect of effects){
+        if(effect.type==='statPercent')weight*=1+Math.max(0,(affinities[effect.stat]||1)-1)*.28;
+        if(['relentlessEcho','overkillSplash','reaperSeal','counterStrike'].includes(effect.type))weight*=1+Math.max(0,(affinities.atk||1)-1)*.18;
+        if(['startingWardPct','boneShield','colossusLaw'].includes(effect.type))weight*=1+Math.max(0,Math.max(affinities.def||1,affinities.mdef||1)-1)*.14;
+        if(['manaFlow','statusEcho','elementStatusPower','stormcaller'].includes(effect.type))weight*=1+Math.max(0,(affinities.matk||1)-1)*.18;
+      }
+      if(skill){const favored=skill.magic?(affinities.matk||1):(affinities.atk||1);weight*=1+Math.max(0,favored-1)*.18;}
+      const element=skill?.forcedElement;
+      if(element&&element!=='physical')weight*=element===weaponElement?1.28:1+Math.max(0,(affinities[`${element}Dmg`]||1)-1)*.35;
+      return U.clamp(weight,.85,1.55);
+    };
     const pool=DUNGEON_BOONS.flatMap(base=>{
       const currentRank=owned.get(base.id)?.tier||0;
       return [1,2,3].filter(rank=>rank>currentRank).map(rank=>upgradedDungeonBoon(base,rank));
-    }),draft=[];
+    }).map(boon=>({...boon,buildWeight:boonAffinity(boon)})),draft=[];
     while(draft.length<3&&pool.length){
       const boon=U.weightedPick(pool,candidate=>{
         const baseWeight=BOON_POWER_TIERS[candidate.powerTier]?.weight||1;
@@ -1157,7 +1177,7 @@ const Engine = {
         const currentRank=owned.get(candidate.baseId)?.tier||0;
         const followsOwnedRank=currentRank>0&&candidate.tier===currentRank+1;
         const rankWeight=(BOON_RANK_WEIGHTS[candidate.tier]||.01)*(followsOwnedRank?BOON_OWNED_UPGRADE_MULT:1);
-        return rarityWeight*rankWeight;
+        return rarityWeight*rankWeight*candidate.buildWeight;
       });
       draft.push(boon);
       for(let i=pool.length-1;i>=0;i--)if(pool[i].baseId===boon.baseId)pool.splice(i,1);
