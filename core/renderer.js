@@ -145,7 +145,9 @@ function renderDepthTrack(s){
     if(type==='boss') cls+=' boss';
     return `<div class="${cls}" title="${type}"></div>`;
   }).join('');
-  return `<div class="depth-track">${nodes}</div>`;
+  const laws=(s.dungeon.mutators||[]).map(m=>`<span class="depth-law" title="${U.escapeHtml(m.desc)}">✦ ${U.escapeHtml(m.name)}</span>`).join('');
+  const boons=(s.dungeon.boons||[]).map(b=>`<span class="depth-law boon-law" title="${U.escapeHtml(b.desc)}">◆ ${U.escapeHtml(b.name)}</span>`).join('');
+  return `<div class="depth-track">${nodes}</div>${laws?`<div class="depth-laws"><small>Depth Laws</small>${laws}</div>`:''}${boons?`<div class="depth-laws"><small>Run Boons</small>${boons}</div>`:''}`;
 }
 
 function renderLog(s){
@@ -193,6 +195,7 @@ function renderCombat(s){
   const activeSkills = [
     ...(cls.innateActive ? [cls.innateActive] : []),
     ...cls.skillTree.filter(sk=>sk.kind==='active' && s.player.unlockedSkills.includes(sk.id)),
+    ...(s.dungeon?.boons||[]).filter(boon=>boon.skill).map(boon=>boon.skill),
   ];
   const skillButtons = activeSkills.map(sk=>{
     const cd = s.player.skillCooldowns[sk.id]||0;
@@ -234,6 +237,14 @@ function renderMerchantPanel(s){
 function renderChoices(s){
   if(s.ui.choices==='merchant') return renderMerchantPanel(s);
   const choices = s.ui.choices || [];
+  if(s.ui.pendingItems?.length){
+    const cards=s.ui.pendingItems.map((item,i)=>renderItemCard(item,`<button class="btn btn-primary" onclick="onChoiceClick(${i})">Choose this item</button>`)).join('');
+    return `${renderLog(s)}<div class="loot-choice-head"><b>Choose one reward</b><span>Unchosen gear is left in the depths.</span></div><div class="loot-choice-grid">${cards}</div><div class="choices"><button class="btn" onclick="onChoiceClick(${s.ui.pendingItems.length})">Leave all three</button></div>`;
+  }
+  if(s.ui.boonChoices?.length){
+    const boons=s.ui.boonChoices.map((boon,i)=>{const power=BOON_POWER_TIERS[boon.powerTier]||BOON_POWER_TIERS.lesser;return `<button class="boon-card boon-${boon.powerTier}" onclick="onChoiceClick(${i})"><span style="color:${power.color}">${power.name.toUpperCase()} BOON · RANK ${boon.tier}${boon.tier>1?' · UPGRADE':''}</span><b>${U.escapeHtml(boon.name)}</b><p>${U.escapeHtml(boon.desc)}</p><em>${boon.tier>1?'Replace the previous rank':'Claim boon'}</em></button>`;}).join('');
+    return `${renderLog(s)}<div class="loot-choice-head"><b>Choose a boon</b><span>It lasts until you leave the dungeon.</span></div><div class="boon-choice-grid">${boons}</div>`;
+  }
   const itemCard = s.ui.pendingItem ? renderItemCard(s.ui.pendingItem, '') : '';
   return `
     ${renderLog(s)}

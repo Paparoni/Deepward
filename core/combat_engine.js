@@ -61,6 +61,15 @@ const EFFECT_HANDLERS = {
   cooldownOnKill:(ctx,v)=>{if(ctx.direction==='outgoing'&&ctx.target.hp<=ctx.damage)for(const id of Object.keys(ctx.player.skillCooldowns))ctx.player.skillCooldowns[id]=Math.max(0,ctx.player.skillCooldowns[id]-v);},
   fateMomentum:()=>{},
   statusEcho:(ctx,v)=>{if(ctx.direction==='outgoing'&&Math.random()*100<v)ctx.statusEcho=true;},
+  firstHitImmunity:(ctx,v)=>{if(ctx.direction==='incoming'&&(ctx.combat._mirrorStepUses||0)<v){ctx.combat._mirrorStepUses=(ctx.combat._mirrorStepUses||0)+1;ctx.damage=0;ctx.dodged=true;ctx.notes.push('Mirror Step erases the blow.');}},
+  firstSkillEcho:()=>{},
+  relentlessEcho:(ctx,v)=>{if(ctx.direction==='outgoing'&&ctx.kind==='attack'){ctx.extraHit=true;ctx.extraHitMult=v/100;}},
+  counterStrike:(ctx,v)=>{if(ctx.direction==='incoming'&&ctx.source?.hp!=null){const returned=Math.max(1,Math.round(ctx.damage*v/100));ctx.source.hp=Math.max(0,ctx.source.hp-returned);ctx.notes.push(`Answering Steel returns ${returned} damage.`);if(v>=90)ctx.combat.elementalWard=(ctx.combat.elementalWard||0)+Math.round(ctx.maxHp*.03);}},
+  startingWardPct:()=>{},
+  countdownNova:()=>{},
+  utilityLock:(ctx,v)=>{if(ctx.direction==='outgoing'&&ctx.target){ctx.target._utilityCooldown=Math.max(ctx.target._utilityCooldown||0,v);if(v>=4&&ctx.target._charging){ctx.target._charging=false;ctx.target._chargingMove=null;ctx.notes.push('Hush Brand interrupts the charge.');}}},
+  manaFlow:(ctx)=>{if(ctx.direction==='outgoing'&&ctx.combat._activeSkillDamageBonus)ctx.damage=Math.round(ctx.damage*(1+ctx.combat._activeSkillDamageBonus/100));},
+  boneShield:(ctx,v)=>{if(ctx.direction==='incoming'){const trait=ctx.derived.traits.find(t=>t.type==='boneShield'),charges=trait?.charges||2;if((ctx.combat._boneShieldUses||0)<charges){ctx.combat._boneShieldUses=(ctx.combat._boneShieldUses||0)+1;ctx.damage=Math.round(ctx.damage*(1-v/100));ctx.notes.push('A Bone Lantern absorbs the impact.');}}},
   worldsplitter:(ctx,v)=>{if(ctx.direction==='outgoing'){ctx.damage=Math.round(ctx.damage*(1+(ctx.combo||0)*v/100));ctx.combat._worldHits=(ctx.combat._worldHits||0)+1;if(ctx.combat._worldHits%3===0){for(const enemy of ctx.combat.monsters)if(enemy.hp>0&&enemy!==ctx.target){const cleave=Math.max(1,Math.round(ctx.damage*.6));enemy.hp=Math.max(0,enemy.hp-cleave);Metrics.addTotal('damageDealt',cleave);Metrics.combatFlow(ctx.combat,'dealt',cleave,enemy);}ctx.notes.push('Worldsplitter tears through the enemy line.');}}},
   dawnkeep:(ctx,v)=>{if(ctx.direction==='incoming'&&ctx.combat._dawnkeepRound!==ctx.combat.round){ctx.combat._dawnkeepRound=ctx.combat.round;ctx.damage=0;ctx.combat.elementalWard=Math.min(Math.round(ctx.maxHp*.4),(ctx.combat.elementalWard||0)+Math.round(ctx.maxHp*v/100));ctx.notes.push('Dawnkeep converts the blow into radiant protection.');}},
   mourningCovenant:(ctx,v)=>{if(ctx.direction==='outgoing'){ctx.player.hp=Math.min(ctx.maxHp,ctx.player.hp+Math.round(ctx.damage*v/100));ctx.target._ailments||={};const doom=ctx.target._ailments.doom||{name:'Doom Mark',stacks:0};doom.stacks=Math.min(5,doom.stacks+1);ctx.target._ailments.doom=doom;}},
@@ -84,6 +93,7 @@ const SKILL_ACTION_HANDLERS = {
   nuke(state, skill){
     const target = Engine.getTarget(state);
     if(!target) return;
+    if(skill.hpCostPct&&!state.combat?._freeSkillRepeat){const cost=Math.max(1,Math.round(state.derived.maxHp*skill.hpCostPct/100));state.player.hp=Math.max(1,state.player.hp-cost);Engine.log(state,`${skill.name} consumes <b>${cost} HP</b>.`,'bad');}
     Engine.resolveAttack(state, state.derived, target, 'skill', true, null, {
       powerMult:skill.power||1, forcedElement:skill.forcedElement, executeThreshold:skill.executeThreshold, skillName:skill.name, magic:!!skill.magic, guaranteedStatus:!!skill.guaranteedStatus,
     });
@@ -189,6 +199,12 @@ const Engine = {
         allTraits.push({id:ip.id,name:ip.name,desc:ip.desc,...ip.effect});
       }
     }
+    for(const boon of state.dungeon?.boons||[]){
+      for(const effect of boon.effects||[boon.effect].filter(Boolean)){
+        if(effect.type==='statPercent')totals[effect.stat]=Math.round((totals[effect.stat]||0)*(1+effect.value/100));
+        else if(effect.type!=='lootBonus')allTraits.push({id:`boon_${boon.baseId||boon.id}`,name:boon.name,desc:boon.desc,...effect});
+      }
+    }
     // generic dungeon-wide flat stat buffs (bonfire, deep_pool, etc. push onto this);
     // applied here so they survive refreshDerived recalculation for the rest of the dungeon.
     if(state.dungeon && state.dungeon._buffs){
@@ -196,6 +212,11 @@ const Engine = {
     }
     let maxHp = BALANCE.maxHp(p.level, totals.def) + (totals.hp||0);
     let maxMp = BALANCE.maxMp(p.level, totals.mdef) + (totals.mp||0);
+    for(const mutator of state.dungeon?.mutators||[]){
+      for(const [stat,pct] of Object.entries(mutator.playerPct||{}))totals[stat]=Math.round((totals[stat]||0)*(1+pct/100));
+      if(mutator.elementPct)for(const stat of ELEMENT_STATS)totals[stat.id]=Math.round((totals[stat.id]||0)*(1+mutator.elementPct/100));
+      if(mutator.maxHpMult)maxHp=Math.max(1,Math.round(maxHp*mutator.maxHpMult));
+    }
     // Apply build-defining conversions after ordinary additive stats, making the
     // item sheet deterministic and allowing focused gear to compound coherently.
     for(const trait of allTraits){
@@ -311,6 +332,9 @@ const Engine = {
   // charged hit especially hard) both become real tactical levers.
   startCombat(state, monsters, opts={}){
     this.refreshDerived(state);
+    const mutators=state.dungeon?.mutators||[];
+    const enemyHp=mutators.reduce((v,m)=>v*(m.enemyHp||1),1),enemyPower=mutators.reduce((v,m)=>v*(m.enemyPower||1),1),enemySpd=mutators.reduce((v,m)=>v*(m.enemySpd||1),1),rewardMult=mutators.reduce((v,m)=>v*(m.rewardMult||1),1);
+    for(const m of monsters)if(!m._depthLawsApplied){m.maxHp=m.hp=Math.round(m.maxHp*enemyHp);m.atk=Math.round(m.atk*enemyPower);m.matk=Math.round(m.matk*enemyPower);m.spd=Math.round(m.spd*enemySpd);m.goldDrop=Math.round(m.goldDrop*rewardMult);m.xpDrop=Math.round(m.xpDrop*rewardMult);m._depthLawsApplied=true;}
     state.mode='combat';
     state.ui.invOpen=false; state.ui.skillsOpen=false; state.ui.craftOpen=false; state.ui.slotOverlay=null;
     state.player._revivedThisFight = false;
@@ -338,6 +362,7 @@ const Engine = {
       // often monsters charge/use their utility move, and how tight the boss's pattern is.
       chargeChance, utilityChance, bossCadence,
     };
+    for(const trait of state.derived.traits)if(trait.type==='startingWardPct'){state.combat.elementalWard=(state.combat.elementalWard||0)+Math.round(state.derived.maxHp*trait.value/100);if(trait.id?.startsWith('boon_'))Metrics.count('boonEffectProcs',`${trait.id.slice(5)}:${trait.type}`);}
     state.combat._metrics=Metrics.battleStarted(state,monsters);
   },
 
@@ -371,6 +396,7 @@ const Engine = {
     const voidReady=!!state.combat?._voidExtraReady;
     if(voidReady)state.combat._voidExtraReady=false;
     if(voidReady||(t && Math.random()*100<t.value)){
+      if(t?.id?.startsWith('boon_'))Metrics.count('boonEffectProcs',`${t.id.slice(5)}:${t.type}`);
       this.log(state, 'Time loops back — you act again!', 'good');
       actionFn();
     }
@@ -415,6 +441,8 @@ const Engine = {
   findActiveSkill(state, skillId){
     const cls = CLASS_BY_ID[state.player.classId];
     if(cls.innateActive && cls.innateActive.id===skillId) return cls.innateActive;
+    const boonSkill=state.dungeon?.boons?.find(boon=>boon.skill?.id===skillId)?.skill;
+    if(boonSkill)return boonSkill;
     const skill = cls.skillTree.find(sk=>sk.id===skillId);
     return (skill && skill.kind==='active') ? skill : null;
   },
@@ -426,9 +454,11 @@ const Engine = {
     const skill = this.findActiveSkill(state, skillId);
     if(!skill) return;
     const isInnate = cls.innateActive && cls.innateActive.id===skillId;
-    if(!isInnate && !state.player.unlockedSkills.includes(skillId)) return;
+    const isBoon=!!state.dungeon?.boons?.some(boon=>boon.skill?.id===skillId);
+    if(!isInnate&&!isBoon&&!state.player.unlockedSkills.includes(skillId)) return;
     if(!c.monsters.some(m=>m.hp>0)) return;
     if((state.player.skillCooldowns[skillId]||0) > 0){ this.log(state, `${skill.name} is still recovering.`, 'bad'); return; }
+    if(skill.oncePerBattle&&((c._skillUses?.[skillId]||0)>=(skill.maxUses||1))){this.log(state,`${skill.name} has already been exhausted this battle.`,'bad');return;}
     const manaReduction = Math.min(75,state.derived.traits.filter(t=>t.type==='manaCostReduction').reduce((sum,t)=>sum+t.value,0));
     const cost = Math.max(0, Math.round(skill.manaCost*(1-manaReduction/100)));
     if(state.player.mp < cost){ this.log(state, "Not enough MP for that.", 'bad'); return; }
@@ -453,10 +483,17 @@ const Engine = {
     } else if(action.kind==='skill'){
       const hpBefore=c.monsters.reduce((sum,m)=>sum+Math.max(0,m.hp),0), killsBefore=c.monsters.filter(m=>m.hp<=0).length, playerHpBefore=state.player.hp;
       state.player.mp -= action.cost;
+      c._skillUses||={};c._skillUses[action.skill.id]=(c._skillUses[action.skill.id]||0)+1;
       state.player.skillCooldowns[action.skill.id] = (action.skill.cooldown || 2) + 1;
       const handler = SKILL_ACTION_HANDLERS[action.skill.action];
+      if(state.dungeon?.boons?.some(boon=>boon.skill?.id===action.skill.id))Metrics.count('boonSkillUses',action.skill.id);
+      const flow=state.derived.traits.find(t=>t.type==='manaFlow');
+      if(flow)c._activeSkillDamageBonus=Math.min(flow.cap||50,action.cost*flow.value);
       if(handler) handler(state, action.skill);
-      this.maybeExtraAction(state, ()=>{ if(handler) handler(state, action.skill); });
+      const echo=state.derived.traits.find(t=>t.type==='firstSkillEcho');
+      if(echo&&(c._skillEchoUses||0)<echo.value){c._skillEchoUses=(c._skillEchoUses||0)+1;Metrics.count('boonEffectProcs','echo_script:firstSkillEcho');this.log(state,'Echo Script repeats the skill for free!','good');c._freeSkillRepeat=true;if(handler)handler(state,action.skill);c._freeSkillRepeat=false;}
+      this.maybeExtraAction(state, ()=>{c._freeSkillRepeat=true;if(handler)handler(state, action.skill);c._freeSkillRepeat=false;});
+      c._activeSkillDamageBonus=0;
       const hpAfter=c.monsters.reduce((sum,m)=>sum+Math.max(0,m.hp),0), killsAfter=c.monsters.filter(m=>m.hp<=0).length;
       Metrics.skillPerformance(action.skill,{damage:Math.max(0,hpBefore-hpAfter),healing:Math.max(0,state.player.hp-playerHpBefore),kills:Math.max(0,killsAfter-killsBefore),mana:action.cost});
     } else if(action.kind==='defend'){
@@ -675,6 +712,12 @@ const Engine = {
       c.playerDots = c.playerDots.filter(d=>d.turnsLeft>0);
     }
     this.tickEnemyAilments(state);
+    for(const trait of state.derived.traits)if(trait.type==='countdownNova'&&c.round%trait.value===0){
+      const power=Math.max(this.effectiveStat(state,'atk'),this.effectiveStat(state,'matk')),dmg=Math.max(1,Math.round(power*(trait.power||50)/100));
+      for(const enemy of c.monsters)if(enemy.hp>0){enemy.hp=Math.max(0,enemy.hp-dmg);Metrics.addTotal('damageDealt',dmg);Metrics.combatFlow(c,'dealt',dmg,enemy);}
+      this.log(state,`Doom Clock erupts across the battlefield for <b>${dmg}</b> damage.`,'good');
+      Metrics.count('boonEffectProcs','doom_clock:countdownNova');
+    }
     state.player.hp = U.clamp(state.player.hp, 0, state.derived.maxHp);
     c.playerGuarding = false;
     for(const id of Object.keys(state.player.skillCooldowns)){
@@ -693,7 +736,7 @@ const Engine = {
         if(t.type==='revive' || t.type==='reviveOncePerFight' || t.type==='phoenixAscension'){
           const ctx={player:state.player,maxHp:state.derived.maxHp,maxMp:state.derived.maxMp,combat:c,derived:state.derived,notes:[]};
           EFFECT_HANDLERS[t.type](ctx, t.value);
-          if(ctx.player.hp>0){revived=true;if(ctx.notes.length)this.log(state,ctx.notes.join(' '),'good');}
+          if(ctx.player.hp>0){revived=true;if(t.id?.startsWith('boon_'))Metrics.count('boonEffectProcs',`${t.id.slice(5)}:${t.type}`);if(ctx.notes.length)this.log(state,ctx.notes.join(' '),'good');}
         }
       }
       if(!revived){ this.log(state,'You collapse — the dungeon has beaten you.', 'bad'); this.endCombat(state,'defeat'); return; }
@@ -768,7 +811,12 @@ const Engine = {
     if(isPlayer){
       for(const t of traits){
         const h = EFFECT_HANDLERS[t.type];
-        if(h) h({...ctx, direction:'outgoing'}, t.value);
+        if(h){
+          const isBoon=t.id?.startsWith('boon_'),snapshot=()=>`${ctx.damage}|${ctx.notes.length}|${state.player.hp}|${state.player.mp}|${ctx.target.hp}|${ctx.statusEcho}|${ctx.extraHit}|${ctx.overkillSplash}|${ctx.forceAilment}|${ctx.target._utilityCooldown}|${ctx.target._charging}`,before=isBoon?snapshot():'';
+          if(isBoon)Metrics.count('boonEffectEvaluations',`${t.id.slice(5)}:${t.type}`);
+          h(ctx,t.value);
+          if(isBoon&&before!==snapshot())Metrics.count('boonEffectProcs',`${t.id.slice(5)}:${t.type}`);
+        }
       }
       if(opts.executeThreshold!=null && ctx.target.hp>0 && (ctx.target.hp/ctx.target.maxHp*100)<=opts.executeThreshold){
         ctx.damage = ctx.target.hp;
@@ -788,7 +836,7 @@ const Engine = {
       if(afflicted&&ctx.statusEcho){const echoTarget=c.monsters.find(m=>m.hp>0&&m.uid!==targetRef.uid);if(echoTarget){this.applyElementalAilment(state,echoTarget,element,dmg,true);this.log(state,`${ELEMENTAL_AILMENTS[element].name} echoes into ${echoTarget.name}.`,'good');}}
       if(ctx.overkillSplash&&dmg>defenderHpBefore){const excess=dmg-defenderHpBefore,splashTarget=c.monsters.find(m=>m.hp>0&&m.uid!==targetRef.uid);if(splashTarget){const splash=Math.max(1,Math.round(excess*ctx.overkillSplash/100));splashTarget.hp=Math.max(0,splashTarget.hp-splash);Metrics.addTotal('damageDealt',splash);Metrics.combatFlow(c,'dealt',splash,splashTarget);this.log(state,`Violent Excess erupts into ${splashTarget.name} for <b>${splash}</b>.`,'good');}}
       if(ctx.extraHit){
-        const extra = Math.max(1, Math.round(dmg*0.5));
+        const extra = Math.max(1, Math.round(dmg*(ctx.extraHitMult||0.5)));
         targetRef.hp = Math.max(0, targetRef.hp-extra);
         Metrics.addTotal('damageDealt',extra);
         Metrics.combatFlow(c,'dealt',extra,targetRef);
@@ -807,7 +855,12 @@ const Engine = {
       const incomingCtx = {...ctxBase, direction:'incoming', damage:dmg, attacker:monsterObj, target:state.player, targetName:'You', source:monsterObj};
       for(const t of state.derived.traits){
         const h = EFFECT_HANDLERS[t.type];
-        if(h) h(incomingCtx, t.value);
+        if(h){
+          const isBoon=t.id?.startsWith('boon_'),snapshot=()=>`${incomingCtx.damage}|${incomingCtx.notes.length}|${state.player.hp}|${state.player.mp}|${monsterObj?.hp}|${incomingCtx.dodged}|${c.elementalWard}`,before=isBoon?snapshot():'';
+          if(isBoon)Metrics.count('boonEffectEvaluations',`${t.id.slice(5)}:${t.type}`);
+          h(incomingCtx,t.value);
+          if(isBoon&&before!==snapshot())Metrics.count('boonEffectProcs',`${t.id.slice(5)}:${t.type}`);
+        }
       }
       let finalDmg = incomingCtx.dodged ? 0 : incomingCtx.damage;
       if(!incomingCtx.dodged && c.playerGuarding){
@@ -866,23 +919,19 @@ const Engine = {
           this.log(state, `<b style="color:var(--t-mythic1)">Rare recipe discovered:</b> ${recipe.name}. Visit the Soulforge in town.`, 'good');
         }
       }
-      let drop=null;
-      const dropChance = isBoss ? 1.0 : (c.bonusLoot ? 0.7 : 0.4);
-      if(Math.random()<dropChance){
-        drop = Generators.generateItem(state.dungeon.dungeonLevel, {
-          lootBonus: state.dungeon.difficulty.lootBonus + (isBoss?0.8: (c.bonusLoot?0.35:0)),
+      const mutatorLoot=(state.dungeon.mutators||[]).reduce((sum,m)=>sum+(m.lootBonus||0),0);
+      const boonLoot=(state.dungeon.boons||[]).reduce((sum,b)=>sum+(b.effect?.type==='lootBonus'?b.effect.value:0),0);
+      if(boonLoot)Metrics.count('boonEffectProcs','fortune_eater:lootBonus');
+      const drops=Array.from({length:3},()=>Generators.generateItem(state.dungeon.dungeonLevel, {
+          lootBonus: state.dungeon.difficulty.lootBonus + mutatorLoot + boonLoot + (isBoss?0.65: (c.bonusLoot?0.25:0)),
+          rarityPenalty:isBoss ? .18 : .42,
           forcedMinTier: isBoss ? 'rare' : (c.bonusLoot ? 'uncommon' : undefined),
           affinities:this.lootAffinities(state),
-        });
-      }
+        }));
       state.combat=null;
       const proceed = (s)=>{ if(isBoss){ s.mode='complete'; } else { s.mode='explore'; this.finishRoom(s); } };
-      if(drop){
-        this.log(state, `The fallen carried something.`, 'flavor');
-        this.presentItemDrop(state, drop, proceed);
-      } else {
-        proceed(state);
-      }
+      this.log(state, `The fallen leave three possibilities. Choose one.`, 'flavor');
+      this.presentItemChoices(state,drops,proceed);
     } else if(result==='fled'){
       state.combat=null; state.mode='explore';
     } else if(result==='defeat'){
@@ -940,6 +989,27 @@ const Engine = {
         this.log(s, `You leave the ${item.name} where it lies.`, 'flavor');
         s.ui.pendingItem = null;
         afterFn(s);
+      }},
+    ];
+    state.mode='event';
+  },
+
+  presentItemChoices(state,items,afterFn){
+    for(const item of items)Metrics.loot(item,'offered');
+    state.ui.pendingItems=items;
+    state.ui.pendingItem=null;
+    state.ui.choices=[
+      ...items.map((item,index)=>({label:`Choose ${item.name}`,act:s=>{
+        Metrics.loot(item,'taken');
+        for(const other of items)if(other!==item)Metrics.loot(other,'left');
+        this.grantItem(s,item);
+        this.log(s,`You choose the <b style="color:${TIER_BY_ID[item.tier].color}">${item.name}</b> (${TIER_BY_ID[item.tier].name}).`,'good');
+        s.ui.pendingItems=null;s.ui.choices=null;afterFn(s);
+      }})),
+      {label:'Leave all three',act:s=>{
+        for(const item of items)Metrics.loot(item,'left');
+        this.log(s,'You leave all three pieces behind.','flavor');
+        s.ui.pendingItems=null;s.ui.choices=null;afterFn(s);
       }},
     ];
     state.mode='event';
@@ -1065,7 +1135,44 @@ const Engine = {
   },
 
   finishRoom(state){
+    const d=state.dungeon,cleared=d.currentIndex+1;
+    if(cleared%2===0&&d.roomTypes[d.currentIndex]!=='boss'&&!d.boonMilestones.includes(cleared)){
+      d.boonMilestones.push(cleared);this.offerBoonChoices(state);return;
+    }
     state.ui.choices = [{label:'Move deeper →', act:(s)=>{ this.enterNextRoom(s); }}];
+    state.mode='event';
+  },
+
+  offerBoonChoices(state){
+    const owned=new Map(state.dungeon.boons.map(boon=>[boon.baseId||boon.id,boon]));
+    const difficultyBonus=state.dungeon.difficulty.boonRarityBonus||0;
+    const pool=DUNGEON_BOONS.flatMap(base=>{
+      const currentRank=owned.get(base.id)?.tier||0;
+      return [1,2,3].filter(rank=>rank>currentRank).map(rank=>upgradedDungeonBoon(base,rank));
+    }),draft=[];
+    while(draft.length<3&&pool.length){
+      const boon=U.weightedPick(pool,candidate=>{
+        const baseWeight=BOON_POWER_TIERS[candidate.powerTier]?.weight||1;
+        const rarityWeight=candidate.powerTier==='mythic'?baseWeight*(1+difficultyBonus*1.4):candidate.powerTier==='greater'?baseWeight*(1+difficultyBonus*.65):baseWeight/(1+difficultyBonus*.35);
+        const currentRank=owned.get(candidate.baseId)?.tier||0;
+        const followsOwnedRank=currentRank>0&&candidate.tier===currentRank+1;
+        const rankWeight=(BOON_RANK_WEIGHTS[candidate.tier]||.01)*(followsOwnedRank?BOON_OWNED_UPGRADE_MULT:1);
+        return rarityWeight*rankWeight;
+      });
+      draft.push(boon);
+      for(let i=pool.length-1;i>=0;i--)if(pool[i].baseId===boon.baseId)pool.splice(i,1);
+    }
+    Metrics.boonDraft(state.dungeon.difficultyId,draft);
+    state.ui.boonChoices=draft;
+    state.ui.choices=draft.map(boon=>({label:`Claim ${boon.name}`,act:s=>{
+      const existing=s.dungeon.boons.findIndex(chosen=>(chosen.baseId||chosen.id)===boon.baseId);
+      const previousRank=existing>=0?s.dungeon.boons[existing].tier||1:0;
+      if(existing>=0)s.dungeon.boons.splice(existing,1,boon);else s.dungeon.boons.push(boon);
+      Metrics.boonClaim(boon,draft,previousRank,s.dungeon.difficultyId);
+      s.ui.boonChoices=null;this.refreshDerived(s);
+      s.player.hp=Math.min(s.player.hp,s.derived.maxHp);s.player.mp=Math.min(s.player.mp,s.derived.maxMp);
+      this.log(s,`You claim <b>${boon.name}</b>. ${boon.desc}`,'good');this.enterNextRoom(s);
+    }}));
     state.mode='event';
   },
 

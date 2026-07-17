@@ -28,7 +28,9 @@ function descend(difficultyId){
   s.player._revivedThisDungeon = false;
   s.dungeon = Generators.generateDungeon(s.player.level, difficultyId);
   s.screen='dungeon';
+  Engine.refreshDerived(s);
   s.player.hp = s.derived.maxHp; s.player.mp = s.derived.maxMp;
+  for(const law of s.dungeon.mutators||[]){Engine.log(s,`<b>Depth Law — ${law.name}:</b> ${law.desc}`,'flavor');Metrics.count('dungeonMutators',law.id);}
   Engine.enterNextRoom(s);
   render();
 }
@@ -37,6 +39,7 @@ function returnToTown(){
   STATE.screen='town';
   STATE.dungeon=null;
   STATE.mode='explore';
+  Engine.refreshDerived(STATE);
   STATE.player.hp = STATE.derived.maxHp;
   STATE.player.mp = STATE.derived.maxMp;
   render();

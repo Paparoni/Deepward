@@ -21,6 +21,7 @@ The project is actively developed in my spare time and will continue to grow wit
 - Randomized loot with seven rarity tiers
 - Experience, leveling, gold, and stat progression
 - Procedurally generated dungeon encounters and events
+- Dungeon-long boon drafts with power rarities and upgrade ranks
 - Normal, Hard, and Nightmare difficulty
 - Shops and merchants
 - Boss encounters with phases and unique behavior

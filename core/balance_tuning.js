@@ -25,7 +25,7 @@ const BALANCE = {
   // (how hard they hit), not HP/DEF, so early fights aren't shorter, just less punishing.
   // Fully fades out by dungeon level 12, at which point stats scale at full strength.
   monsterEarlyMercy: dlvl => 1 - 0.08*U.clamp(1-(dlvl-1)/9, 0, 1),
-  roomCount: lvl => U.clamp(5 + Math.floor(lvl/4), 5, 10),
+  roomCount: lvl => U.clamp(8 + Math.floor(lvl/3), 8, 16),
   // floor-generation pacing: guarantees a dungeon can't be cleared without fighting.
   // minCombatFraction = minimum share of non-boss rooms that must be combat rooms.
   // maxNonCombatStreak = longest run of consecutive non-combat rooms allowed before
@@ -33,9 +33,9 @@ const BALANCE = {
   minCombatFraction: 0.32,
   maxNonCombatStreak: 2,
   difficulties: {
-    normal:   {label:'Normal',   monsterMult:1.08, lootBonus:0.0},
-    hard:     {label:'Hard',     monsterMult:1.32, lootBonus:0.6},
-    nightmare:{label:'Nightmare',monsterMult:1.75, lootBonus:1.3},
+    normal:   {label:'Normal',   monsterMult:1.08, lootBonus:0.0, boonRarityBonus:0},
+    hard:     {label:'Hard',     monsterMult:1.32, lootBonus:0.6, boonRarityBonus:.65},
+    nightmare:{label:'Nightmare',monsterMult:1.75, lootBonus:1.3, boonRarityBonus:1.4},
   },
 
   // -- turn-based combat tuning -----------------------------------------
