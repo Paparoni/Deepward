@@ -73,7 +73,7 @@ function descend(difficultyId) {
   s.player.hp = s.derived.maxHp;
   s.player.mp = s.derived.maxMp;
   for (const law of s.dungeon.mutators || []) {
-    Engine.log(s, `<b>Depth Law â€” ${law.name}:</b> ${law.desc}`, 'flavor');
+    Engine.log(s, `<b>Depth Law — ${law.name}:</b> ${law.desc}`, 'flavor');
     Metrics.count('dungeonMutators', law.id);
   }
   Engine.enterNextRoom(s);

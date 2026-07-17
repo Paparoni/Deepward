@@ -21,7 +21,7 @@ const EVENT_HANDLERS = {
         },
       },
       {
-        label: 'Leave it â€” could be trapped',
+        label: 'Leave it — could be trapped',
         act: (s) => {
           Engine.log(s, `You decide it isn't worth the risk and move on.`, 'flavor');
           Engine.finishRoom(s);
@@ -84,7 +84,7 @@ const EVENT_HANDLERS = {
   },
 
   trap(state) {
-    Engine.log(state, `You hear a faint click underfoot â€” a trap!`, 'bad');
+    Engine.log(state, `You hear a faint click underfoot — a trap!`, 'bad');
     Engine.setChoices(state, [
       {
         label: 'Try to dodge (uses SPD)',
@@ -95,7 +95,7 @@ const EVENT_HANDLERS = {
           } else {
             const dmg = Math.round(U.rand(8, 16) * (1 + s.dungeon.dungeonLevel * 0.12));
             s.player.hp = Math.max(1, s.player.hp - dmg);
-            Engine.log(s, `The trap catches you â€” you take <b>${dmg} damage</b>.`, 'bad');
+            Engine.log(s, `The trap catches you — you take <b>${dmg} damage</b>.`, 'bad');
           }
           Engine.finishRoom(s);
         },
@@ -107,7 +107,7 @@ const EVENT_HANDLERS = {
           s.player.hp = Math.max(1, s.player.hp - dmg);
           Engine.log(
             s,
-            `You brace against the wall. It still hurts â€” <b>${dmg} damage</b> â€” but you're through.`,
+            `You brace against the wall. It still hurts — <b>${dmg} damage</b> — but you're through.`,
             'bad',
           );
           Engine.finishRoom(s);
@@ -163,7 +163,7 @@ const EVENT_HANDLERS = {
         reward: (s) => {
           s.derived.hitEffTemp = (s.derived.hitEffTemp || 0) + 2;
         },
-        res: 'You feel oddly sharpened â€” your next fight should go smoother.',
+        res: 'You feel oddly sharpened — your next fight should go smoother.',
       },
       {
         t: 'An old journal lies open on a stone slab, ink long since dried.',
@@ -202,7 +202,7 @@ const EVENT_HANDLERS = {
     const monsters = Generators.generateBoss(dlvl, state.dungeon.difficulty);
     Engine.log(
       state,
-      `The corridor opens into a vast chamber. <b>${monsters[0].name}</b> rises to meet you â€” ${monsters[0].flavor}.`,
+      `The corridor opens into a vast chamber. <b>${monsters[0].name}</b> rises to meet you — ${monsters[0].flavor}.`,
       'bad',
     );
     Engine.startCombat(state, monsters, { isBoss: true });
@@ -211,7 +211,7 @@ const EVENT_HANDLERS = {
 
   ambush(state) {
     const dlvl = state.dungeon.dungeonLevel;
-    Engine.log(state, `Shapes peel away from the dark before you're ready â€” an ambush!`, 'bad');
+    Engine.log(state, `Shapes peel away from the dark before you're ready — an ambush!`, 'bad');
     Engine.setChoices(state, [
       {
         label: 'Fight through it',
@@ -225,7 +225,7 @@ const EVENT_HANDLERS = {
           }
           Engine.log(
             s,
-            `Caught off guard, <b>${monsters.map((m) => m.name).join(', ')}</b> close in fast â€” they hit harder than usual, but carry better spoils.`,
+            `Caught off guard, <b>${monsters.map((m) => m.name).join(', ')}</b> close in fast — they hit harder than usual, but carry better spoils.`,
             'bad',
           );
           Engine.startCombat(s, monsters);
@@ -238,7 +238,7 @@ const EVENT_HANDLERS = {
   archive(state) {
     Engine.log(
       state,
-      `Shelves of collapsed stone hold what might once have been scrolls. Most have rotted to dust â€” but not all.`,
+      `Shelves of collapsed stone hold what might once have been scrolls. Most have rotted to dust — but not all.`,
       'flavor',
     );
     Engine.setChoices(state, [
@@ -314,7 +314,7 @@ const EVENT_HANDLERS = {
   collapse(state) {
     Engine.log(
       state,
-      `The passage ahead has caved in. A narrow gap remains â€” and a longer way around.`,
+      `The passage ahead has caved in. A narrow gap remains — and a longer way around.`,
       'flavor',
     );
     Engine.setChoices(state, [
@@ -327,7 +327,7 @@ const EVENT_HANDLERS = {
           } else {
             const dmg = Math.round(U.rand(5, 12) * (1 + s.dungeon.dungeonLevel * 0.1));
             s.player.hp = Math.max(1, s.player.hp - dmg);
-            Engine.log(s, `Loose stone catches you on the way through â€” <b>${dmg} damage</b>.`, 'bad');
+            Engine.log(s, `Loose stone catches you on the way through — <b>${dmg} damage</b>.`, 'bad');
           }
           Engine.finishRoom(s);
         },
@@ -393,7 +393,7 @@ const EVENT_HANDLERS = {
   cursed_altar(state) {
     Engine.log(
       state,
-      `A black altar hums with old, hungry power. It offers strength â€” for a price.`,
+      `A black altar hums with old, hungry power. It offers strength — for a price.`,
       'flavor',
     );
     Engine.setChoices(state, [
@@ -410,7 +410,7 @@ const EVENT_HANDLERS = {
           s.player.hp = Math.min(s.player.hp, s.derived.maxHp);
           Engine.log(
             s,
-            `Power floods your limbs â€” cold, eager, not entirely yours. You feel stronger, and thinner for it.`,
+            `Power floods your limbs — cold, eager, not entirely yours. You feel stronger, and thinner for it.`,
             'bad',
           );
           Engine.finishRoom(s);
@@ -434,7 +434,7 @@ const EVENT_HANDLERS = {
   bonfire(state) {
     Engine.log(
       state,
-      `A dying campfire still smolders in a side chamber â€” abandoned, but not cold. There's time to prepare here.`,
+      `A dying campfire still smolders in a side chamber — abandoned, but not cold. There's time to prepare here.`,
       'flavor',
     );
     const dlvl = state.dungeon.dungeonLevel;
@@ -491,7 +491,7 @@ const EVENT_HANDLERS = {
   black_market(state) {
     Engine.log(
       state,
-      `A hooded stranger crouches beside a case of curious reagents. "Materials, traveler â€” if the price is right."`,
+      `A hooded stranger crouches beside a case of curious reagents. "Materials, traveler — if the price is right."`,
       'flavor',
     );
     const dlvl = state.dungeon.dungeonLevel;
@@ -499,7 +499,7 @@ const EVENT_HANDLERS = {
     const choices = offers.map((mat) => {
       const price = Math.round(14 + dlvl * 1.8);
       return {
-        label: `Buy ${mat.name} â€” ${price} gold`,
+        label: `Buy ${mat.name} — ${price} gold`,
         act: (s) => {
           if (s.player.gold < price) {
             Engine.log(s, "You don't have enough gold for that.", 'bad');
@@ -546,7 +546,7 @@ const EVENT_HANDLERS = {
               Engine.finishRoom(s2);
             });
           } else {
-            Engine.log(s, `The runes flare red â€” a hidden ward triggers!`, 'bad');
+            Engine.log(s, `The runes flare red — a hidden ward triggers!`, 'bad');
             const monsters = Generators.generateBattleGroup(s.dungeon.dungeonLevel, s.dungeon.difficulty);
             Engine.log(
               s,
@@ -564,7 +564,7 @@ const EVENT_HANDLERS = {
           s.player.hp = Math.max(1, s.player.hp - dmg);
           Engine.log(
             s,
-            `You wrench it open by force. It gives way, but not gently â€” <b>${dmg} damage</b>.`,
+            `You wrench it open by force. It gives way, but not gently — <b>${dmg} damage</b>.`,
             'bad',
           );
           Engine.finishRoom(s);
@@ -584,7 +584,7 @@ const EVENT_HANDLERS = {
   foraging(state) {
     Engine.log(
       state,
-      `Clusters of luminous fungus and mineral veins glint along the walls â€” worth harvesting.`,
+      `Clusters of luminous fungus and mineral veins glint along the walls — worth harvesting.`,
       'flavor',
     );
     Engine.setChoices(state, [
@@ -618,7 +618,7 @@ const EVENT_HANDLERS = {
     const dlvl = state.dungeon.dungeonLevel;
     Engine.log(
       state,
-      `A reinforced cache sits behind a sealed grate â€” and something is already curled up beside it.`,
+      `A reinforced cache sits behind a sealed grate — and something is already curled up beside it.`,
       'bad',
     );
     const monsters = Generators.generateBattleGroup(dlvl, state.dungeon.difficulty);
@@ -630,7 +630,7 @@ const EVENT_HANDLERS = {
     }
     Engine.log(
       state,
-      `<b>${monsters.map((m) => m.name).join(', ')}</b> guards the cache fiercely â€” better loot if you can take it down.`,
+      `<b>${monsters.map((m) => m.name).join(', ')}</b> guards the cache fiercely — better loot if you can take it down.`,
       'bad',
     );
     Engine.startCombat(state, monsters, { bonusLoot: true });
@@ -655,7 +655,7 @@ const EVENT_HANDLERS = {
           } else if (roll < 0.55) {
             const dmg = Math.round(U.rand(5, 11) * (1 + s.dungeon.dungeonLevel * 0.08));
             s.player.hp = Math.max(1, s.player.hp - dmg);
-            Engine.log(s, `Something in the water disagrees with you â€” <b>${dmg} damage</b>.`, 'bad');
+            Engine.log(s, `Something in the water disagrees with you — <b>${dmg} damage</b>.`, 'bad');
           } else if (roll < 0.8) {
             const stat = Math.random() < 0.5 ? 'atk' : 'matk';
             const flat = Math.round(2 + s.dungeon.dungeonLevel * 0.4);

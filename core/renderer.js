@@ -29,7 +29,7 @@ function renderStatBlock(state, weaponElement) {
   }).join('');
   const elemRows = ELEMENT_STATS.map((s) => {
     const active = s.element === weaponElement;
-    return `<div class="stat-row" style="${active ? 'color:var(--ember)' : ''}"><span>${s.short}${active ? ' â˜…' : ''}</span><b>+${derived[s.id] || 0}%</b></div>`;
+    return `<div class="stat-row" style="${active ? 'color:var(--ember)' : ''}"><span>${s.short}${active ? ' ★' : ''}</span><b>+${derived[s.id] || 0}%</b></div>`;
   }).join('');
   const traits = derived.traits
     .map(
@@ -39,7 +39,7 @@ function renderStatBlock(state, weaponElement) {
   return `
     <div class="statsheet">
       ${rows}
-      <div class="panel-title" style="border:none;padding:10px 0 4px;font-size:10.5px;">Bonus Damage <span class="small">(â˜… active with your weapon)</span></div>
+      <div class="panel-title" style="border:none;padding:10px 0 4px;font-size:10.5px;">Bonus Damage <span class="small">(★ active with your weapon)</span></div>
       ${elemRows}
       ${derived.traits.length ? `<div style="margin-top:8px;">${traits}</div>` : ''}
     </div>`;
@@ -67,10 +67,10 @@ function renderItemCard(item, actions, extra = '') {
     })
     .join('');
   const traitLines = item.uniqueTraits
-    .map((t2) => `<div class="item-trait uniquetrait">âœ¦ ${t2.name} â€” ${t2.desc}</div>`)
+    .map((t2) => `<div class="item-trait uniquetrait">✦ ${t2.name} — ${t2.desc}</div>`)
     .join('');
   const mythicLine = item.mythicTrait
-    ? `<div class="item-trait mythictrait">â˜… ${item.mythicTrait.name} â€” ${item.mythicTrait.desc}</div>`
+    ? `<div class="item-trait mythictrait">★ ${item.mythicTrait.name} — ${item.mythicTrait.desc}</div>`
     : '';
   const glowClass =
     item.tier === 'mythic_legendary'
@@ -81,7 +81,7 @@ function renderItemCard(item, actions, extra = '') {
   return `
     <div class="item-card ${glowClass}" ${tierGlowStyle(item.tier)}>
       <div class="item-name" style="color:${t.color}">${item.name}</div>
-      <div class="item-meta">${t.name.toUpperCase()} Â· ${item.slotLabel} Â· ilvl ${item.ilvl}${item.slot === 'weapon' ? ' Â· ' + item.element.toUpperCase() + ' DMG' : ''}</div>
+      <div class="item-meta">${t.name.toUpperCase()} · ${item.slotLabel} · ilvl ${item.ilvl}${item.slot === 'weapon' ? ' · ' + item.element.toUpperCase() + ' DMG' : ''}</div>
       <div class="item-stats">${statLines || '<span class="small">(no core stats)</span>'}</div>
       ${elemEntries.length ? `<div class="item-stats" style="margin-top:5px;color:var(--ember)"><b>Bonus Damage:</b>${bonusLines}</div>` : ''}
       ${traitLines}${mythicLine}${extra}
@@ -114,12 +114,12 @@ function renderHud(s) {
     ${diffLabel ? `<div class="hud-diff">${diffLabel}</div>` : ''}
     <div class="save-controls"><button onclick="toggleCharacter()">Character</button><button onclick="toggleSystemMenu()">Menu</button><button onclick="saveGame()">Save</button><button onclick="exportSave()">Export</button><button onclick="chooseSaveImport()">Import</button></div>
     <input id="saveImportInput" type="file" accept="application/json,.json" hidden onchange="importSave(this)">
-    <div class="hud-gold">â› ${s.player.gold} gold</div>
+    <div class="hud-gold">⛁ ${s.player.gold} gold</div>
   </div>`;
 }
 
 function slotTooltip(slot, item) {
-  if (!item) return `${slot.label} â€” empty. Click to equip something.`;
+  if (!item) return `${slot.label} — empty. Click to equip something.`;
   const t = TIER_BY_ID[item.tier];
   const coreEntries = Object.entries(item.stats).filter(([k]) => !k.endsWith('Dmg'));
   const elemEntries = Object.entries(item.stats).filter(([k]) => k.endsWith('Dmg'));
@@ -145,7 +145,7 @@ function renderSlots(s) {
     const t = item ? TIER_BY_ID[item.tier] : null;
     return `<div class="slot" onclick="onSlotClick('${slot.id}')" title="${U.escapeHtml(slotTooltip(slot, item))}">
       <div class="slot-label">${slot.label}</div>
-      ${item ? `<div class="slot-item" style="color:${t.color}">${item.name}</div>` : `<div class="slot-empty">â€” empty â€”</div>`}
+      ${item ? `<div class="slot-item" style="color:${t.color}">${item.name}</div>` : `<div class="slot-empty">— empty —</div>`}
     </div>`;
   }).join('');
   const tabs = `<div class="panel-tabs">
@@ -172,12 +172,12 @@ function renderDepthTrack(s) {
     })
     .join('');
   const laws = (s.dungeon.mutators || [])
-    .map((m) => `<span class="depth-law" title="${U.escapeHtml(m.desc)}">âœ¦ ${U.escapeHtml(m.name)}</span>`)
+    .map((m) => `<span class="depth-law" title="${U.escapeHtml(m.desc)}">✦ ${U.escapeHtml(m.name)}</span>`)
     .join('');
   const boons = (s.dungeon.boons || [])
     .map(
       (b) =>
-        `<span class="depth-law boon-law" title="${U.escapeHtml(b.desc)}">â—† ${U.escapeHtml(b.name)}</span>`,
+        `<span class="depth-law boon-law" title="${U.escapeHtml(b.desc)}">◆ ${U.escapeHtml(b.name)}</span>`,
     )
     .join('');
   const floor = Math.min(s.dungeon.currentIndex + 1, s.dungeon.roomCount);
@@ -209,18 +209,18 @@ function renderCombat(s) {
       const ailments = Object.entries(m._ailments || {})
         .map(
           ([key, a]) =>
-            `<span class="enemy-ailment ailment-${key}" title="${U.escapeHtml(ELEMENTAL_AILMENTS[key === 'bleed' ? 'physical' : key === 'chill' ? 'ice' : key === 'toxin' ? 'poison' : key === 'doom' ? 'dark' : key]?.desc || a.name)}">${U.escapeHtml(a.name)}${a.stacks ? ` ${a.stacks}` : ''}${a.turns ? ` Â· ${a.turns}r` : ''}</span>`,
+            `<span class="enemy-ailment ailment-${key}" title="${U.escapeHtml(ELEMENTAL_AILMENTS[key === 'bleed' ? 'physical' : key === 'chill' ? 'ice' : key === 'toxin' ? 'poison' : key === 'doom' ? 'dark' : key]?.desc || a.name)}">${U.escapeHtml(a.name)}${a.stacks ? ` ${a.stacks}` : ''}${a.turns ? ` · ${a.turns}r` : ''}</span>`,
         )
         .join('');
       return `
     <div class="${classes}" ${clickable ? `onclick="onSelectTarget('${m.uid}')" title="Target ${m.name}"` : ''}>
-      <div class="combatant-name">${m.icon} ${m.name}${targeted ? ' <span class="target-mark">ðŸŽ¯</span>' : ''}</div>
+      <div class="combatant-name">${m.icon} ${m.name}${targeted ? ' <span class="target-mark">🎯</span>' : ''}</div>
       <div class="enemy-element">${m.element.toUpperCase()} AFFINITY</div>
       <div class="enemy-identity" title="${U.escapeHtml(m.identityDesc || m.flavor)}">${U.escapeHtml(m.identity || 'Skirmisher')}</div>
       <div class="bar-track" style="margin-top:4px;">${animatedBar(s, `monster-${m.uid}`, (m.hp / m.maxHp) * 100, 'bar-hp')}</div>
       <div class="combatant-hp-num">${Math.max(0, m.hp)}/${m.maxHp} HP</div>
       ${ailments ? `<div class="enemy-ailments">${ailments}</div>` : ''}
-      ${m._charging ? `<div class="charge-tag">âš¡ Channeling <b>${U.escapeHtml(chargeName)}</b> â€” Defend or burst it down!</div>` : ''}
+      ${m._charging ? `<div class="charge-tag">⚡ Channeling <b>${U.escapeHtml(chargeName)}</b> — Defend or burst it down!</div>` : ''}
     </div>`;
     })
     .join('');
@@ -232,9 +232,9 @@ function renderCombat(s) {
   const orderHtml = order
     .map(
       (o) =>
-        `<span class="init-chip${o.you ? ' init-you' : ''}">${o.you ? 'ðŸ§' : o.icon} ${o.you ? 'You' : o.name}</span>`,
+        `<span class="init-chip${o.you ? ' init-you' : ''}">${o.you ? '🧍' : o.icon} ${o.you ? 'You' : o.name}</span>`,
     )
-    .join('<span class="init-arrow">â†’</span>');
+    .join('<span class="init-arrow">→</span>');
   const debuffTags = c.buffs
     .filter((b) => b.pct < 0)
     .map(
@@ -284,7 +284,7 @@ function renderCombat(s) {
     ? `<div class="small" style="margin:6px 0;">Active this battle: ${c.buffs.map((b) => `+${b.pct}% ${STAT_BY_ID[b.stat].short} (${b.name})`).join(', ')}</div>`
     : '';
   return `
-    <div class="round-label">Round ${c.round}${c.resolving ? '<span class="resolving-tag">Resolvingâ€¦</span>' : ''}<span class="init-strip">${orderHtml}</span></div>
+    <div class="round-label">Round ${c.round}${c.resolving ? '<span class="resolving-tag">Resolving…</span>' : ''}<span class="init-strip">${orderHtml}</span></div>
     <div class="combatants">${monsterHtml}</div>
     ${buffNote}
     ${afflictionRow}
@@ -296,7 +296,7 @@ function renderCombat(s) {
       <button class="btn" onclick="onCombatAction('defend')" ${alive && !c.resolving ? '' : 'disabled'} title="Sharply reduce all damage you take this round; restores a little MP.">Defend</button>
       <button class="btn btn-danger" onclick="onCombatAction('flee')" ${alive && !c.resolving ? '' : 'disabled'}>Flee</button>
     </div>
-    ${c.skillMenuOpen ? `<div class="combat-skill-menu"><div class="skill-menu-head"><b>Choose a skill</b><button onclick="toggleCombatSkills()">Ã—</button></div>${skillButtons || '<div class="empty-note">No active skills learned.</div>'}</div>` : ''}</div>`;
+    ${c.skillMenuOpen ? `<div class="combat-skill-menu"><div class="skill-menu-head"><b>Choose a skill</b><button onclick="toggleCombatSkills()">×</button></div>${skillButtons || '<div class="empty-note">No active skills learned.</div>'}</div>` : ''}</div>`;
 }
 
 function renderMerchantPanel(s) {
@@ -306,7 +306,7 @@ function renderMerchantPanel(s) {
       const price = Math.round((10 + item.ilvl * 3) * (1 + TIERS.findIndex((t) => t.id === item.tier) * 0.9));
       return renderItemCard(
         item,
-        `<button class="btn" onclick="onBuyItem(${i}, ${price})">Buy â€” ${price}g</button>`,
+        `<button class="btn" onclick="onBuyItem(${i}, ${price})">Buy — ${price}g</button>`,
       );
     })
     .join('');
@@ -335,7 +335,7 @@ function renderChoices(s) {
       .map((boon, i) => {
         const power = BOON_POWER_TIERS[boon.powerTier] || BOON_POWER_TIERS.lesser,
           attuned = boon.buildWeight >= 1.16;
-        return `<button class="boon-card boon-${boon.powerTier}" onclick="onChoiceClick(${i})"><span style="color:${power.color}">${power.name.toUpperCase()} BOON Â· RANK ${boon.tier}${boon.tier > 1 ? ' Â· UPGRADE' : ''}</span>${attuned ? '<i class="attuned-tag" title="This option is modestly favored by your class, stats, skills, or active element.">ATTUNED TO BUILD</i>' : ''}<b>${U.escapeHtml(boon.name)}</b><p>${U.escapeHtml(boon.desc)}</p><em>${boon.tier > 1 ? 'Replace the previous rank' : 'Claim boon'}</em></button>`;
+        return `<button class="boon-card boon-${boon.powerTier}" onclick="onChoiceClick(${i})"><span style="color:${power.color}">${power.name.toUpperCase()} BOON · RANK ${boon.tier}${boon.tier > 1 ? ' · UPGRADE' : ''}</span>${attuned ? '<i class="attuned-tag" title="This option is modestly favored by your class, stats, skills, or active element.">ATTUNED TO BUILD</i>' : ''}<b>${U.escapeHtml(boon.name)}</b><p>${U.escapeHtml(boon.desc)}</p><em>${boon.tier > 1 ? 'Replace the previous rank' : 'Claim boon'}</em></button>`;
       })
       .join('');
     return `${renderLog(s)}<div class="loot-choice-head"><b>Choose a boon</b><span>It lasts until you leave the dungeon.</span></div><div class="boon-choice-grid">${boons}</div>`;
@@ -358,9 +358,9 @@ function renderScene(s) {
       materialLosses: {},
     };
     const materialLosses = Object.entries(p.materialLosses || {}).map(
-      ([id, count]) => `${MATERIAL_BY_ID[id]?.name || id}${count > 1 ? ` Ã—${count}` : ''}`,
+      ([id, count]) => `${MATERIAL_BY_ID[id]?.name || id}${count > 1 ? ` ×${count}` : ''}`,
     );
-    inner = `${renderLog(s)}<div class="choices"><div class="death-penalty"><b>THE DEPTHS TAKE THEIR DUE</b><p>Defeat costs <strong>${p.goldLost} gold</strong> and <strong>${p.xpLost} current-level XP</strong>.</p>${materialLosses.length ? `<p>${p.bossDefeat ? 'A boss defeat' : 'The defeat'} also costs: <strong>${materialLosses.map(U.escapeHtml).join(', ')}</strong>.</p>` : `<p>You have no crafting materials for the depths to claim.</p>`}${p.itemName ? `<p>One unprotected carried item will also be lost: <strong>${U.escapeHtml(p.itemName)}</strong>.</p>` : `<p>No eligible carried item can be claimed. Equipped, crafted, and Mythic Legendary gear is protected.</p>`}<small>Normal defeats claim 1â€“4 material units; boss defeats claim 2â€“5. Equipped gear, Soulforge creations, and Mythic Legendary items are never lost.</small></div><button class="btn btn-danger" onclick="onDefeatContinue()">Accept the Loss and Return</button></div>`;
+    inner = `${renderLog(s)}<div class="choices"><div class="death-penalty"><b>THE DEPTHS TAKE THEIR DUE</b><p>Defeat costs <strong>${p.goldLost} gold</strong> and <strong>${p.xpLost} current-level XP</strong>.</p>${materialLosses.length ? `<p>${p.bossDefeat ? 'A boss defeat' : 'The defeat'} also costs: <strong>${materialLosses.map(U.escapeHtml).join(', ')}</strong>.</p>` : `<p>You have no crafting materials for the depths to claim.</p>`}${p.itemName ? `<p>One unprotected carried item will also be lost: <strong>${U.escapeHtml(p.itemName)}</strong>.</p>` : `<p>No eligible carried item can be claimed. Equipped, crafted, and Mythic Legendary gear is protected.</p>`}<small>Normal defeats claim 1–4 material units; boss defeats claim 2–5. Equipped gear, Soulforge creations, and Mythic Legendary items are never lost.</small></div><button class="btn btn-danger" onclick="onDefeatContinue()">Accept the Loss and Return</button></div>`;
   } else if (s.mode === 'complete')
     inner = `${renderLog(s)}<div class="choices"><p class="log-good">The dungeon falls silent. You've cleared it.</p><button class="btn btn-primary" onclick="onDungeonComplete()">Return to Town</button></div>`;
   else inner = renderChoices(s);
@@ -375,12 +375,12 @@ function renderTown(s) {
   return `<div class="panel scene">
     <div class="panel-title">Town of Last Light</div>
     <div class="scene-body">
-      <div class="log-feed"><p class="log-flavor">The town is quiet. Torches gutter along the wall. Somewhere below, the dungeon waits â€” and it will not have gotten any easier.</p>
+      <div class="log-feed"><p class="log-flavor">The town is quiet. Torches gutter along the wall. Somewhere below, the dungeon waits — and it will not have gotten any easier.</p>
       <p>Choose your descent, ${s.player.name}.</p></div>
       <div class="choices">
-        <button class="btn btn-primary" onclick="descend('normal')">Descend â€” Normal</button>
-        <button class="btn" onclick="descend('hard')">Descend â€” Hard <span class="small">(tougher foes, better loot)</span></button>
-        <button class="btn btn-danger" onclick="descend('nightmare')">Descend â€” Nightmare <span class="small">(brutal, best loot)</span></button>
+        <button class="btn btn-primary" onclick="descend('normal')">Descend — Normal</button>
+        <button class="btn" onclick="descend('hard')">Descend — Hard <span class="small">(tougher foes, better loot)</span></button>
+        <button class="btn btn-danger" onclick="descend('nightmare')">Descend — Nightmare <span class="small">(brutal, best loot)</span></button>
       </div>
     </div>
   </div>`;
@@ -403,7 +403,7 @@ function renderInventoryOverlay(s) {
     .join('');
   return `<div class="overlay" onclick="if(event.target===this) toggleInventory()">
     <div class="panel overlay-panel">
-      <div class="panel-title">Inventory<span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleInventory()">Close âœ•</span></div>
+      <div class="panel-title">Inventory<span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleInventory()">Close ✕</span></div>
       <div class="overlay-body">${cards || '<div class="empty-note">Your pack is empty. Explore the dungeon to find gear.</div>'}</div>
     </div>
   </div>`;
@@ -425,7 +425,7 @@ function comparisonTarget(s, item) {
 
 function renderItemComparison(s, item) {
   const current = comparisonTarget(s, item);
-  if (!current) return '<div class="item-compare upgrade">Empty slot Â· direct upgrade opportunity</div>';
+  if (!current) return '<div class="item-compare upgrade">Empty slot · direct upgrade opportunity</div>';
   const ids = new Set([...Object.keys(item.stats || {}), ...Object.keys(current.stats || {})]);
   const changes = [...ids]
     .map((id) => ({
@@ -463,7 +463,7 @@ function renderSlotOverlay(s) {
     body = `
       <div class="small" style="margin-bottom:10px;">Choose a ${slot.label.toLowerCase()} from your pack to equip here.</div>
       ${cards || `<div class="empty-note">No ${slot.label.toLowerCase()} items in your pack. Explore the dungeon or visit a merchant.</div>`}
-      <div class="btn-row" style="margin-top:12px;"><button class="btn" onclick="onBackToSlotView()">â† Back</button></div>`;
+      <div class="btn-row" style="margin-top:12px;"><button class="btn" onclick="onBackToSlotView()">← Back</button></div>`;
   } else {
     body = equipped
       ? `${renderItemCard(equipped, '')}
@@ -478,7 +478,7 @@ function renderSlotOverlay(s) {
   }
   return `<div class="overlay" onclick="if(event.target===this) closeSlotOverlay()">
     <div class="panel overlay-panel">
-      <div class="panel-title">${slot.label}<span class="small" style="cursor:pointer;color:var(--ember)" onclick="closeSlotOverlay()">Close âœ•</span></div>
+      <div class="panel-title">${slot.label}<span class="small" style="cursor:pointer;color:var(--ember)" onclick="closeSlotOverlay()">Close ✕</span></div>
       <div class="overlay-body">${body}</div>
     </div>
   </div>`;
@@ -488,7 +488,7 @@ function renderCraftingOverlay(s) {
   if (!s.ui.craftOpen) return '';
   const materials = CRAFTING_MATERIALS.map((material) => {
     const count = s.player.materials[material.id] || 0;
-    return `<span class="trait-tag" style="opacity:${count ? 1 : 0.45}">${material.name} Ã—${count}</span>`;
+    return `<span class="trait-tag" style="opacity:${count ? 1 : 0.45}">${material.name} ×${count}</span>`;
   }).join('');
   const known = MYTHIC_RECIPES.filter((recipe) => s.player.recipes.includes(recipe.id));
   const cards = known
@@ -503,9 +503,9 @@ function renderCraftingOverlay(s) {
       const trait = CRAFTED_MYTHIC_TRAITS.find((entry) => entry.id === recipe.mythicTrait);
       return `<div class="item-card mythic-border" style="--glow:var(--t-mythic1);border-color:var(--t-mythic1)">
       <div class="item-name" style="color:var(--t-mythic1)">${recipe.name}</div>
-      <div class="item-meta">MYTHIC ${SLOTS.find((slot) => slot.id === recipe.slot).label.toUpperCase()} Â· SOULFORGE ONLY</div>
+      <div class="item-meta">MYTHIC ${SLOTS.find((slot) => slot.id === recipe.slot).label.toUpperCase()} · SOULFORGE ONLY</div>
       <div class="item-stats">${requirements}</div>
-      <div class="item-trait mythictrait">â˜… ${trait.name} â€” ${trait.desc(trait.base)}</div>
+      <div class="item-trait mythictrait">★ ${trait.name} — ${trait.desc(trait.base)}</div>
       <div class="item-actions"><button class="btn btn-primary" onclick="onCraftItem('${recipe.id}')" ${canCraft ? '' : 'disabled'}>Forge Mythic</button></div>
     </div>`;
     })
@@ -513,7 +513,7 @@ function renderCraftingOverlay(s) {
   const unknownCount = MYTHIC_RECIPES.length - known.length;
   return `<div class="overlay" onclick="if(event.target===this) toggleCrafting()">
     <div class="panel overlay-panel">
-      <div class="panel-title">Soulforge <span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleCrafting()">Close Ã—</span></div>
+      <div class="panel-title">Soulforge <span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleCrafting()">Close ×</span></div>
       <div class="overlay-body">
         <div class="small" style="margin-bottom:10px;">Bosses rarely yield new mythic recipes. Materials are collected automatically from defeated enemies. Each recipe has its own exact requirements.</div>
         <div style="margin-bottom:14px;line-height:2">${materials}</div>
@@ -529,7 +529,7 @@ function renderTitle() {
   const classCards = CLASSES.map((c) => {
     const selected = c.id === PENDING_CLASS;
     return `<div class="slot" style="cursor:pointer;text-align:left;${selected ? 'border-color:var(--ember);background:#2a2115;' : ''}" onclick="selectClass('${c.id}')">
-      <div class="slot-label">${c.icon} ${c.name.toUpperCase()}${selected ? ' âœ“' : ''}</div>
+      <div class="slot-label">${c.icon} ${c.name.toUpperCase()}${selected ? ' ✓' : ''}</div>
       <div class="slot-empty" style="color:var(--ink-dim);font-style:normal;">${c.desc}</div>
       ${c.innatePassive ? `<div class="small" style="color:var(--gold);margin-top:4px;">Innate: ${c.innatePassive.name}</div>` : ''}
     </div>`;
@@ -584,21 +584,21 @@ function renderSkillGraph(s, cls) {
           : '';
       const icon =
         node.kind === 'active'
-          ? 'âš¡'
+          ? '⚡'
           : node.nodeRole === 'capstone'
-            ? 'â˜…'
+            ? '★'
             : node.nodeRole === 'notable'
-              ? 'âœ¦'
-              : 'â—†';
-      const title = `${node.name}\n${node.kind.toUpperCase()} Â· ${node.cost} point${node.cost === 1 ? '' : 's'}\n${node.desc}${reason ? '\n' + reason : ''}`;
-      return `<button class="tree-node ${node.nodeRole || ''} ${node.kind} ${unlocked ? 'unlocked' : can ? 'available' : 'locked'}" style="left:${node.x}px;top:${node.y}px" title="${U.escapeHtml(title)}" onclick="onUnlockSkill('${node.id}')" ${unlocked || !can ? 'disabled' : ''}><span>${icon}</span><small>${node.name}</small><em>${unlocked ? 'âœ“' : node.cost}</em></button>`;
+              ? '✦'
+              : '◆';
+      const title = `${node.name}\n${node.kind.toUpperCase()} · ${node.cost} point${node.cost === 1 ? '' : 's'}\n${node.desc}${reason ? '\n' + reason : ''}`;
+      return `<button class="tree-node ${node.nodeRole || ''} ${node.kind} ${unlocked ? 'unlocked' : can ? 'available' : 'locked'}" style="left:${node.x}px;top:${node.y}px" title="${U.escapeHtml(title)}" onclick="onUnlockSkill('${node.id}')" ${unlocked || !can ? 'disabled' : ''}><span>${icon}</span><small>${node.name}</small><em>${unlocked ? '✓' : node.cost}</em></button>`;
     })
     .join('');
   const learned = s.player.unlockedSkills.filter((id) => byId[id]).length;
   return `<div class="overlay skill-tree-overlay" onclick="if(event.target===this) toggleSkills()">
     <div class="panel skill-tree-panel">
-      <div class="panel-title tree-toolbar"><span>${cls.icon} ${cls.name} Constellation <small>${learned}/${cls.skillTree.length} learned</small></span><span>Points: <b>${s.player.skillPoints}</b> <button onclick="toggleSkills()">Close Ã—</button></span></div>
-      <div class="tree-legend"><span class="legend-dot available"></span>Available <span class="legend-dot unlocked"></span>Learned <span>âš¡ Active</span><span>â˜… Capstone</span><span>Drag the scrollbars to explore Â· hover any node for details</span></div>
+      <div class="panel-title tree-toolbar"><span>${cls.icon} ${cls.name} Constellation <small>${learned}/${cls.skillTree.length} learned</small></span><span>Points: <b>${s.player.skillPoints}</b> <button onclick="toggleSkills()">Close ×</button></span></div>
+      <div class="tree-legend"><span class="legend-dot available"></span>Available <span class="legend-dot unlocked"></span>Learned <span>⚡ Active</span><span>★ Capstone</span><span>Drag the scrollbars to explore · hover any node for details</span></div>
       <div class="skill-tree-viewport">
         <div class="skill-tree-canvas" style="width:${width}px;height:${height}px">
           <svg width="${width}" height="${height}" aria-hidden="true">${lines}</svg>${headers}${nodes}
@@ -634,8 +634,8 @@ function renderSkillsOverlay(s) {
               ? `<div class="small" style="color:var(--bad);">Committed to ${chosenRoot.branch}</div>`
               : '';
           return `<div class="item-card" style="${unlocked ? 'border-color:var(--good);' : ''}">
-        <div class="item-name" style="font-size:13px;color:${sk.kind === 'active' ? 'var(--ember)' : 'var(--ink)'}">${sk.kind === 'active' ? 'âš¡' : 'â—†'} ${sk.name}</div>
-        <div class="item-meta">${sk.kind.toUpperCase()}${sk.kind === 'active' ? ' Â· ' + sk.manaCost + ' MP' : ''} Â· cost ${sk.cost} pt</div>
+        <div class="item-name" style="font-size:13px;color:${sk.kind === 'active' ? 'var(--ember)' : 'var(--ink)'}">${sk.kind === 'active' ? '⚡' : '◆'} ${sk.name}</div>
+        <div class="item-meta">${sk.kind.toUpperCase()}${sk.kind === 'active' ? ' · ' + sk.manaCost + ' MP' : ''} · cost ${sk.cost} pt</div>
         <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${sk.desc}</div>
         <div class="small" style="color:var(--gold);">${sk.branch}</div>
         ${prerequisite}${routeLock}
@@ -655,7 +655,7 @@ function renderSkillsOverlay(s) {
         ${
           cls.innatePassive
             ? `<div class="item-card" style="border-color:var(--good);">
-          <div class="item-name" style="font-size:13px;">â—† ${cls.innatePassive.name}</div>
+          <div class="item-name" style="font-size:13px;">◆ ${cls.innatePassive.name}</div>
           <div class="item-meta">INNATE PASSIVE</div>
           <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${cls.innatePassive.desc}</div>
         </div>`
@@ -664,8 +664,8 @@ function renderSkillsOverlay(s) {
         ${
           cls.innateActive
             ? `<div class="item-card" style="border-color:var(--good);">
-          <div class="item-name" style="font-size:13px;color:var(--ember);">âš¡ ${cls.innateActive.name}</div>
-          <div class="item-meta">INNATE ACTIVE Â· ${cls.innateActive.manaCost} MP</div>
+          <div class="item-name" style="font-size:13px;color:var(--ember);">⚡ ${cls.innateActive.name}</div>
+          <div class="item-meta">INNATE ACTIVE · ${cls.innateActive.manaCost} MP</div>
           <div class="item-stats" style="color:var(--ink-dim);margin-top:5px;">${cls.innateActive.desc}</div>
         </div>`
             : ''
@@ -675,7 +675,7 @@ function renderSkillsOverlay(s) {
       : '';
   return `<div class="overlay" onclick="if(event.target===this) toggleSkills()">
     <div class="panel overlay-panel">
-      <div class="panel-title">${cls.icon} ${cls.name} Skill Tree <span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleSkills()">Close âœ•</span></div>
+      <div class="panel-title">${cls.icon} ${cls.name} Skill Tree <span class="small" style="cursor:pointer;color:var(--ember)" onclick="toggleSkills()">Close ✕</span></div>
       <div class="overlay-body">
         <div class="small" style="margin-bottom:10px;">Skill points available: <b style="color:var(--gold)">${s.player.skillPoints}</b></div>
         ${innateHtml}
@@ -711,8 +711,8 @@ function renderCharacterOverlay(s) {
     return `<div class="build-gear-row"><span>${slot.label}</span><b style="color:${item ? TIER_BY_ID[item.tier].color : 'var(--ink-faint)'}">${item ? U.escapeHtml(item.name) : 'Empty'}</b></div>`;
   }).join('');
   return `<div class="overlay dashboard-overlay" onclick="if(event.target===this) toggleCharacter()"><div class="panel dashboard-panel">
-    <div class="panel-title"><span>${cls.icon} ${s.player.name} Â· Build Dashboard</span><button class="icon-close" onclick="toggleCharacter()">Ã—</button></div>
-    <div class="dashboard-hero"><div><strong>${cls.name}</strong><span>Level ${s.player.level} Â· ${s.player.skillPoints} skill points</span></div><div class="build-metrics"><span><b>${gear.length}</b> equipped</span><span><b>${gearScore}</b> gear power</span><span><b>${learned}</b> nodes</span></div></div>
+    <div class="panel-title"><span>${cls.icon} ${s.player.name} · Build Dashboard</span><button class="icon-close" onclick="toggleCharacter()">×</button></div>
+    <div class="dashboard-hero"><div><strong>${cls.name}</strong><span>Level ${s.player.level} · ${s.player.skillPoints} skill points</span></div><div class="build-metrics"><span><b>${gear.length}</b> equipped</span><span><b>${gearScore}</b> gear power</span><span><b>${learned}</b> nodes</span></div></div>
     <div class="dashboard-grid"><section><h3>Equipment Loadout</h3>${equipment}</section><section><h3>Elemental Profile</h3>${elements.length ? elements.map((e) => `<div class="element-meter"><span>${e.name}</span><div><i style="width:${Math.min(100, e.value)}%"></i></div><b>+${e.value}%</b></div>`).join('') : '<div class="empty-note">No elemental bonuses yet.</div>'}<h3>Active Traits</h3><div class="build-traits">${traits || '<div class="empty-note">No active traits.</div>'}</div></section></div>
   </div></div>`;
 }
@@ -722,7 +722,7 @@ function renderSystemOverlay(s) {
   const pace = s.settings?.combatPace || 'normal';
   const metrics = Metrics.summary();
   return `<div class="overlay dashboard-overlay" onclick="if(event.target===this) toggleSystemMenu()"><div class="panel system-panel">
-    <div class="panel-title"><span>Deepward Menu</span><button class="icon-close" onclick="toggleSystemMenu()">Ã—</button></div>
+    <div class="panel-title"><span>Deepward Menu</span><button class="icon-close" onclick="toggleSystemMenu()">×</button></div>
     <div class="system-body"><h3>Combat Presentation</h3><div class="segmented">${['fast', 'normal', 'cinematic'].map((p) => `<button class="${pace === p ? 'selected' : ''}" onclick="setCombatPace('${p}')">${p}</button>`).join('')}</div>
     <label class="setting-toggle"><span><b>Reduce motion</b><small>Disables interface animations and pulsing effects.</small></span><input type="checkbox" ${s.settings?.reduceMotion ? 'checked' : ''} onchange="toggleReduceMotion()"></label>
     <h3>Save Management</h3><div class="menu-actions"><button class="btn" onclick="saveGame()">Save locally</button><button class="btn" onclick="exportSave()">Export JSON</button><button class="btn" onclick="chooseSaveImport()">Import JSON</button></div>

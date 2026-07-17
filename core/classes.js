@@ -236,7 +236,7 @@ const CLASSES = [
   makeClass(
     'warrior',
     'Warrior',
-    'âš”ï¸',
+    '⚔️',
     'A frontline fighter who chooses one discipline and masters it.',
     { atk: 4, def: 3, hitRes: 2 },
     [
@@ -342,7 +342,7 @@ const CLASSES = [
   makeClass(
     'mage',
     'Mage',
-    'ðŸ”®',
+    '🔮',
     'A scholar of dangerous arcane disciplines.',
     { matk: 5, mdef: 2, spd: 1 },
     [
@@ -458,7 +458,7 @@ const CLASSES = [
   makeClass(
     'rogue',
     'Rogue',
-    'ðŸ—¡ï¸',
+    '🗡️',
     'A quick killer who commits to a single lethal craft.',
     { spd: 5, hitEff: 3 },
     [
@@ -540,7 +540,7 @@ const CLASSES = [
       passive: {
         name: "Predator's Instinct",
         effect: { type: 'critChanceBonus', value: 10 },
-        desc: '+10% critical hit chance, always â€” no discipline required.',
+        desc: '+10% critical hit chance, always — no discipline required.',
       },
       active: {
         name: 'Second Chance',
@@ -554,7 +554,7 @@ const CLASSES = [
   makeClass(
     'paladin',
     'Paladin',
-    'ðŸ›¡ï¸',
+    '🛡️',
     'A holy warrior defined by one sacred oath.',
     { def: 4, mdef: 2, hitRes: 2 },
     [
@@ -663,7 +663,7 @@ const CLASSES = [
   makeClass(
     'elementalist',
     'Elementalist',
-    'ðŸŒªï¸',
+    '🌪️',
     'A conduit who dedicates their craft to one element.',
     { matk: 4, spd: 2, hitEff: 1 },
     [
@@ -785,7 +785,7 @@ const CLASSES = [
   makeClass(
     'necromancer',
     'Necromancer',
-    'â˜ ï¸',
+    '☠️',
     'A master of death who follows one forbidden art.',
     { matk: 3, mdef: 3, hitRes: 2 },
     [

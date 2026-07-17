@@ -1768,7 +1768,7 @@ body::before {
   text-shadow: 1px 1px #000;
 }
 .panel-title::before {
-  content: 'Â§';
+  content: '§';
   margin-right: 7px;
   color: #8d6138;
   font-family: Georgia, serif;
@@ -1937,7 +1937,7 @@ body::before {
     border-color 0.12s;
 }
 .btn::after {
-  content: 'â€º';
+  content: '›';
   position: absolute;
   right: 11px;
   color: #805c37;
@@ -2162,7 +2162,7 @@ body::before {
 }
 .title-screen h1::before,
 .title-screen h1::after {
-  content: ' â€” ';
+  content: ' — ';
   color: #6d4c2c;
   font-size: 0.5em;
   vertical-align: middle;

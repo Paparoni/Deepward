@@ -556,7 +556,7 @@ const SKILL_ACTION_HANDLERS = {
     });
     Engine.log(
       state,
-      `${skill.name} takes hold â€” +${skill.buffValue}% ${STAT_BY_ID[skill.buffStat].short} for the rest of the battle.`,
+      `${skill.name} takes hold — +${skill.buffValue}% ${STAT_BY_ID[skill.buffStat].short} for the rest of the battle.`,
       'good',
     );
   },
@@ -585,7 +585,7 @@ const SKILL_ACTION_HANDLERS = {
   resetCooldowns(state, skill) {
     for (const id of Object.keys(state.player.skillCooldowns))
       if (id !== skill.id) state.player.skillCooldowns[id] = 0;
-    Engine.log(state, `${skill.name} resets your whole kit â€” everything is ready again.`, 'good');
+    Engine.log(state, `${skill.name} resets your whole kit — everything is ready again.`, 'good');
   },
   manaTap(state, skill) {
     const hpCost = Math.round((state.derived.maxHp * (skill.hpCostPct || 8)) / 100);
@@ -859,8 +859,8 @@ const Engine = {
       _combo: 0,
       _firstStrikeUsed: false,
       playerElement: state.equipment.weapon?.element || 'physical',
-      buffs: [], // {stat, pct, name} â€” from player 'buff' skills OR monster debuffs (negative pct), lasts the whole fight
-      playerDots: [], // {name, dmgPerTurn, turnsLeft} â€” poison/bleed-style damage over time on the player
+      buffs: [], // {stat, pct, name} — from player 'buff' skills OR monster debuffs (negative pct), lasts the whole fight
+      playerDots: [], // {name, dmgPerTurn, turnsLeft} — poison/bleed-style damage over time on the player
       playerGuarding: false,
       resolving: false,
       skillMenuOpen: false,
@@ -916,7 +916,7 @@ const Engine = {
     if (voidReady) state.combat._voidExtraReady = false;
     if (voidReady || (t && Math.random() * 100 < t.value)) {
       if (t?.id?.startsWith('boon_')) Metrics.count('boonEffectProcs', `${t.id.slice(5)}:${t.type}`);
-      this.log(state, 'Time loops back â€” you act again!', 'good');
+      this.log(state, 'Time loops back — you act again!', 'good');
       actionFn();
     }
   },
@@ -1064,7 +1064,7 @@ const Engine = {
         });
         this.log(
           state,
-          `${guardFury.name} turns your guard into leverage â€” +${guardFury.value}% ATK for the rest of the fight.`,
+          `${guardFury.name} turns your guard into leverage — +${guardFury.value}% ATK for the rest of the fight.`,
           'good',
         );
       }
@@ -1175,7 +1175,7 @@ const Engine = {
     if (startsCharge && m.moves[0]) {
       m._charging = true;
       m._chargingMove = m.moves[0];
-      this.log(state, `${m.name} begins channeling <b>${m.moves[0].name}</b> â€” brace yourself!`, 'bad');
+      this.log(state, `${m.name} begins channeling <b>${m.moves[0].name}</b> — brace yourself!`, 'bad');
       return;
     }
 
@@ -1413,7 +1413,7 @@ const Engine = {
         }
       }
       if (!revived) {
-        this.log(state, 'You collapse â€” the dungeon has beaten you.', 'bad');
+        this.log(state, 'You collapse — the dungeon has beaten you.', 'bad');
         this.endCombat(state, 'defeat');
         return;
       }
@@ -1852,7 +1852,7 @@ const Engine = {
     } else if (outcome === 'gold') {
       const gold = Math.round(U.randInt(20, 45) * (1 + dlvl * 0.12));
       state.player.gold += gold;
-      this.log(state, `The chest holds no gear â€” just coin. Plenty of it: <b>${gold} gold</b>.`, 'good');
+      this.log(state, `The chest holds no gear — just coin. Plenty of it: <b>${gold} gold</b>.`, 'good');
       this.finishRoom(state);
     } else if (outcome === 'materials') {
       const count = U.randInt(1, 3);
@@ -1872,14 +1872,14 @@ const Engine = {
       this.log(state, `A little of everything: <b>${gold} gold</b> and a <b>${mat.name}</b>.`, 'good');
       this.finishRoom(state);
     } else if (outcome === 'empty') {
-      this.log(state, `The chest creaks open â€” empty. Someone beat you to it.`, 'flavor');
+      this.log(state, `The chest creaks open — empty. Someone beat you to it.`, 'flavor');
       this.finishRoom(state);
     } else if (outcome === 'mimic') {
       const tpl = {
         id: 'mimic',
         name: 'Mimic',
         title: 'the Betrayer Chest',
-        icon: 'ðŸ“¦',
+        icon: '📦',
         element: 'physical',
         flavor: 'wood and iron peeling back to reveal teeth',
         atk: 1.25,
@@ -1891,7 +1891,7 @@ const Engine = {
       const monster = Generators.monsterFromTemplate(tpl, dlvl, state.dungeon.difficulty.monsterMult, false);
       monster.goldDrop = Math.round(monster.goldDrop * 1.5);
       monster.xpDrop = Math.round(monster.xpDrop * 1.5);
-      this.log(state, `The lid splits open into a maw of teeth â€” it was never a chest at all!`, 'bad');
+      this.log(state, `The lid splits open into a maw of teeth — it was never a chest at all!`, 'bad');
       this.startCombat(state, [monster], { bonusLoot: true });
     }
   },
@@ -1967,7 +1967,7 @@ const Engine = {
     const isLast = d.currentIndex === d.roomTypes.length - 1;
     this.log(
       state,
-      `<span class="log-flavor">â€” ${isLast ? 'The final chamber' : 'Room ' + (d.currentIndex + 1) + ' of ' + d.roomCount} â€”</span>`,
+      `<span class="log-flavor">— ${isLast ? 'The final chamber' : 'Room ' + (d.currentIndex + 1) + ' of ' + d.roomCount} —</span>`,
       'flavor',
     );
     const handler = EVENT_HANDLERS[type];
@@ -1985,7 +1985,7 @@ const Engine = {
     }
     state.ui.choices = [
       {
-        label: 'Move deeper â†’',
+        label: 'Move deeper →',
         act: (s) => {
           this.enterNextRoom(s);
         },

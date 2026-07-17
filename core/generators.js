@@ -600,7 +600,7 @@ const Generators = {
     if (tpl.moves?.some((move) => move.dotPct)) tags.push('Afflictor');
     if (tpl.moves?.some((move) => move.kind === 'debuff' || move.debuffStat)) tags.push('Controller');
     if (!tags.length) tags.push('Skirmisher');
-    return `${isBoss ? 'Boss Â· ' : ''}${tags.join(' Â· ')}`;
+    return `${isBoss ? 'Boss · ' : ''}${tags.join(' · ')}`;
   },
 
   monsterFromTemplate(tpl, dungeonLevel, mult = 1, isBoss = false) {
